@@ -68,7 +68,7 @@ export default function ParticipantModal({ participant, groups, onClose, onSaved
       : '/api/admin/participants'
     const method = participant ? 'PATCH' : 'POST'
 
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
