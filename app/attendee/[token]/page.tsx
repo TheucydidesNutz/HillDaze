@@ -4,12 +4,28 @@ import { useState, useEffect } from 'react'
 import { Participant, Group, Event } from '@/lib/types'
 import AttendeeCalendar from '@/components/AttendeeCalendar'
 import JournalSection from '@/components/JournalSection'
+import MapModal from '@/components/MapModal'
 
 interface FactSheet {
   id: string
   label: string
   file_url: string
   is_active: boolean
+}
+
+interface Document {
+  id: string
+  label: string
+  file_url: string
+  file_type: string
+  doc_type: string
+}
+
+interface MapDoc {
+  id: string
+  label: string
+  file_url: string
+  file_type: string
 }
 
 interface PageData {
@@ -21,19 +37,38 @@ interface PageData {
 export default function AttendeePage({ params }: { params: Promise<{ token: string }> }) {
   const [token, setToken] = useState<string>('')
   const [data, setData] = useState<PageData | null>(null)
+  const [documents, setDocuments] = useState<Document[]>([])
+  const [map, setMap] = useState<MapDoc | null>(null)
+  const [mapUrl, setMapUrl] = useState<string | null>(null)
+  const [showMap, setShowMap] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    params.then(({ token: t }) => {
+    params.then(async ({ token: t }) => {
       setToken(t)
-      fetch(`/api/attendee/${t}`)
-        .then(res => res.json())
-        .then(d => {
-          if (d.error) setError(d.error)
-          else setData(d)
-          setLoading(false)
-        })
+
+      const [attendeeRes, mapRes] = await Promise.all([
+        fetch(`/api/attendee/${t}`),
+        fetch('/api/attendee/map'),
+      ])
+
+      const [attendeeData, mapData] = await Promise.all([
+        attendeeRes.json(),
+        mapRes.json(),
+      ])
+
+      if (attendeeData.error) setError(attendeeData.error)
+      else setData(attendeeData)
+
+      if (mapData.map) setMap(mapData.map)
+
+      // Fetch participant docs
+      const docsRes = await fetch(`/api/attendee/documents?token=${t}`)
+      const docsData = await docsRes.json()
+      if (Array.isArray(docsData)) setDocuments(docsData)
+
+      setLoading(false)
     })
   }, [params])
 
@@ -42,6 +77,20 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     const res = await fetch(`/api/admin/upload/pdf/signed-url?path=${encodeURIComponent(data.factSheet.file_url)}`)
     const { url } = await res.json()
     window.open(url, '_blank')
+  }
+
+  async function handleDocOpen(doc: Document) {
+    const res = await fetch(`/api/admin/upload/pdf/signed-url?path=${encodeURIComponent(doc.file_url)}`)
+    const { url } = await res.json()
+    window.open(url, '_blank')
+  }
+
+  async function handleMapOpen() {
+    if (!map) return
+    const res = await fetch(`/api/admin/upload/pdf/signed-url?path=${encodeURIComponent(map.file_url)}`)
+    const { url } = await res.json()
+    setMapUrl(url)
+    setShowMap(true)
   }
 
   if (loading) return (
@@ -73,14 +122,24 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             </div>
             <span className="text-white font-semibold">HillDayTracker</span>
           </div>
-          {factSheet && (
-            <button
-              onClick={handlePdfDownload}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-            >
-              📄 Fact Sheet
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {map && (
+              <button
+                onClick={handleMapOpen}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+              >
+                🗺️ Map
+              </button>
+            )}
+            {factSheet && (
+              <button
+                onClick={handlePdfDownload}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+              >
+                📄 Fact Sheet
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -195,12 +254,45 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
           <AttendeeCalendar events={events} />
         </div>
 
+        {/* Your Documents */}
+        {documents.length > 0 && (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <h2 className="text-white font-semibold mb-4">📁 Your Documents</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {documents.map(doc => (
+                <button
+                  key={doc.id}
+                  onClick={() => handleDocOpen(doc)}
+                  className="flex items-center gap-3 p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-xl text-left transition-colors"
+                >
+                  <span className="text-2xl flex-shrink-0">
+                    {doc.file_type === 'pdf' ? '📄' : '🖼️'}
+                  </span>
+                  <div>
+                    <p className="text-white text-sm font-medium">{doc.label}</p>
+                    <p className="text-slate-400 text-xs">{doc.file_type === 'pdf' ? 'PDF Document' : 'Image'}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Journal */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <h2 className="text-white font-semibold mb-4">📝 Notes & Journal</h2>
           <JournalSection token={token} />
         </div>
       </div>
+
+      {/* Map Modal */}
+      {showMap && mapUrl && map && (
+        <MapModal
+          mapUrl={mapUrl}
+          mapLabel={map.label}
+          onClose={() => setShowMap(false)}
+        />
+      )}
     </div>
   )
 }
