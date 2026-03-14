@@ -1,13 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Group } from '@/lib/types'
+import { Group, Trip } from '@/lib/types'
 import GroupModal from '@/components/GroupModal'
+import TripHeader from '@/components/TripHeader'
 import { apiFetch } from '@/lib/apiFetch'
 import { useRouter } from 'next/navigation'
 
 export default function GroupsPage() {
   const router = useRouter()
+  const [trip, setTrip] = useState<Trip | null>(null)
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -16,6 +18,7 @@ export default function GroupsPage() {
   useEffect(() => {
     const tripStr = localStorage.getItem('current_trip')
     if (!tripStr) { router.push('/admin/trips'); return }
+    setTrip(JSON.parse(tripStr))
     fetchGroups()
   }, [])
 
@@ -54,14 +57,16 @@ export default function GroupsPage() {
   return (
     <div className="min-h-screen bg-slate-950 p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <a href="/admin" className="text-slate-400 text-sm hover:text-white mb-1 block">
-              ← Dashboard
-            </a>
-            <h1 className="text-3xl font-bold text-white">Groups</h1>
-            <p className="text-slate-400 mt-1">{groups.length} groups</p>
-          </div>
+
+        {trip && (
+          <TripHeader
+            trip={trip}
+            pageTitle="Groups"
+            pageSubtitle={`${groups.length} group${groups.length !== 1 ? 's' : ''}`}
+          />
+        )}
+
+        <div className="flex justify-end mb-6">
           <button
             onClick={handleAdd}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"

@@ -93,9 +93,9 @@ export default function AdminDashboard() {
             <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">Import</h3>
             <p className="text-slate-400 text-sm">CSV participants & ICS calendar</p>
           </a>
-          <a href="/admin/settings" className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-xl p-6 transition-colors group">
+          <a href="/admin/file_management" className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-xl p-6 transition-colors group">
             <div className="text-2xl mb-3">⚙️</div>
-            <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">Settings</h3>
+            <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">File Management</h3>
             <p className="text-slate-400 text-sm">Fact sheets & configuration</p>
           </a>
         </div>

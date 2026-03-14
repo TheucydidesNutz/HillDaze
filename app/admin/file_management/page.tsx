@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/apiFetch'
 import { useRouter } from 'next/navigation'
+import { Trip } from '@/lib/types'
+import TripHeader from '@/components/TripHeader'
 
 interface FactSheet {
   id: string
@@ -30,6 +32,7 @@ interface Group {
 
 export default function SettingsPage() {
   const router = useRouter()
+  const [trip, setTrip] = useState<Trip | null>(null)
   const [factSheets, setFactSheets] = useState<FactSheet[]>([])
   const [documents, setDocuments] = useState<Document[]>([])
   const [groups, setGroups] = useState<Group[]>([])
@@ -48,6 +51,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const tripStr = localStorage.getItem('current_trip')
     if (!tripStr) { router.push('/admin/trips'); return }
+    setTrip(JSON.parse(tripStr))
     fetchAll()
   }, [])
 
@@ -118,11 +122,14 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-slate-950 p-8">
       <div className="max-w-3xl mx-auto space-y-8">
-        <div>
-          <a href="/admin" className="text-slate-400 text-sm hover:text-white mb-1 block">← Dashboard</a>
-          <h1 className="text-3xl font-bold text-white">Settings</h1>
-          <p className="text-slate-400 mt-1">Manage documents, maps, and fact sheets</p>
-        </div>
+
+        {trip && (
+          <TripHeader
+            trip={trip}
+            pageTitle="File Management"
+            pageSubtitle="Manage documents, maps, and fact sheets"
+          />
+        )}
 
         {/* ── FACT SHEET ─────────────────────────────── */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
@@ -265,6 +272,7 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+
       </div>
     </div>
   )

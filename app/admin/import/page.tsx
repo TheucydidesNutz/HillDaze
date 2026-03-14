@@ -3,6 +3,12 @@
 import { useState, useEffect } from 'react'
 import { Group } from '@/lib/types'
 import { apiFetch } from '@/lib/apiFetch'
+import { useRouter } from 'next/navigation'
+import { Trip } from '@/lib/types'
+import TripHeader from '@/components/TripHeader'
+
+const [trip, setTrip] = useState<Trip | null>(null)
+const router = useRouter()
 
 type Tab = 'csv' | 'ics'
 
@@ -36,6 +42,9 @@ export default function ImportPage() {
   const [icsEventType, setIcsEventType] = useState<'mandatory' | 'optional'>('optional')
 
   useEffect(() => {
+    const tripStr = localStorage.getItem('current_trip')
+    if (!tripStr) { router.push('/admin/trips'); return }
+    setTrip(JSON.parse(tripStr))
     apiFetch('/api/admin/groups')
       .then(res => res.json())
       .then(setGroups)
@@ -104,11 +113,13 @@ export default function ImportPage() {
   return (
     <div className="min-h-screen bg-slate-950 p-8">
       <div className="max-w-3xl mx-auto">
-        <div className="mb-8">
-          <a href="/admin" className="text-slate-400 text-sm hover:text-white mb-1 block">← Dashboard</a>
-          <h1 className="text-3xl font-bold text-white">Import</h1>
-          <p className="text-slate-400 mt-1">Bulk import participants or calendar events</p>
-        </div>
+        {trip && (
+          <TripHeader
+            trip={trip}
+            pageTitle="Import"
+            pageSubtitle="Bulk import participants or calendar events"
+          />
+        )}
 
         {/* Tabs */}
         <div className="flex gap-2 mb-8">
@@ -172,13 +183,18 @@ export default function ImportPage() {
                     className="text-sm text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer"
                   />
                 </div>
-                <button
-                  onClick={handleCSVPreview}
-                  disabled={!csvFile || csvLoading}
-                  className="px-6 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-white font-medium rounded-lg text-sm transition-colors"
-                >
-                  {csvLoading ? 'Parsing...' : 'Preview Import'}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleCSVPreview}
+                    disabled={!csvFile || csvLoading}
+                    className="px-6 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-white font-medium rounded-lg text-sm transition-colors"
+                  >
+                    {csvLoading ? 'Parsing...' : 'Preview Import'}
+                  </button>
+                  {csvFile && !csvLoading && !csvPreview && (
+                    <span className="text-slate-400 text-sm">Click Preview Import to proceed</span>
+                  )}
+                </div>
               </div>
             </div>
 

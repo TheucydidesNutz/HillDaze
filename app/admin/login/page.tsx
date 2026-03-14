@@ -21,10 +21,7 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
       setError(error.message)
@@ -38,16 +35,29 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Header */}
+
+        {/* Hero block */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
-            <span className="text-white text-2xl font-bold">H</span>
+
+          {/* Image — slightly narrower than the text below */}
+          <div className="mx-auto mb-4 rounded-xl overflow-hidden" style={{ width: '88%' }}>
+            <img
+              src="covaled-hero.png"
+              alt="Group travel"
+              className="w-full h-48 object-cover"
+            />
           </div>
-          <h1 className="text-3xl font-bold text-white">HillDayTracker</h1>
-          <p className="text-slate-400 mt-2">Admin Portal</p>
+
+          {/* Covaled — full width of the max-w-md container */}
+          <h1 className="text-6xl font-bold text-white tracking-tight">
+            Covaled
+          </h1>
+          <p className="text-slate-400 mt-2 text-base">
+            Group travel, coordinated.
+          </p>
         </div>
 
-        {/* Card */}
+        {/* Login Card */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8">
           <h2 className="text-xl font-semibold text-white mb-6">Sign in</h2>
 
@@ -95,6 +105,7 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
+
       </div>
     </div>
   )

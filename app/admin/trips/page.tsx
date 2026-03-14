@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Trip } from '@/lib/types'
 import { useRouter } from 'next/navigation'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface TripAdmin {
   id: string
@@ -10,6 +11,11 @@ interface TripAdmin {
   user_id: string
   role: 'super' | 'admin'
   email?: string
+}
+
+interface UserSettings {
+  org_name: string | null
+  logo_url: string | null
 }
 
 export default function TripsPage() {
@@ -29,9 +35,49 @@ export default function TripsPage() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviting, setInviting] = useState(false)
   const [inviteMessage, setInviteMessage] = useState('')
-  const router = useRouter()
 
-  useEffect(() => { fetchTrips() }, [])
+  // Settings state
+  const [showSettings, setShowSettings] = useState(false)
+  const [userSettings, setUserSettings] = useState<UserSettings>({ org_name: null, logo_url: null })
+  const [settingsOrgName, setSettingsOrgName] = useState('')
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [settingsMessage, setSettingsMessage] = useState('')
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [changingPassword, setChangingPassword] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState('')
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+
+  const router = useRouter()
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  useEffect(() => {
+    fetchTrips()
+    fetchUserInfo()
+  }, [])
+
+  async function fetchUserInfo() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    setCurrentUserId(user.id)
+    setCurrentUserEmail(user.email ?? null)
+
+    const { data } = await supabase
+      .from('user_settings')
+      .select('org_name, logo_url')
+      .eq('user_id', user.id)
+      .single()
+
+    if (data) {
+      setUserSettings(data)
+      setSettingsOrgName(data.org_name || '')
+    }
+  }
 
   async function fetchTrips() {
     const res = await fetch('/api/admin/trips')
@@ -108,9 +154,7 @@ export default function TripsPage() {
   async function handleRemoveAdmin(userId: string) {
     if (!editingTrip) return
     if (!confirm('Remove this admin from the trip?')) return
-    await fetch(`/api/admin/trips/${editingTrip.id}/invite?user_id=${userId}`, {
-      method: 'DELETE',
-    })
+    await fetch(`/api/admin/trips/${editingTrip.id}/invite?user_id=${userId}`, { method: 'DELETE' })
     setTripAdmins(prev => prev.filter(a => a.user_id !== userId))
   }
 
@@ -121,7 +165,6 @@ export default function TripsPage() {
   }
 
   function openEdit(trip: Trip) {
-    // Grab the full trip from state to ensure role is included
     const fullTrip = trips.find(t => t.id === trip.id) || trip
     setEditingTrip(fullTrip)
     setEditTitle(fullTrip.title)
@@ -132,6 +175,90 @@ export default function TripsPage() {
     fetchTripAdmins(fullTrip.id)
   }
 
+  async function handleSaveSettings() {
+    if (!currentUserId) return
+    setSavingSettings(true)
+    setSettingsMessage('')
+
+    const { error } = await supabase
+      .from('user_settings')
+      .upsert({
+        user_id: currentUserId,
+        org_name: settingsOrgName.trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+
+    setSavingSettings(false)
+    if (error) {
+      setSettingsMessage('✗ Failed to save settings')
+    } else {
+      setUserSettings(prev => ({ ...prev, org_name: settingsOrgName.trim() || null }))
+      setSettingsMessage('✓ Settings saved')
+      setTimeout(() => setSettingsMessage(''), 3000)
+    }
+  }
+
+  async function handleOrgLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !currentUserId) return
+    setUploadingLogo(true)
+
+    const ext = file.name.split('.').pop()
+    const path = `${currentUserId}/org-logo.${ext}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('org-logos')
+      .upload(path, file, { upsert: true })
+
+    if (uploadError) {
+      setSettingsMessage('✗ Logo upload failed')
+      setUploadingLogo(false)
+      return
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('org-logos')
+      .getPublicUrl(path)
+
+    const { error: dbError } = await supabase
+      .from('user_settings')
+      .upsert({
+        user_id: currentUserId,
+        logo_url: publicUrl,
+        updated_at: new Date().toISOString(),
+      })
+
+    setUploadingLogo(false)
+    if (!dbError) {
+      setUserSettings(prev => ({ ...prev, logo_url: publicUrl }))
+      setSettingsMessage('✓ Logo updated')
+      setTimeout(() => setSettingsMessage(''), 3000)
+    }
+  }
+
+  async function handleChangePassword() {
+    if (!newPassword || newPassword !== confirmPassword) {
+      setPasswordMessage('✗ Passwords do not match')
+      return
+    }
+    if (newPassword.length < 6) {
+      setPasswordMessage('✗ Password must be at least 6 characters')
+      return
+    }
+    setChangingPassword(true)
+    setPasswordMessage('')
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    setChangingPassword(false)
+    if (error) {
+      setPasswordMessage(`✗ ${error.message}`)
+    } else {
+      setPasswordMessage('✓ Password updated')
+      setNewPassword('')
+      setConfirmPassword('')
+      setTimeout(() => setPasswordMessage(''), 3000)
+    }
+  }
+
   function formatDateRange(trip: Trip) {
     if (!trip.start_date) return null
     const start = new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -140,20 +267,48 @@ export default function TripsPage() {
     return `${start} – ${end}`
   }
 
+  const displayName = userSettings.org_name || 'Covaled'
+
   return (
     <div className="min-h-screen bg-slate-950 p-8">
       <div className="max-w-4xl mx-auto">
+
+        {/* Header */}
         <div className="flex items-center justify-between mb-10">
-          <div>
-            <h1 className="text-3xl font-bold text-white">HillDayTracker</h1>
-            <p className="text-slate-400 mt-1">Select a Trip to manage</p>
+          <div className="flex-1 flex justify-center">
+            <div className="flex items-center gap-4">
+              {userSettings.logo_url && (
+                <img
+                  src={userSettings.logo_url}
+                  alt="org logo"
+                  className="w-12 h-12 rounded-xl object-contain bg-slate-800 p-1"
+                />
+              )}
+              <div className="text-center">
+                <h1 className="text-4xl font-bold text-white">{displayName}</h1>
+                <p className="text-slate-500 text-xs italic mt-0.5">by Covaled</p>
+                <p className="text-slate-400 mt-1">Select a Trip to manage</p>
+              </div>
+            </div>
           </div>
-          <button onClick={() => setShowNew(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors">
-            + New Trip
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setShowSettings(true); setSettingsMessage(''); setPasswordMessage('') }}
+              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors"
+              title="Settings"
+            >
+              ⚙️
+            </button>
+            <button
+              onClick={() => setShowNew(true)}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
+            >
+              + New Trip
+            </button>
+          </div>
         </div>
 
+        {/* Trips grid — unchanged */}
         {loading ? (
           <div className="text-slate-400 text-center py-20">Loading...</div>
         ) : trips.length === 0 ? (
@@ -214,7 +369,7 @@ export default function TripsPage() {
           </div>
         )}
 
-        {/* New Trip Modal */}
+        {/* New Trip Modal — unchanged */}
         {showNew && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
             <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6">
@@ -253,7 +408,7 @@ export default function TripsPage() {
           </div>
         )}
 
-        {/* Edit Trip Modal */}
+        {/* Edit Trip Modal — unchanged */}
         {editingTrip && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
             <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col">
@@ -261,14 +416,12 @@ export default function TripsPage() {
                 <h2 className="text-white font-semibold text-lg">Edit Trip</h2>
                 <button onClick={() => setEditingTrip(null)} className="text-slate-400 hover:text-white">✕</button>
               </div>
-
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">Trip Title *</label>
                   <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                 </div>
-
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-400 mb-1">Start Date</label>
@@ -281,7 +434,6 @@ export default function TripsPage() {
                       className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                   </div>
                 </div>
-
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">Logo</label>
                   <div className="flex items-center gap-3">
@@ -307,30 +459,23 @@ export default function TripsPage() {
                     />
                   </div>
                 </div>
-
-                {/* Team section — always show for debugging, role check handled inside */}
                 <div className="border-t border-slate-800 pt-4">
                   <h3 className="text-white font-medium mb-3">👥 Trip Admins</h3>
-
                   {tripAdmins.length > 0 && (
                     <div className="space-y-2 mb-4">
                       {tripAdmins.map(admin => (
                         <div key={admin.id} className="flex items-center justify-between p-2.5 bg-slate-800/50 rounded-lg">
                           <div className="flex items-center gap-2">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                              admin.role === 'super'
-                                ? 'bg-amber-500/20 text-amber-400'
-                                : 'bg-slate-700 text-slate-400'
+                              admin.role === 'super' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'
                             }`}>
                               {admin.role === 'super' ? '⭐ Super' : '👤 Admin'}
                             </span>
                             <span className="text-slate-300 text-sm">{admin.email}</span>
                           </div>
                           {admin.role !== 'super' && (
-                            <button
-                              onClick={() => handleRemoveAdmin(admin.user_id)}
-                              className="text-slate-500 hover:text-red-400 text-xs transition-colors"
-                            >
+                            <button onClick={() => handleRemoveAdmin(admin.user_id)}
+                              className="text-slate-500 hover:text-red-400 text-xs transition-colors">
                               Remove
                             </button>
                           )}
@@ -338,25 +483,16 @@ export default function TripsPage() {
                       ))}
                     </div>
                   )}
-
-                  {/* Only super admins can invite */}
                   {editingTrip.role === 'super' && (
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">Invite by Email</label>
                       <div className="flex gap-2">
-                        <input
-                          type="email"
-                          value={inviteEmail}
-                          onChange={e => setInviteEmail(e.target.value)}
+                        <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && handleInvite()}
                           placeholder="colleague@example.com"
-                          className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        />
-                        <button
-                          onClick={handleInvite}
-                          disabled={inviting || !inviteEmail.trim()}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-medium rounded-lg transition-colors"
-                        >
+                          className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                        <button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-medium rounded-lg transition-colors">
                           {inviting ? '...' : 'Invite'}
                         </button>
                       </div>
@@ -372,7 +508,6 @@ export default function TripsPage() {
                   )}
                 </div>
               </div>
-
               <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800">
                 <button onClick={() => setEditingTrip(null)} className="px-4 py-2 text-slate-400 hover:text-white text-sm">Close</button>
                 <button onClick={handleSaveEdit} disabled={saving || !editTitle.trim()}
@@ -383,6 +518,130 @@ export default function TripsPage() {
             </div>
           </div>
         )}
+
+        {/* Settings Modal */}
+        {showSettings && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+                <h2 className="text-white font-semibold text-lg">Settings</h2>
+                <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white">✕</button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+
+                {/* Org Name */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Organization Name</label>
+                  <input
+                    type="text"
+                    value={settingsOrgName}
+                    onChange={e => setSettingsOrgName(e.target.value)}
+                    placeholder="e.g. ACME Corp"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  <p className="text-slate-500 text-xs mt-1.5">
+                    Replaces "Covaled" in the header.
+                  </p>
+                </div>
+
+                {/* Org Logo */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-2">Organization Logo</label>
+                  <div className="flex items-center gap-3">
+                    {userSettings.logo_url ? (
+                      <img src={userSettings.logo_url} alt="org logo"
+                        className="w-12 h-12 rounded-xl object-contain bg-slate-800 p-1 flex-shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center flex-shrink-0">
+                        <span className="text-slate-500 text-xs">None</span>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                      onChange={handleOrgLogoUpload}
+                      disabled={uploadingLogo}
+                      className="text-sm text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer disabled:opacity-50"
+                    />
+                  </div>
+                  {uploadingLogo && <p className="text-slate-400 text-xs mt-1.5">Uploading...</p>}
+                </div>
+
+                {settingsMessage && (
+                  <p className={`text-sm ${settingsMessage.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
+                    {settingsMessage}
+                  </p>
+                )}
+
+                {/* User Info */}
+                <div className="border-t border-slate-800 pt-4 space-y-3">
+                  <h3 className="text-white font-medium text-sm">Account</h3>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">Email</label>
+                    <p className="text-slate-300 text-sm">{currentUserEmail}</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">User ID</label>
+                    <p className="text-slate-500 text-xs font-mono break-all">{currentUserId}</p>
+                  </div>
+                </div>
+
+                {/* Change Password */}
+                <div className="border-t border-slate-800 pt-4 space-y-3">
+                  <h3 className="text-white font-medium text-sm">Change Password</h3>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">New Password</label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">Confirm Password</label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  {passwordMessage && (
+                    <p className={`text-xs ${passwordMessage.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
+                      {passwordMessage}
+                    </p>
+                  )}
+                  <button
+                    onClick={handleChangePassword}
+                    disabled={changingPassword || !newPassword || !confirmPassword}
+                    className="w-full py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    {changingPassword ? 'Updating...' : 'Update Password'}
+                  </button>
+                </div>
+
+              </div>
+
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800">
+                <button onClick={() => setShowSettings(false)} className="px-4 py-2 text-slate-400 hover:text-white text-sm">
+                  Close
+                </button>
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={savingSettings}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-medium rounded-lg text-sm transition-colors"
+                >
+                  {savingSettings ? 'Saving...' : 'Save Settings'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )
