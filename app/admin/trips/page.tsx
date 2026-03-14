@@ -324,7 +324,7 @@ export default function TripsPage() {
                             }`}>
                               {admin.role === 'super' ? '⭐ Super' : '👤 Admin'}
                             </span>
-                            <span className="text-slate-300 text-sm">{admin.user_id}</span>
+                            <span className="text-slate-300 text-sm">{admin.email}</span>
                           </div>
                           {admin.role !== 'super' && (
                             <button

@@ -68,7 +68,16 @@ export async function GET(
     .eq('trip_id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+
+  // Enrich with email from auth.users
+  const { data: { users } } = await supabaseAdmin.auth.admin.listUsers()
+
+  const enriched = (data || []).map((admin: any) => {
+    const authUser = users.find((u: any) => u.id === admin.user_id)
+    return { ...admin, email: authUser?.email || admin.user_id }
+  })
+
+  return NextResponse.json(enriched)
 }
 
 export async function DELETE(

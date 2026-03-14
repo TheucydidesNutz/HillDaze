@@ -39,7 +39,7 @@ export default function GroupModal({ group, onClose, onSaved }: Props) {
     const url = group ? `/api/admin/groups/${group.id}` : '/api/admin/groups'
     const method = group ? 'PATCH' : 'POST'
 
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
