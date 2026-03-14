@@ -7,8 +7,6 @@ import { useRouter } from 'next/navigation'
 import { Trip } from '@/lib/types'
 import TripHeader from '@/components/TripHeader'
 
-const [trip, setTrip] = useState<Trip | null>(null)
-const router = useRouter()
 
 type Tab = 'csv' | 'ics'
 
@@ -26,7 +24,8 @@ interface ICSPreview {
 export default function ImportPage() {
   const [tab, setTab] = useState<Tab>('csv')
   const [groups, setGroups] = useState<Group[]>([])
-
+  const [trip, setTrip] = useState<Trip | null>(null)
+  const router = useRouter()
   // CSV state
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [csvPreview, setCsvPreview] = useState<CSVPreview | null>(null)
