@@ -24,3 +24,48 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* FullCalendar dark theme */
+.fc {
+  --fc-border-color: #1e293b;
+  --fc-button-bg-color: #1e293b;
+  --fc-button-border-color: #334155;
+  --fc-button-hover-bg-color: #334155;
+  --fc-button-hover-border-color: #475569;
+  --fc-button-active-bg-color: #3b82f6;
+  --fc-button-active-border-color: #3b82f6;
+  --fc-today-bg-color: rgba(59, 130, 246, 0.1);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: #0f172a;
+  color: #e2e8f0;
+}
+
+.fc .fc-toolbar-title {
+  color: white;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.fc .fc-col-header-cell-cushion,
+.fc .fc-daygrid-day-number {
+  color: #94a3b8;
+  text-decoration: none;
+}
+
+.fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  color: #3b82f6;
+  font-weight: bold;
+}
+
+.fc .fc-button {
+  font-size: 0.875rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+}
+
+.fc .fc-event {
+  border-radius: 4px;
+  font-size: 0.75rem;
+  padding: 1px 4px;
+  cursor: pointer;
+}
