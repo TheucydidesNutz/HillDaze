@@ -7,19 +7,18 @@ export async function GET(request: NextRequest) {
 
   if (!token) return NextResponse.json({ error: 'Token required' }, { status: 400 })
 
-  // Find participant
   const { data: participant } = await supabaseAdmin
     .from('participants')
-    .select('id, group_id')
+    .select('id, group_id, trip_id')
     .eq('access_token', token)
     .single()
 
   if (!participant) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  // Get all-groups docs + participant's group docs
   const { data, error } = await supabaseAdmin
     .from('documents')
     .select('*')
+    .eq('trip_id', participant.trip_id)
     .eq('doc_type', 'document')
     .or(`group_id.is.null${participant.group_id ? `,group_id.eq.${participant.group_id}` : ''}`)
     .order('uploaded_at', { ascending: false })

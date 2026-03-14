@@ -70,3 +70,39 @@ export async function GET(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = await getAdminUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id } = await params
+  const { searchParams } = new URL(request.url)
+  const userId = searchParams.get('user_id')
+
+  if (!userId) return NextResponse.json({ error: 'user_id required' }, { status: 400 })
+
+  // Verify requester is super admin
+  const { data: requesterAccess } = await supabaseAdmin
+    .from('trip_admins')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('trip_id', id)
+    .single()
+
+  if (requesterAccess?.role !== 'super') {
+    return NextResponse.json({ error: 'Only super admins can remove admins' }, { status: 403 })
+  }
+
+  const { error } = await supabaseAdmin
+    .from('trip_admins')
+    .delete()
+    .eq('trip_id', id)
+    .eq('user_id', userId)
+    .neq('role', 'super') // Can't remove super admin
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ success: true })
+}

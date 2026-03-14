@@ -7,19 +7,18 @@ export async function GET(request: NextRequest) {
 
   if (!token) return NextResponse.json({ error: 'Token required' }, { status: 400 })
 
-  // Find participant and their group
   const { data: participant } = await supabaseAdmin
     .from('participants')
-    .select('id, group_id')
+    .select('id, group_id, trip_id')
     .eq('access_token', token)
     .single()
 
   if (!participant) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  // Get global broadcasts + group-specific broadcasts for this participant
   const { data, error } = await supabaseAdmin
     .from('broadcasts')
     .select('*')
+    .eq('trip_id', participant.trip_id)
     .or(`group_id.is.null${participant.group_id ? `,group_id.eq.${participant.group_id}` : ''}`)
     .order('created_at', { ascending: false })
 

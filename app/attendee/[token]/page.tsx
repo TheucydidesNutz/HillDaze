@@ -55,7 +55,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
 
       const [attendeeRes, mapRes] = await Promise.all([
         fetch(`/api/attendee/${t}`),
-        fetch('/api/attendee/map'),
+        fetch(`/api/attendee/map?token=${t}`),
       ])
 
       const [attendeeData, mapData] = await Promise.all([
