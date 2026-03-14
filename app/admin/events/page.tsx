@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
+import listPlugin from '@fullcalendar/list'
 import interactionPlugin from '@fullcalendar/interaction'
 import { Participant, Group } from '@/lib/types'
 import EventModal from '@/components/EventModal'
@@ -109,7 +110,7 @@ export default function EventsPage() {
         {/* Calendar */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 calendar-container">
           <FullCalendar
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
             initialView="dayGridMonth"
             headerToolbar={{
               left: 'prev,next today',

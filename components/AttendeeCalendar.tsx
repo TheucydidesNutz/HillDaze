@@ -3,6 +3,7 @@
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
+import listPlugin from '@fullcalendar/list'
 import { Event } from '@/lib/types'
 import { useState } from 'react'
 
@@ -30,12 +31,12 @@ export default function AttendeeCalendar({ events }: Props) {
   return (
     <>
       <FullCalendar
-        plugins={[dayGridPlugin, timeGridPlugin]}
+        plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
         initialView="dayGridMonth"
         headerToolbar={{
           left: 'prev,next today',
           center: 'title',
-          right: 'dayGridMonth,timeGridWeek'
+          right: 'dayGridMonth,timeGridWeek,timeGridDay'
         }}
         events={calendarEvents}
         eventClick={handleEventClick}
