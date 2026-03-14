@@ -49,6 +49,12 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
+  // PWA state
+  const [installPrompt, setInstallPrompt] = useState<any>(null)
+  const [showInstallBanner, setShowInstallBanner] = useState(false)
+  const [isIOS, setIsIOS] = useState(false)
+  const [isInstalled, setIsInstalled] = useState(false)
+
   useEffect(() => {
     params.then(async ({ token: t }) => {
       setToken(t)
@@ -75,6 +81,57 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
       setLoading(false)
     })
   }, [params])
+
+  // PWA install logic
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    // Already installed as PWA
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true)
+      return
+    }
+
+    // Detect iOS
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    setIsIOS(ios)
+
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(console.error)
+    }
+
+    // Android/Chrome install prompt
+    const handler = (e: any) => {
+      e.preventDefault()
+      setInstallPrompt(e)
+      setShowInstallBanner(true)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+
+    // Show iOS banner after 3 seconds
+    if (ios) {
+      const timer = setTimeout(() => setShowInstallBanner(true), 3000)
+      return () => {
+        clearTimeout(timer)
+        window.removeEventListener('beforeinstallprompt', handler)
+      }
+    }
+
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  async function handleInstall() {
+    if (installPrompt) {
+      installPrompt.prompt()
+      const { outcome } = await installPrompt.userChoice
+      if (outcome === 'accepted') {
+        setIsInstalled(true)
+        setShowInstallBanner(false)
+      }
+      setInstallPrompt(null)
+    }
+  }
 
   async function handlePdfDownload() {
     if (!data?.factSheet) return
@@ -121,7 +178,6 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
       setPhotoPreview(null)
       alert(result.error || 'Photo upload failed')
     } else {
-      // Update local data with new photo URL
       setData(prev => prev ? {
         ...prev,
         participant: { ...prev.participant, photo_url: result.url }
@@ -155,45 +211,111 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   const { participant, events, factSheet, trip } = data
   const p = participant
   const currentPhoto = photoPreview || p.photo_url
+  const tripTitle = trip?.title || 'HillDayTracker'
+  const tripLogo = trip?.logo_url
 
   return (
     <div className="min-h-screen bg-slate-950">
+
+      {/* PWA manifest link + meta tags */}
+      {token && (
+        <>
+          <link rel="manifest" href={`/attendee/${token}/manifest`} />
+          <meta name="theme-color" content="#020617" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+          <meta name="apple-mobile-web-app-title" content={tripTitle} />
+        </>
+      )}
+
+      {/* iOS install banner */}
+      {showInstallBanner && isIOS && !isInstalled && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-slate-900 border-t border-slate-700">
+          <div className="flex items-start gap-3 max-w-4xl mx-auto">
+            {tripLogo ? (
+              <img src={tripLogo} className="w-12 h-12 rounded-xl object-contain bg-slate-800 p-1 flex-shrink-0" alt={tripTitle} />
+            ) : (
+              <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-lg font-bold">{tripTitle.charAt(0)}</span>
+              </div>
+            )}
+            <div className="flex-1">
+              <p className="text-white text-sm font-medium">Add to Home Screen</p>
+              <p className="text-slate-400 text-xs mt-0.5">
+                Tap <span className="text-blue-400">Share ↑</span> then{' '}
+                <span className="text-blue-400">Add to Home Screen</span> to install {tripTitle}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowInstallBanner(false)}
+              className="text-slate-500 hover:text-white text-lg flex-shrink-0"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Android/Chrome install banner */}
+      {showInstallBanner && !isIOS && installPrompt && !isInstalled && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-slate-900 border-t border-slate-700">
+          <div className="flex items-center gap-3 max-w-4xl mx-auto">
+            {tripLogo ? (
+              <img src={tripLogo} className="w-12 h-12 rounded-xl object-contain bg-slate-800 p-1 flex-shrink-0" alt={tripTitle} />
+            ) : (
+              <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-lg font-bold">{tripTitle.charAt(0)}</span>
+              </div>
+            )}
+            <div className="flex-1">
+              <p className="text-white text-sm font-medium">Add to Home Screen</p>
+              <p className="text-slate-400 text-xs mt-0.5">Install {tripTitle} for quick access</p>
+            </div>
+            <button
+              onClick={() => setShowInstallBanner(false)}
+              className="text-slate-500 hover:text-white mr-2 flex-shrink-0"
+            >
+              ✕
+            </button>
+            <button
+              onClick={handleInstall}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
+            >
+              Install
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-slate-900 border-b border-slate-800 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          {/* Trip branding */}
           <div className="flex items-center gap-3">
-            {trip?.logo_url ? (
-              <img src={trip.logo_url} alt={trip.title}
+            {tripLogo ? (
+              <img src={tripLogo} alt={tripTitle}
                 className="w-10 h-10 rounded-lg object-contain bg-slate-800 p-0.5" />
             ) : (
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <span className="text-white text-sm font-bold">
-                  {trip?.title?.charAt(0) || 'H'}
-                </span>
+                <span className="text-white text-sm font-bold">{tripTitle.charAt(0)}</span>
               </div>
             )}
             <div>
-              <p className="text-white font-semibold text-sm leading-tight">
-                {trip?.title || 'HillDayTracker'}
-              </p>
+              <p className="text-white font-semibold text-sm leading-tight">{tripTitle}</p>
               {trip && formatDateRange(trip) && (
                 <p className="text-slate-400 text-xs">{formatDateRange(trip)}</p>
               )}
             </div>
           </div>
-
-          {/* Action buttons */}
           <div className="flex items-center gap-2">
             {map && (
               <button onClick={handleMapOpen}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors">
                 🗺️ Map
               </button>
             )}
             {factSheet && (
               <button onClick={handlePdfDownload}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
                 📄 Fact Sheet
               </button>
             )}
@@ -206,7 +328,6 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         {/* Hero Card */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <div className="flex items-center gap-5">
-            {/* Photo with upload button */}
             <div className="relative flex-shrink-0">
               <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden">
                 {currentPhoto ? (
@@ -215,7 +336,6 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
                   <span className="text-white text-3xl font-bold">{p.name.charAt(0)}</span>
                 )}
               </div>
-              {/* Upload button overlay */}
               <button
                 onClick={() => photoInputRef.current?.click()}
                 disabled={uploadingPhoto}
@@ -237,7 +357,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               />
             </div>
 
-            <div>
+            <div className="flex-1">
               <h1 className="text-2xl font-bold text-white">{p.name}</h1>
               {p.title && <p className="text-slate-300">{p.title}</p>}
               {p.company && <p className="text-slate-400 text-sm">{p.company}</p>}
@@ -247,6 +367,18 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               </div>
             </div>
           </div>
+
+          {/* Always-visible install button */}
+          {!isInstalled && token && (isIOS || installPrompt) && (
+            <div className="mt-4 pt-4 border-t border-slate-800">
+              <button
+                onClick={isIOS ? () => setShowInstallBanner(true) : handleInstall}
+                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                📱 Add to Home Screen
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Broadcasts */}
@@ -255,7 +387,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         {/* Group Info */}
         {p.group && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <h2 className="text-white font-semibold mb-4 flex items-center gap-2">🏷️ Your Group</h2>
+            <h2 className="text-white font-semibold mb-4">🏷️ Your Group</h2>
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {p.group.lead_photo_url ? (
@@ -362,6 +494,9 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
           <h2 className="text-white font-semibold mb-4">📝 Notes & Journal</h2>
           <JournalSection token={token} />
         </div>
+
+        {/* Bottom padding for install banner */}
+        {showInstallBanner && !isInstalled && <div className="h-20" />}
       </div>
 
       {/* Map Modal */}
