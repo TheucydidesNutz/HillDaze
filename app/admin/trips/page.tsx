@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Trip } from '@/lib/types'
 import { useRouter } from 'next/navigation'
+import { apiFetch } from '@/lib/apiFetch'
 
 export default function TripsPage() {
   const [trips, setTrips] = useState<Trip[]>([])
