@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Participant, Group } from '@/lib/types'
+import { apiFetch } from '@/lib/apiFetch'
 
 interface Event {
     id: string

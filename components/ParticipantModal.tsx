@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Participant, Group } from '@/lib/types'
+import { apiFetch } from '@/lib/apiFetch'
 
 interface Props {
   participant: Participant | null
@@ -86,7 +87,7 @@ export default function ParticipantModal({ participant, groups, onClose, onSaved
       const photoFormData = new FormData()
       photoFormData.append('file', photoFile)
       photoFormData.append('participant_id', data.id)
-      const photoRes = await fetch('/api/admin/upload/photo', {
+      const photoRes = await apiFetch('/api/admin/upload/photo', {
         method: 'POST',
         body: photoFormData,
       })

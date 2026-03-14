@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { apiFetch } from '@/lib/apiFetch'
 
 interface FactSheet {
   id: string
@@ -48,9 +49,9 @@ export default function SettingsPage() {
 
   async function fetchAll() {
     const [fsRes, docsRes, gRes] = await Promise.all([
-      fetch('/api/admin/factsheets'),
-      fetch('/api/admin/documents'),
-      fetch('/api/admin/groups'),
+      apiFetch('/api/admin/factsheets'),
+      apiFetch('/api/admin/documents'),
+      apiFetch('/api/admin/groups'),
     ])
     const [fsData, docsData, gData] = await Promise.all([
       fsRes.json(), docsRes.json(), gRes.json()
@@ -67,7 +68,7 @@ export default function SettingsPage() {
     const formData = new FormData()
     formData.append('file', fsFile)
     formData.append('label', fsLabel)
-    const res = await fetch('/api/admin/upload/pdf', { method: 'POST', body: formData })
+    const res = await apiFetch('/api/admin/upload/pdf', { method: 'POST', body: formData })
     const data = await res.json()
     setFsUploading(false)
     if (res.ok) {
@@ -90,7 +91,7 @@ export default function SettingsPage() {
     formData.append('label', docLabel)
     formData.append('doc_type', docType)
     formData.append('group_id', docGroupId)
-    const res = await fetch('/api/admin/upload/document', { method: 'POST', body: formData })
+    const res = await apiFetch('/api/admin/upload/document', { method: 'POST', body: formData })
     const data = await res.json()
     setDocUploading(false)
     if (res.ok) {

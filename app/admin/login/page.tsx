@@ -30,7 +30,7 @@ export default function LoginPage() {
       setError(error.message)
       setLoading(false)
     } else {
-      router.push('/admin')
+      router.push('/admin/trips')
       router.refresh()
     }
   }

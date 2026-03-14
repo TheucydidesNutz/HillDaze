@@ -8,6 +8,7 @@ import listPlugin from '@fullcalendar/list'
 import interactionPlugin from '@fullcalendar/interaction'
 import { Participant, Group } from '@/lib/types'
 import EventModal from '@/components/EventModal'
+import { apiFetch } from '@/lib/apiFetch'
 
 interface CalendarEvent {
   id: string
@@ -30,9 +31,9 @@ export default function EventsPage() {
 
   async function fetchData() {
     const [eRes, pRes, gRes] = await Promise.all([
-      fetch('/api/admin/events'),
-      fetch('/api/admin/participants'),
-      fetch('/api/admin/groups'),
+      apiFetch('/api/admin/events'),
+      apiFetch('/api/admin/participants'),
+      apiFetch('/api/admin/groups'),
     ])
     const [eData, pData, gData] = await Promise.all([
       eRes.json(), pRes.json(), gRes.json()

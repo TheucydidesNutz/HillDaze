@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Group } from '@/lib/types'
 import GroupModal from '@/components/GroupModal'
+import { apiFetch } from '@/lib/apiFetch'
 
 export default function GroupsPage() {
   const [groups, setGroups] = useState<Group[]>([])
@@ -13,7 +14,7 @@ export default function GroupsPage() {
   useEffect(() => { fetchGroups() }, [])
 
   async function fetchGroups() {
-    const res = await fetch('/api/admin/groups')
+    const res = await apiFetch('/api/admin/groups')
     const data = await res.json()
     setGroups(data)
     setLoading(false)

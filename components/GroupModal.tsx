@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Group } from '@/lib/types'
+import { apiFetch } from '@/lib/apiFetch'
 
 interface Props {
   group: Group | null
@@ -57,7 +58,7 @@ export default function GroupModal({ group, onClose, onSaved }: Props) {
       const photoFormData = new FormData()
       photoFormData.append('file', photoFile)
       photoFormData.append('group_id', data.id)
-      const photoRes = await fetch('/api/admin/upload/photo', {
+      const photoRes = await apiFetch('/api/admin/upload/photo', {
         method: 'POST',
         body: photoFormData,
       })

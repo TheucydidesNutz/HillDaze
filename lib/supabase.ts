@@ -30,3 +30,9 @@ export const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+// Get trip_id from request header
+export function getTripId(request: Request): string | null {
+  const tripId = request.headers.get('x-trip-id')
+  return tripId || null
+}

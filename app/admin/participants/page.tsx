@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Participant, Group } from '@/lib/types'
 import ParticipantModal from '@/components/ParticipantModal'
+import { apiFetch } from '@/lib/apiFetch'
 
 export default function ParticipantsPage() {
   const [participants, setParticipants] = useState<Participant[]>([])
@@ -18,8 +19,8 @@ export default function ParticipantsPage() {
 
   async function fetchData() {
     const [pRes, gRes] = await Promise.all([
-      fetch('/api/admin/participants'),
-      fetch('/api/admin/groups'),
+      apiFetch('/api/admin/participants'),
+      apiFetch('/api/admin/groups'),
     ])
     const [pData, gData] = await Promise.all([pRes.json(), gRes.json()])
     setParticipants(pData)

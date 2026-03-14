@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { apiFetch } from '@/lib/apiFetch'
 
 interface Broadcast {
   id: string
@@ -25,15 +26,15 @@ export default function BroadcastComposer() {
   const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
-    fetch('/api/admin/groups').then(r => r.json()).then(setGroups)
-    fetch('/api/admin/broadcasts').then(r => r.json()).then(setBroadcasts)
+    apiFetch('/api/admin/groups').then(r => r.json()).then(setGroups)
+    apiFetch('/api/admin/broadcasts').then(r => r.json()).then(setBroadcasts)
   }, [])
 
   async function handleSend() {
     if (!message.trim() || !senderName.trim()) return
     setSending(true)
 
-    const res = await fetch('/api/admin/broadcasts', {
+    const res = await apiFetch('/api/admin/broadcasts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, sender_name: senderName, group_id: groupId || null }),

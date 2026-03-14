@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Participant } from '@/lib/types'
+import { apiFetch } from '@/lib/apiFetch'
 
 interface Note {
   id: string
@@ -33,7 +34,7 @@ export default function NotesFeedPage() {
   }, [filterParticipant])
 
   useEffect(() => {
-    fetch('/api/admin/participants')
+    apiFetch('/api/admin/participants')
       .then(res => res.json())
       .then(data => setParticipants(data))
   }, [])

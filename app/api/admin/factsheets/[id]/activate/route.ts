@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin, createSupabaseServerClient } from '@/lib/supabase'
+import { supabaseAdmin, createSupabaseServerClient, getTripId } from '@/lib/supabase'
 
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient()
@@ -7,29 +7,20 @@ async function requireAdmin() {
   return user
 }
 
-export async function PATCH(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { id } = await params
+  const tripId = getTripId(request)
 
-  // Deactivate all
-  await supabaseAdmin
+  let query = supabaseAdmin
     .from('fact_sheets')
-    .update({ is_active: false })
-    .neq('id', '00000000-0000-0000-0000-000000000000')
+    .select('*')
+    .order('uploaded_at', { ascending: false })
 
-  // Activate selected
-  const { data, error } = await supabaseAdmin
-    .from('fact_sheets')
-    .update({ is_active: true })
-    .eq('id', id)
-    .select()
-    .single()
+  if (tripId) query = query.eq('trip_id', tripId)
 
+  const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }

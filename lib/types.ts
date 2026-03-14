@@ -5,7 +5,7 @@ export interface Group {
   lead_phone: string | null
   lead_email: string | null
   lead_photo_url: string | null
-  fly_in_id: string
+  trip_id: string
   created_at: string
 }
 
@@ -33,7 +33,7 @@ export interface Participant {
   hotel_room: string | null
   fun_diversions: string | null
   group_id: string | null
-  fly_in_id: string
+  trip_id: string
   created_at: string
   updated_at: string
   group?: Group | null
@@ -47,12 +47,12 @@ export interface Event {
   end_time: string
   location: string | null
   type: 'mandatory' | 'optional'
-  fly_in_id: string
+  trip_id: string
   created_at: string
   updated_at: string
 }
 
-export interface FlyIn {
+export interface Trip {
   id: string
   title: string
   start_date: string | null

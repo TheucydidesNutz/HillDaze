@@ -22,7 +22,7 @@ export default function TripsPage() {
   useEffect(() => { fetchTrips() }, [])
 
   async function fetchTrips() {
-    const res = await fetch('/api/admin/trips')
+    const res = await apiFetch('/api/admin/trips')
     const data = await res.json()
     setTrips(data)
     setLoading(false)
@@ -31,7 +31,7 @@ export default function TripsPage() {
   async function handleCreate() {
     if (!newTitle.trim()) return alert('Title required')
     setCreating(true)
-    const res = await fetch('/api/admin/trips', {
+    const res = await apiFetch('/api/admin/trips', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: newTitle, start_date: newStart, end_date: newEnd }),
