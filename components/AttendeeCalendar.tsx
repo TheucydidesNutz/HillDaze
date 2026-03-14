@@ -14,14 +14,21 @@ interface Props {
 export default function AttendeeCalendar({ events }: Props) {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
 
-  const calendarEvents = events.map(e => ({
-    id: e.id,
-    title: e.title,
-    start: e.start_time,
-    end: e.end_time,
-    backgroundColor: e.type === 'mandatory' ? '#EF4444' : '#3B82F6',
-    borderColor: e.type === 'mandatory' ? '#DC2626' : '#2563EB',
-  }))
+  const ONE_HOUR_AGO = new Date(Date.now() - 60 * 60 * 1000)
+
+  const calendarEvents = events.map(e => {
+    const recentlyUpdated = e.updated_at && new Date(e.updated_at) > ONE_HOUR_AGO &&
+      new Date(e.updated_at) > new Date(e.created_at)
+  
+    return {
+      id: e.id,
+      title: recentlyUpdated ? `⚡ ${e.title}` : e.title,
+      start: e.start_time,
+      end: e.end_time,
+      backgroundColor: recentlyUpdated ? '#D97706' : e.type === 'mandatory' ? '#EF4444' : '#3B82F6',
+      borderColor: recentlyUpdated ? '#B45309' : e.type === 'mandatory' ? '#DC2626' : '#2563EB',
+    }
+  })
 
   function handleEventClick(info: any) {
     const event = events.find(e => e.id === info.event.id)

@@ -46,4 +46,7 @@ export interface Group {
     location: string | null
     type: 'mandatory' | 'optional'
     created_at: string
+    updated_at: string
   }
+
+  

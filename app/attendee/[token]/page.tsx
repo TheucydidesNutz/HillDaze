@@ -178,7 +178,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         {/* Calendar */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <h2 className="text-white font-semibold mb-4">📅 Your Schedule</h2>
-          <div className="flex gap-4 mb-4 text-sm">
+          <div className="flex flex-wrap gap-4 mb-4 text-sm">
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
               <span className="text-slate-400">Mandatory</span>
@@ -186,6 +186,10 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-blue-500 inline-block"></span>
               <span className="text-slate-400">Optional</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+              <span className="text-slate-400">⚡ Recently updated</span>
             </span>
           </div>
           <AttendeeCalendar events={events} />
