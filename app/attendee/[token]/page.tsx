@@ -5,6 +5,7 @@ import { Participant, Group, Event } from '@/lib/types'
 import AttendeeCalendar from '@/components/AttendeeCalendar'
 import JournalSection from '@/components/JournalSection'
 import MapModal from '@/components/MapModal'
+import BroadcastFeed from '@/components/BroadcastFeed'
 
 interface FactSheet {
   id: string
@@ -144,6 +145,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+
         {/* Hero Card */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <div className="flex items-center gap-5">
@@ -165,6 +167,9 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             </div>
           </div>
         </div>
+
+        {/* Broadcasts — amber cards, between hero and group */}
+        {token && <BroadcastFeed token={token} />}
 
         {/* Group Info */}
         {p.group && (

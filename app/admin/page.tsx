@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { redirect } from 'next/navigation'
 import LogoutButton from '@/components/LogoutButton'
+import BroadcastComposer from '@/components/BroadcastComposer'
 
 export default async function AdminDashboard() {
   const supabase = await createSupabaseServerClient()
@@ -21,7 +22,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <a href="/admin/participants" className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-xl p-6 transition-colors group">
             <div className="text-2xl mb-3">👥</div>
             <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">Participants</h3>
@@ -42,12 +43,20 @@ export default async function AdminDashboard() {
             <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">Notes Feed</h3>
             <p className="text-slate-400 text-sm">Participant submissions</p>
           </a>
+          <a href="/admin/import" className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-xl p-6 transition-colors group">
+            <div className="text-2xl mb-3">📥</div>
+            <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">Import</h3>
+            <p className="text-slate-400 text-sm">CSV participants & ICS calendar</p>
+          </a>
           <a href="/admin/settings" className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-xl p-6 transition-colors group">
             <div className="text-2xl mb-3">⚙️</div>
             <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">Settings</h3>
             <p className="text-slate-400 text-sm">Fact sheets & configuration</p>
           </a>
         </div>
+
+        {/* Broadcast composer */}
+        <BroadcastComposer />
       </div>
     </div>
   )
