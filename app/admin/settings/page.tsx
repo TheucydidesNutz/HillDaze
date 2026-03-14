@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/apiFetch'
+import { useRouter } from 'next/navigation'
 
 interface FactSheet {
   id: string
@@ -28,24 +29,27 @@ interface Group {
 }
 
 export default function SettingsPage() {
+  const router = useRouter()
   const [factSheets, setFactSheets] = useState<FactSheet[]>([])
   const [documents, setDocuments] = useState<Document[]>([])
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Fact sheet upload state
   const [fsUploading, setFsUploading] = useState(false)
   const [fsLabel, setFsLabel] = useState('')
   const [fsFile, setFsFile] = useState<File | null>(null)
 
-  // Document upload state
   const [docUploading, setDocUploading] = useState(false)
   const [docLabel, setDocLabel] = useState('')
   const [docFile, setDocFile] = useState<File | null>(null)
   const [docGroupId, setDocGroupId] = useState('')
   const [docType, setDocType] = useState<'document' | 'map'>('document')
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => {
+    const tripStr = localStorage.getItem('current_trip')
+    if (!tripStr) { router.push('/admin/trips'); return }
+    fetchAll()
+  }, [])
 
   async function fetchAll() {
     const [fsRes, docsRes, gRes] = await Promise.all([
@@ -79,7 +83,7 @@ export default function SettingsPage() {
   }
 
   async function handleActivate(id: string) {
-    const res = await fetch(`/api/admin/factsheets/${id}/activate`, { method: 'PATCH' })
+    const res = await apiFetch(`/api/admin/factsheets/${id}/activate`, { method: 'PATCH' })
     if (res.ok) setFactSheets(prev => prev.map(f => ({ ...f, is_active: f.id === id })))
   }
 
@@ -104,7 +108,7 @@ export default function SettingsPage() {
 
   async function handleDeleteDoc(id: string) {
     if (!confirm('Delete this document?')) return
-    await fetch(`/api/admin/documents?id=${id}`, { method: 'DELETE' })
+    await apiFetch(`/api/admin/documents?id=${id}`, { method: 'DELETE' })
     setDocuments(prev => prev.filter(d => d.id !== id))
   }
 
@@ -175,7 +179,6 @@ export default function SettingsPage() {
           <h2 className="text-white font-semibold text-lg mb-1">📁 Documents & Maps</h2>
           <p className="text-slate-400 text-sm mb-5">Upload PDFs or images. Documents appear in the attendee's "Your Documents" section. Maps appear via the Map button in the header.</p>
 
-          {/* Type toggle */}
           <div className="flex gap-3 mb-5">
             <button onClick={() => setDocType('document')}
               className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${docType === 'document' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}>
@@ -195,7 +198,6 @@ export default function SettingsPage() {
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
             </div>
 
-            {/* Group assignment — only for documents, not maps */}
             {docType === 'document' && (
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Visible To</label>
@@ -223,7 +225,6 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          {/* Maps list */}
           {maps.length > 0 && (
             <div className="mt-6 space-y-3">
               <p className="text-slate-400 text-sm font-medium">🗺️ Maps</p>
@@ -243,7 +244,6 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Documents list */}
           {docs.length > 0 && (
             <div className="mt-6 space-y-3">
               <p className="text-slate-400 text-sm font-medium">📁 Documents</p>

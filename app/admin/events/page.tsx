@@ -9,6 +9,7 @@ import interactionPlugin from '@fullcalendar/interaction'
 import { Participant, Group } from '@/lib/types'
 import EventModal from '@/components/EventModal'
 import { apiFetch } from '@/lib/apiFetch'
+import { useRouter } from 'next/navigation'
 
 interface CalendarEvent {
   id: string
@@ -21,13 +22,18 @@ interface CalendarEvent {
 }
 
 export default function EventsPage() {
+  const router = useRouter()
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [participants, setParticipants] = useState<Participant[]>([])
   const [groups, setGroups] = useState<Group[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    const tripStr = localStorage.getItem('current_trip')
+    if (!tripStr) { router.push('/admin/trips'); return }
+    fetchData()
+  }, [])
 
   async function fetchData() {
     const [eRes, pRes, gRes] = await Promise.all([
@@ -78,17 +84,15 @@ export default function EventsPage() {
   return (
     <div className="min-h-screen bg-slate-950 p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <a href="/admin" className="text-slate-400 text-sm hover:text-white mb-1 block">
               ← Dashboard
             </a>
-            <h1 className="text-3xl font-bold text-white">Events</h1>
+            <h1 className="text-3xl font-bold text-white">Schedule</h1>
             <p className="text-slate-400 mt-1">{events.length} events scheduled</p>
           </div>
           <div className="flex items-center gap-4">
-            {/* Legend */}
             <div className="flex items-center gap-4 text-sm">
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
@@ -108,7 +112,6 @@ export default function EventsPage() {
           </div>
         </div>
 
-        {/* Calendar */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 calendar-container">
           <FullCalendar
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}

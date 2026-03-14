@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react'
 import { Participant, Group } from '@/lib/types'
 import ParticipantModal from '@/components/ParticipantModal'
 import { apiFetch } from '@/lib/apiFetch'
+import { useRouter } from 'next/navigation'
 
 export default function ParticipantsPage() {
+  const router = useRouter()
   const [participants, setParticipants] = useState<Participant[]>([])
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
@@ -16,7 +18,14 @@ export default function ParticipantsPage() {
   const [bulkGroupId, setBulkGroupId] = useState('')
   const [bulkAssigning, setBulkAssigning] = useState(false)
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    const tripStr = localStorage.getItem('current_trip')
+    if (!tripStr) {
+      router.push('/admin/trips')
+      return
+    }
+    fetchData()
+  }, [])
 
   async function fetchData() {
     const [pRes, gRes] = await Promise.all([
@@ -55,7 +64,6 @@ export default function ParticipantsPage() {
     setModalOpen(false)
   }
 
-  // Selection helpers
   function toggleSelect(id: string) {
     setSelected(prev => {
       const n = new Set(prev)
@@ -90,7 +98,6 @@ export default function ParticipantsPage() {
       )
     )
 
-    // Refresh participants
     const res = await apiFetch('/api/admin/participants')
     const data = await res.json()
     setParticipants(data)
@@ -111,7 +118,6 @@ export default function ParticipantsPage() {
   return (
     <div className="min-h-screen bg-slate-950 p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <a href="/admin" className="text-slate-400 text-sm hover:text-white mb-1 block">
@@ -128,7 +134,6 @@ export default function ParticipantsPage() {
           </button>
         </div>
 
-        {/* Search */}
         <div className="mb-4">
           <input
             type="text"
@@ -139,7 +144,6 @@ export default function ParticipantsPage() {
           />
         </div>
 
-        {/* Bulk action toolbar */}
         {someSelected && (
           <div className="mb-4 flex items-center gap-3 p-3 bg-blue-600/10 border border-blue-500/30 rounded-xl">
             <span className="text-blue-400 text-sm font-medium">
@@ -174,7 +178,6 @@ export default function ParticipantsPage() {
           </div>
         )}
 
-        {/* Table */}
         {loading ? (
           <div className="text-slate-400 text-center py-20">Loading...</div>
         ) : filtered.length === 0 ? (
@@ -189,7 +192,6 @@ export default function ParticipantsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-800">
-                  {/* Select all checkbox */}
                   <th className="px-4 py-4 w-10">
                     <input
                       type="checkbox"
@@ -207,13 +209,11 @@ export default function ParticipantsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p, i) => (
+                {filtered.map((p) => (
                   <tr
                     key={p.id}
                     className={`border-b border-slate-800 last:border-0 transition-colors ${
-                      selected.has(p.id)
-                        ? 'bg-blue-600/10'
-                        : 'hover:bg-slate-800/50'
+                      selected.has(p.id) ? 'bg-blue-600/10' : 'hover:bg-slate-800/50'
                     }`}
                   >
                     <td className="px-4 py-4">

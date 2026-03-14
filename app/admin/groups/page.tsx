@@ -4,14 +4,20 @@ import { useState, useEffect } from 'react'
 import { Group } from '@/lib/types'
 import GroupModal from '@/components/GroupModal'
 import { apiFetch } from '@/lib/apiFetch'
+import { useRouter } from 'next/navigation'
 
 export default function GroupsPage() {
+  const router = useRouter()
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingGroup, setEditingGroup] = useState<Group | null>(null)
 
-  useEffect(() => { fetchGroups() }, [])
+  useEffect(() => {
+    const tripStr = localStorage.getItem('current_trip')
+    if (!tripStr) { router.push('/admin/trips'); return }
+    fetchGroups()
+  }, [])
 
   async function fetchGroups() {
     const res = await apiFetch('/api/admin/groups')
@@ -22,7 +28,7 @@ export default function GroupsPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this group? Participants will be unassigned.')) return
-    await fetch(`/api/admin/groups/${id}`, { method: 'DELETE' })
+    await apiFetch(`/api/admin/groups/${id}`, { method: 'DELETE' })
     setGroups(prev => prev.filter(g => g.id !== id))
   }
 

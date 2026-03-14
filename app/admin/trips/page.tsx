@@ -3,7 +3,14 @@
 import { useState, useEffect } from 'react'
 import { Trip } from '@/lib/types'
 import { useRouter } from 'next/navigation'
-import { apiFetch } from '@/lib/apiFetch'
+
+interface TripAdmin {
+  id: string
+  trip_id: string
+  user_id: string
+  role: 'super' | 'admin'
+  email?: string
+}
 
 export default function TripsPage() {
   const [trips, setTrips] = useState<Trip[]>([])
@@ -18,21 +25,31 @@ export default function TripsPage() {
   const [editStart, setEditStart] = useState('')
   const [editEnd, setEditEnd] = useState('')
   const [saving, setSaving] = useState(false)
+  const [tripAdmins, setTripAdmins] = useState<TripAdmin[]>([])
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviting, setInviting] = useState(false)
+  const [inviteMessage, setInviteMessage] = useState('')
   const router = useRouter()
 
   useEffect(() => { fetchTrips() }, [])
 
   async function fetchTrips() {
-    const res = await apiFetch('/api/admin/trips')
+    const res = await fetch('/api/admin/trips')
     const data = await res.json()
     setTrips(data)
     setLoading(false)
   }
 
+  async function fetchTripAdmins(tripId: string) {
+    const res = await fetch(`/api/admin/trips/${tripId}/invite`)
+    const data = await res.json()
+    setTripAdmins(Array.isArray(data) ? data : [])
+  }
+
   async function handleCreate() {
     if (!newTitle.trim()) return alert('Title required')
     setCreating(true)
-    const res = await apiFetch('/api/admin/trips', {
+    const res = await fetch('/api/admin/trips', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: newTitle, start_date: newStart, end_date: newEnd }),
@@ -64,14 +81,55 @@ export default function TripsPage() {
     setSaving(false)
     if (res.ok) {
       setTrips(prev => prev.map(t => t.id === data.id ? { ...t, ...data } : t))
-      setEditingTrip(null)
+      setEditingTrip(prev => prev ? { ...prev, ...data } : prev)
     } else alert(data.error)
+  }
+
+  async function handleInvite() {
+    if (!inviteEmail.trim() || !editingTrip) return
+    setInviting(true)
+    setInviteMessage('')
+    const res = await fetch(`/api/admin/trips/${editingTrip.id}/invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: inviteEmail }),
+    })
+    const data = await res.json()
+    setInviting(false)
+    if (res.ok) {
+      setInviteMessage(`✓ ${data.message}`)
+      setInviteEmail('')
+      fetchTripAdmins(editingTrip.id)
+    } else {
+      setInviteMessage(`✗ ${data.error}`)
+    }
+  }
+
+  async function handleRemoveAdmin(userId: string) {
+    if (!editingTrip) return
+    if (!confirm('Remove this admin from the trip?')) return
+    await fetch(`/api/admin/trips/${editingTrip.id}/invite?user_id=${userId}`, {
+      method: 'DELETE',
+    })
+    setTripAdmins(prev => prev.filter(a => a.user_id !== userId))
   }
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this trip and ALL its data? This cannot be undone.')) return
     await fetch(`/api/admin/trips/${id}`, { method: 'DELETE' })
     setTrips(prev => prev.filter(t => t.id !== id))
+  }
+
+  function openEdit(trip: Trip) {
+    // Grab the full trip from state to ensure role is included
+    const fullTrip = trips.find(t => t.id === trip.id) || trip
+    setEditingTrip(fullTrip)
+    setEditTitle(fullTrip.title)
+    setEditStart(fullTrip.start_date || '')
+    setEditEnd(fullTrip.end_date || '')
+    setInviteMessage('')
+    setInviteEmail('')
+    fetchTripAdmins(fullTrip.id)
   }
 
   function formatDateRange(trip: Trip) {
@@ -140,13 +198,7 @@ export default function TripsPage() {
                     className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
                     Open →
                   </button>
-                  <button
-                    onClick={() => {
-                      setEditingTrip(trip)
-                      setEditTitle(trip.title)
-                      setEditStart(trip.start_date || '')
-                      setEditEnd(trip.end_date || '')
-                    }}
+                  <button onClick={() => openEdit(trip)}
                     className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors">
                     Edit
                   </button>
@@ -204,17 +256,19 @@ export default function TripsPage() {
         {/* Edit Trip Modal */}
         {editingTrip && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6">
-              <div className="flex items-center justify-between mb-6">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
                 <h2 className="text-white font-semibold text-lg">Edit Trip</h2>
                 <button onClick={() => setEditingTrip(null)} className="text-slate-400 hover:text-white">✕</button>
               </div>
-              <div className="space-y-4">
+
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">Trip Title *</label>
                   <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                 </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-400 mb-1">Start Date</label>
@@ -227,6 +281,7 @@ export default function TripsPage() {
                       className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                   </div>
                 </div>
+
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">Logo</label>
                   <div className="flex items-center gap-3">
@@ -252,9 +307,74 @@ export default function TripsPage() {
                     />
                   </div>
                 </div>
+
+                {/* Team section — always show for debugging, role check handled inside */}
+                <div className="border-t border-slate-800 pt-4">
+                  <h3 className="text-white font-medium mb-3">👥 Trip Admins</h3>
+
+                  {tripAdmins.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      {tripAdmins.map(admin => (
+                        <div key={admin.id} className="flex items-center justify-between p-2.5 bg-slate-800/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                              admin.role === 'super'
+                                ? 'bg-amber-500/20 text-amber-400'
+                                : 'bg-slate-700 text-slate-400'
+                            }`}>
+                              {admin.role === 'super' ? '⭐ Super' : '👤 Admin'}
+                            </span>
+                            <span className="text-slate-300 text-sm">{admin.user_id}</span>
+                          </div>
+                          {admin.role !== 'super' && (
+                            <button
+                              onClick={() => handleRemoveAdmin(admin.user_id)}
+                              className="text-slate-500 hover:text-red-400 text-xs transition-colors"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Only super admins can invite */}
+                  {editingTrip.role === 'super' && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Invite by Email</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          value={inviteEmail}
+                          onChange={e => setInviteEmail(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleInvite()}
+                          placeholder="colleague@example.com"
+                          className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                        <button
+                          onClick={handleInvite}
+                          disabled={inviting || !inviteEmail.trim()}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-medium rounded-lg transition-colors"
+                        >
+                          {inviting ? '...' : 'Invite'}
+                        </button>
+                      </div>
+                      {inviteMessage && (
+                        <p className={`text-xs mt-1.5 ${inviteMessage.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
+                          {inviteMessage}
+                        </p>
+                      )}
+                      <p className="text-slate-500 text-xs mt-1.5">
+                        If they don't have an account, they'll receive an email invitation to join.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center justify-end gap-3 mt-6">
-                <button onClick={() => setEditingTrip(null)} className="px-4 py-2 text-slate-400 hover:text-white text-sm">Cancel</button>
+
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800">
+                <button onClick={() => setEditingTrip(null)} className="px-4 py-2 text-slate-400 hover:text-white text-sm">Close</button>
                 <button onClick={handleSaveEdit} disabled={saving || !editTitle.trim()}
                   className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-medium rounded-lg text-sm transition-colors">
                   {saving ? 'Saving...' : 'Save Changes'}
