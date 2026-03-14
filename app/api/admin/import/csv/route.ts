@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin, createSupabaseServerClient } from '@/lib/supabase'
+import { supabaseAdmin, createSupabaseServerClient, getTripId } from '@/lib/supabase'
 
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient()
@@ -14,7 +14,6 @@ function parseCSV(text: string): Record<string, string>[] {
   const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''))
 
   return lines.slice(1).map(line => {
-    // Handle quoted fields with commas inside
     const values: string[] = []
     let current = ''
     let inQuotes = false
@@ -38,7 +37,6 @@ function parseCSV(text: string): Record<string, string>[] {
   }).filter(row => Object.values(row).some(v => v !== ''))
 }
 
-// Map CSV column names to our DB fields
 function mapRow(row: Record<string, string>) {
   const get = (...keys: string[]) => {
     for (const key of keys) {
@@ -77,6 +75,7 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData()
   const file = formData.get('file') as File
   const preview = formData.get('preview') === 'true'
+  const tripId = getTripId(request)
 
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
@@ -89,7 +88,6 @@ export async function POST(request: NextRequest) {
 
   const mapped = rows.map(mapRow).filter(r => r.name)
 
-  // If preview mode, just return what we parsed
   if (preview) {
     return NextResponse.json({
       count: mapped.length,
@@ -98,40 +96,62 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // Upsert participants
   const results = { created: 0, updated: 0, errors: [] as string[] }
 
   for (const participant of mapped) {
     try {
+      if (!participant.name?.trim()) {
+        results.errors.push(`(unnamed row): Name is required`)
+        continue
+      }
+
       if (participant.email) {
-        // Check if exists
-        const { data: existing } = await supabaseAdmin
+        const { data: existing, error: findError } = await supabaseAdmin
           .from('participants')
           .select('id')
           .eq('email', participant.email)
-          .single()
+          .maybeSingle()
+
+        if (findError) {
+          results.errors.push(`${participant.name}: DB lookup failed — ${findError.message}`)
+          continue
+        }
 
         if (existing) {
-          await supabaseAdmin
+          const { error: updateError } = await supabaseAdmin
             .from('participants')
             .update({ ...participant, updated_at: new Date().toISOString() })
             .eq('id', existing.id)
+
+          if (updateError) {
+            results.errors.push(`${participant.name}: Update failed — ${updateError.message}`)
+            continue
+          }
           results.updated++
         } else {
-          await supabaseAdmin
+          const { error: insertError } = await supabaseAdmin
             .from('participants')
-            .insert([participant])
+            .insert([{ ...participant, trip_id: tripId }])
+
+          if (insertError) {
+            results.errors.push(`${participant.name}: Insert failed — ${insertError.message}`)
+            continue
+          }
           results.created++
         }
       } else {
-        // No email — always create
-        await supabaseAdmin
+        const { error: insertError } = await supabaseAdmin
           .from('participants')
-          .insert([participant])
+          .insert([{ ...participant, trip_id: tripId }])
+
+        if (insertError) {
+          results.errors.push(`${participant.name}: Insert failed — ${insertError.message}`)
+          continue
+        }
         results.created++
       }
     } catch (e: any) {
-      results.errors.push(`${participant.name}: ${e.message}`)
+      results.errors.push(`${participant.name || '(unknown)'}: Unexpected error — ${e.message}`)
     }
   }
 

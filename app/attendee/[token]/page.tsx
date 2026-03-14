@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Participant, Group, Event } from '@/lib/types'
+import { useState, useEffect, useRef } from 'react'
+import { Participant, Group, Event, Trip } from '@/lib/types'
 import AttendeeCalendar from '@/components/AttendeeCalendar'
 import JournalSection from '@/components/JournalSection'
 import MapModal from '@/components/MapModal'
@@ -33,6 +33,7 @@ interface PageData {
   participant: Participant & { group: Group | null }
   events: Event[]
   factSheet: FactSheet | null
+  trip: Trip | null
 }
 
 export default function AttendeePage({ params }: { params: Promise<{ token: string }> }) {
@@ -44,6 +45,9 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   const [showMap, setShowMap] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     params.then(async ({ token: t }) => {
@@ -64,7 +68,6 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
 
       if (mapData.map) setMap(mapData.map)
 
-      // Fetch participant docs
       const docsRes = await fetch(`/api/attendee/documents?token=${t}`)
       const docsData = await docsRes.json()
       if (Array.isArray(docsData)) setDocuments(docsData)
@@ -94,6 +97,46 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     setShowMap(true)
   }
 
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !token) return
+
+    setUploadingPhoto(true)
+    const preview = URL.createObjectURL(file)
+    setPhotoPreview(preview)
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('token', token)
+
+    const res = await fetch('/api/attendee/upload-photo', {
+      method: 'POST',
+      body: formData,
+    })
+
+    const result = await res.json()
+    setUploadingPhoto(false)
+
+    if (!res.ok) {
+      setPhotoPreview(null)
+      alert(result.error || 'Photo upload failed')
+    } else {
+      // Update local data with new photo URL
+      setData(prev => prev ? {
+        ...prev,
+        participant: { ...prev.participant, photo_url: result.url }
+      } : prev)
+    }
+  }
+
+  function formatDateRange(trip: Trip) {
+    if (!trip.start_date) return null
+    const start = new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    if (!trip.end_date) return start
+    const end = new Date(trip.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return `${start} – ${end}`
+  }
+
   if (loading) return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center">
       <div className="text-slate-400">Loading your information...</div>
@@ -109,34 +152,48 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     </div>
   )
 
-  const { participant, events, factSheet } = data
+  const { participant, events, factSheet, trip } = data
   const p = participant
+  const currentPhoto = photoPreview || p.photo_url
 
   return (
     <div className="min-h-screen bg-slate-950">
       {/* Header */}
       <div className="bg-slate-900 border-b border-slate-800 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
+          {/* Trip branding */}
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white text-sm font-bold">H</span>
+            {trip?.logo_url ? (
+              <img src={trip.logo_url} alt={trip.title}
+                className="w-10 h-10 rounded-lg object-contain bg-slate-800 p-0.5" />
+            ) : (
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-sm font-bold">
+                  {trip?.title?.charAt(0) || 'H'}
+                </span>
+              </div>
+            )}
+            <div>
+              <p className="text-white font-semibold text-sm leading-tight">
+                {trip?.title || 'HillDayTracker'}
+              </p>
+              {trip && formatDateRange(trip) && (
+                <p className="text-slate-400 text-xs">{formatDateRange(trip)}</p>
+              )}
             </div>
-            <span className="text-white font-semibold">HillDayTracker</span>
           </div>
+
+          {/* Action buttons */}
           <div className="flex items-center gap-2">
             {map && (
-              <button
-                onClick={handleMapOpen}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-              >
+              <button onClick={handleMapOpen}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
                 🗺️ Map
               </button>
             )}
             {factSheet && (
-              <button
-                onClick={handlePdfDownload}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-              >
+              <button onClick={handlePdfDownload}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
                 📄 Fact Sheet
               </button>
             )}
@@ -149,13 +206,37 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         {/* Hero Card */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <div className="flex items-center gap-5">
-            <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden flex-shrink-0">
-              {p.photo_url ? (
-                <img src={p.photo_url} alt={p.name} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-white text-3xl font-bold">{p.name.charAt(0)}</span>
-              )}
+            {/* Photo with upload button */}
+            <div className="relative flex-shrink-0">
+              <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden">
+                {currentPhoto ? (
+                  <img src={currentPhoto} alt={p.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-white text-3xl font-bold">{p.name.charAt(0)}</span>
+                )}
+              </div>
+              {/* Upload button overlay */}
+              <button
+                onClick={() => photoInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 hover:bg-blue-500 rounded-full flex items-center justify-center transition-colors border-2 border-slate-900"
+                title="Update photo"
+              >
+                {uploadingPhoto ? (
+                  <span className="text-white text-xs">...</span>
+                ) : (
+                  <span className="text-white text-xs">📷</span>
+                )}
+              </button>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handlePhotoUpload}
+                className="hidden"
+              />
             </div>
+
             <div>
               <h1 className="text-2xl font-bold text-white">{p.name}</h1>
               {p.title && <p className="text-slate-300">{p.title}</p>}
@@ -168,15 +249,13 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
           </div>
         </div>
 
-        {/* Broadcasts — amber cards, between hero and group */}
+        {/* Broadcasts */}
         {token && <BroadcastFeed token={token} />}
 
         {/* Group Info */}
         {p.group && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
-              🏷️ Your Group
-            </h2>
+            <h2 className="text-white font-semibold mb-4 flex items-center gap-2">🏷️ Your Group</h2>
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {p.group.lead_photo_url ? (
@@ -265,14 +344,9 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             <h2 className="text-white font-semibold mb-4">📁 Your Documents</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {documents.map(doc => (
-                <button
-                  key={doc.id}
-                  onClick={() => handleDocOpen(doc)}
-                  className="flex items-center gap-3 p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-xl text-left transition-colors"
-                >
-                  <span className="text-2xl flex-shrink-0">
-                    {doc.file_type === 'pdf' ? '📄' : '🖼️'}
-                  </span>
+                <button key={doc.id} onClick={() => handleDocOpen(doc)}
+                  className="flex items-center gap-3 p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-xl text-left transition-colors">
+                  <span className="text-2xl flex-shrink-0">{doc.file_type === 'pdf' ? '📄' : '🖼️'}</span>
                   <div>
                     <p className="text-white text-sm font-medium">{doc.label}</p>
                     <p className="text-slate-400 text-xs">{doc.file_type === 'pdf' ? 'PDF Document' : 'Image'}</p>
@@ -292,11 +366,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
 
       {/* Map Modal */}
       {showMap && mapUrl && map && (
-        <MapModal
-          mapUrl={mapUrl}
-          mapLabel={map.label}
-          onClose={() => setShowMap(false)}
-        />
+        <MapModal mapUrl={mapUrl} mapLabel={map.label} onClose={() => setShowMap(false)} />
       )}
     </div>
   )

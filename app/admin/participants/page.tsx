@@ -12,10 +12,11 @@ export default function ParticipantsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null)
   const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkGroupId, setBulkGroupId] = useState('')
+  const [bulkAssigning, setBulkAssigning] = useState(false)
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  useEffect(() => { fetchData() }, [])
 
   async function fetchData() {
     const [pRes, gRes] = await Promise.all([
@@ -30,8 +31,9 @@ export default function ParticipantsPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('Remove this participant?')) return
-    await fetch(`/api/admin/participants/${id}`, { method: 'DELETE' })
+    await apiFetch(`/api/admin/participants/${id}`, { method: 'DELETE' })
     setParticipants(prev => prev.filter(p => p.id !== id))
+    setSelected(prev => { const n = new Set(prev); n.delete(id); return n })
   }
 
   function handleEdit(p: Participant) {
@@ -53,11 +55,58 @@ export default function ParticipantsPage() {
     setModalOpen(false)
   }
 
+  // Selection helpers
+  function toggleSelect(id: string) {
+    setSelected(prev => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === filtered.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(filtered.map(p => p.id)))
+    }
+  }
+
+  async function handleBulkAssign() {
+    if (!bulkGroupId && bulkGroupId !== 'none') return alert('Please select a group')
+    if (selected.size === 0) return alert('No participants selected')
+    setBulkAssigning(true)
+
+    const groupIdToSet = bulkGroupId === 'none' ? null : bulkGroupId
+
+    await Promise.all(
+      Array.from(selected).map(id =>
+        apiFetch(`/api/admin/participants/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ group_id: groupIdToSet }),
+        })
+      )
+    )
+
+    // Refresh participants
+    const res = await apiFetch('/api/admin/participants')
+    const data = await res.json()
+    setParticipants(data)
+    setSelected(new Set())
+    setBulkGroupId('')
+    setBulkAssigning(false)
+  }
+
   const filtered = participants.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.company?.toLowerCase().includes(search.toLowerCase()) ||
     p.email?.toLowerCase().includes(search.toLowerCase())
   )
+
+  const allSelected = filtered.length > 0 && selected.size === filtered.length
+  const someSelected = selected.size > 0
 
   return (
     <div className="min-h-screen bg-slate-950 p-8">
@@ -80,7 +129,7 @@ export default function ParticipantsPage() {
         </div>
 
         {/* Search */}
-        <div className="mb-6">
+        <div className="mb-4">
           <input
             type="text"
             placeholder="Search by name, company, or email..."
@@ -89,6 +138,41 @@ export default function ParticipantsPage() {
             className="w-full max-w-md px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
+
+        {/* Bulk action toolbar */}
+        {someSelected && (
+          <div className="mb-4 flex items-center gap-3 p-3 bg-blue-600/10 border border-blue-500/30 rounded-xl">
+            <span className="text-blue-400 text-sm font-medium">
+              {selected.size} selected
+            </span>
+            <div className="flex items-center gap-2 ml-auto">
+              <select
+                value={bulkGroupId}
+                onChange={e => setBulkGroupId(e.target.value)}
+                className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— Assign to group —</option>
+                <option value="none">🚫 Remove from group</option>
+                {groups.map(g => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={handleBulkAssign}
+                disabled={bulkAssigning || !bulkGroupId}
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                {bulkAssigning ? 'Applying...' : 'Apply'}
+              </button>
+              <button
+                onClick={() => setSelected(new Set())}
+                className="px-3 py-1.5 text-slate-400 hover:text-white text-sm transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Table */}
         {loading ? (
@@ -105,26 +189,47 @@ export default function ParticipantsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-800">
-                  <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Name</th>
-                  <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Company</th>
-                  <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Group</th>
-                  <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Hotel</th>
-                  <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Attendee Link</th>
-                  <th className="px-6 py-4"></th>
+                  {/* Select all checkbox */}
+                  <th className="px-4 py-4 w-10">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleSelectAll}
+                      className="accent-blue-500 w-4 h-4 cursor-pointer"
+                    />
+                  </th>
+                  <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Name</th>
+                  <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Company</th>
+                  <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Group</th>
+                  <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Hotel</th>
+                  <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Attendee Link</th>
+                  <th className="px-4 py-4"></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((p, i) => (
                   <tr
                     key={p.id}
-                    className={`border-b border-slate-800 last:border-0 hover:bg-slate-800/50 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-900/50'}`}
+                    className={`border-b border-slate-800 last:border-0 transition-colors ${
+                      selected.has(p.id)
+                        ? 'bg-blue-600/10'
+                        : 'hover:bg-slate-800/50'
+                    }`}
                   >
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(p.id)}
+                        onChange={() => toggleSelect(p.id)}
+                        className="accent-blue-500 w-4 h-4 cursor-pointer"
+                      />
+                    </td>
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
                         {p.photo_url ? (
-                          <img src={p.photo_url} alt={p.name} className="w-9 h-9 rounded-full object-cover" />
+                          <img src={p.photo_url} alt={p.name} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
                         ) : (
-                          <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold">
+                          <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                             {p.name.charAt(0).toUpperCase()}
                           </div>
                         )}
@@ -134,8 +239,8 @@ export default function ParticipantsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-300">{p.company || '—'}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4 text-slate-300">{p.company || '—'}</td>
+                    <td className="px-4 py-4">
                       {p.group ? (
                         <span className="px-2.5 py-1 bg-blue-500/10 text-blue-400 text-sm rounded-full border border-blue-500/20">
                           {p.group.name}
@@ -144,10 +249,10 @@ export default function ParticipantsPage() {
                         <span className="text-slate-500">—</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-slate-300">
+                    <td className="px-4 py-4 text-slate-300">
                       {p.hotel_name ? `${p.hotel_name}${p.hotel_room ? ` · Rm ${p.hotel_room}` : ''}` : '—'}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <button
                         onClick={() => {
                           const url = `${window.location.origin}/attendee/${p.access_token}`
@@ -159,7 +264,7 @@ export default function ParticipantsPage() {
                         Copy link
                       </button>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-3 justify-end">
                         <button
                           onClick={() => handleEdit(p)}
