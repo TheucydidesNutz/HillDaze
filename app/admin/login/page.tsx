@@ -39,13 +39,14 @@ export default function LoginPage() {
         {/* Hero block */}
         <div className="text-center mb-8">
 
-          {/* Image — slightly narrower than the text below */}
-          <div className="mx-auto mb-4 rounded-xl overflow-hidden" style={{ width: '125%', aspectRatio: '5/5' }}>
-            <img
-              src="/covaled-hero.png"
-              alt="Group travel"
-              className="w-full h-full object-cover"
-            />
+          <div className="flex justify-center mb-4">
+            <div className="rounded-xl overflow-hidden" style={{ width: '125%', aspectRatio: '5/5' }}>
+              <img
+                src="/covaled-hero.png"
+                alt="Group travel"
+                className="w-full h-full object-cover"
+              />
+            </div>
           </div>
 
           {/* Covaled — full width of the max-w-md container */}
