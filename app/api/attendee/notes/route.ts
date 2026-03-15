@@ -8,10 +8,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Token and content required' }, { status: 400 })
   }
 
-  // Find participant by token
+  // Find participant by token — include trip_id
   const { data: participant } = await supabaseAdmin
     .from('participants')
-    .select('id')
+    .select('id, trip_id')
     .eq('access_token', token)
     .single()
 
@@ -21,7 +21,11 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from('notes')
-    .insert([{ participant_id: participant.id, content }])
+    .insert([{ 
+      participant_id: participant.id, 
+      trip_id: participant.trip_id,  // ← add this
+      content 
+    }])
     .select()
     .single()
 
@@ -37,7 +41,7 @@ export async function GET(request: NextRequest) {
 
   const { data: participant } = await supabaseAdmin
     .from('participants')
-    .select('id')
+    .select('id, trip_id')
     .eq('access_token', token)
     .single()
 

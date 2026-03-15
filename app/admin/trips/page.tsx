@@ -939,7 +939,7 @@ export default function TripsPage() {
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">Your Phone</label>
                       <input type="tel" value={settingsPhone} onChange={e => setSettingsPhone(e.target.value)}
-                        placeholder="e.g. (202) 555-0100"
+                        placeholder="e.g. (555) 555-1234"
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                     </div>
                     <div className="border-t border-slate-800 pt-4 space-y-3">

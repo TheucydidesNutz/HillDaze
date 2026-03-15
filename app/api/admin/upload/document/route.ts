@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin, createSupabaseServerClient } from '@/lib/supabase'
+import { supabaseAdmin, createSupabaseServerClient, getTripId } from '@/lib/supabase'
 
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient()
@@ -11,14 +11,17 @@ export async function POST(request: NextRequest) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const tripId = getTripId(request)  // ← read from header BEFORE consuming formData
+
   const formData = await request.formData()
   const file = formData.get('file') as File
   const label = formData.get('label') as string
-  const docType = formData.get('doc_type') as string // 'map' or 'document'
-  const groupId = formData.get('group_id') as string // '' = all groups
+  const docType = formData.get('doc_type') as string
+  const groupId = formData.get('group_id') as string
 
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
   if (!label) return NextResponse.json({ error: 'Label required' }, { status: 400 })
+  if (!tripId) return NextResponse.json({ error: 'No trip selected' }, { status: 400 })
 
   const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
   if (!allowedTypes.includes(file.type)) {
@@ -49,6 +52,7 @@ export async function POST(request: NextRequest) {
       file_type: fileType,
       doc_type: docType,
       group_id: groupId || null,
+      trip_id: tripId,  // ← add this
     }])
     .select()
     .single()
