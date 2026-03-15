@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin, createSupabaseServerClient, getTripId } from '@/lib/supabase'
+import { formatPhone } from '@/lib/utils'
 
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient()
@@ -34,7 +35,12 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from('participants')
-    .insert([{ ...body, trip_id: tripId }])
+    .insert([{
+      ...body,
+      phone: formatPhone(body.phone),
+      emergency_phone: formatPhone(body.emergency_phone),
+      trip_id: tripId
+    }])
     .select('*, group:groups(*)')
     .single()
 

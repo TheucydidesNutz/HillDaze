@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin, createSupabaseServerClient, getTripId } from '@/lib/supabase'
+import { formatPhone } from '@/lib/utils'
 
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient()
@@ -49,10 +50,10 @@ function mapRow(row: Record<string, string>) {
     name: get('name', 'full_name', 'fullname', 'participant_name') || '',
     company: get('company', 'organization', 'org'),
     title: get('title', 'job_title', 'position', 'role'),
-    phone: get('phone', 'phone_number', 'mobile', 'cell'),
+    phone: formatPhone(get('phone', 'phone_number', 'mobile', 'cell')),
     email: get('email', 'email_address'),
     emergency_name: get('emergency_name', 'emergency_contact', 'emergency_contact_name'),
-    emergency_phone: get('emergency_phone', 'emergency_contact_phone', 'emergency_number'),
+    emergency_phone: formatPhone(get('emergency_phone', 'emergency_contact_phone', 'emergency_number')),
     emergency_email: get('emergency_email', 'emergency_contact_email'),
     arrival_airline: get('arrival_airline', 'airline'),
     arrival_flight_no: get('arrival_flight_no', 'arrival_flight', 'flight_number', 'flight_no'),
