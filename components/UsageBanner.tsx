@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
 import { TIER_LIMITS, TIER_NAMES, isExpired } from '@/lib/limits'
 import type { SubscriptionTier } from '@/lib/limits'
 
@@ -14,33 +13,15 @@ interface UsageData {
 export default function UsageBanner() {
   const [usage, setUsage] = useState<UsageData | null>(null)
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const [{ data: settings }, { data: tripAdminRows }] = await Promise.all([
-        supabase
-          .from('user_settings')
-          .select('subscription_tier, subscription_expires_at')
-          .eq('user_id', user.id)
-          .single(),
-        supabase
-          .from('trip_admins')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('role', 'super'),
-      ])
-
+      const res = await fetch('/api/admin/usage')
+      if (!res.ok) return
+      const data = await res.json()
       setUsage({
-        tier: (settings?.subscription_tier || 'free') as SubscriptionTier,
-        expiresAt: settings?.subscription_expires_at || null,
-        tripCount: tripAdminRows?.length || 0,
+        tier: data.tier as SubscriptionTier,
+        expiresAt: data.expiresAt,
+        tripCount: data.tripCount,
       })
     }
     load()

@@ -18,7 +18,9 @@ interface UserSettings {
   org_name: string | null
   logo_url: string | null
   display_name: string | null
+  phone: string | null
   timezone: string | null
+  photo_url: string | null  // ← add this
 }
 
 interface OrgUser {
@@ -54,6 +56,7 @@ export default function TripsPage() {
   const [newTitle, setNewTitle] = useState('')
   const [newStart, setNewStart] = useState('')
   const [newEnd, setNewEnd] = useState('')
+  const [newTimezone, setNewTimezone] = useState('America/New_York')
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editStart, setEditStart] = useState('')
@@ -61,15 +64,20 @@ export default function TripsPage() {
   const [editTimezone, setEditTimezone] = useState('')
   const [saving, setSaving] = useState(false)
   const [tripAdmins, setTripAdmins] = useState<TripAdmin[]>([])
+  const [newTripAdmins, setNewTripAdmins] = useState<TripAdmin[]>([])
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviting, setInviting] = useState(false)
   const [inviteMessage, setInviteMessage] = useState('')
+  const [newInviteEmail, setNewInviteEmail] = useState('')
+  const [newInviting, setNewInviting] = useState(false)
+  const [newInviteMessage, setNewInviteMessage] = useState('')
+  const [createdTrip, setCreatedTrip] = useState<Trip | null>(null)
   const [deleteStep, setDeleteStep] = useState<{ id: string; step: 1 | 2 } | null>(null)
 
   // Settings state
   const [showSettings, setShowSettings] = useState(false)
   const [settingsTab, setSettingsTab] = useState<'general' | 'account' | 'users'>('general')
-  const [userSettings, setUserSettings] = useState<UserSettings>({ org_name: null, logo_url: null, display_name: null, timezone: null })
+  const [userSettings, setUserSettings] = useState<UserSettings>({ org_name: null, logo_url: null, display_name: null, timezone: null, photo_url: null, phone: null })
   const [settingsOrgName, setSettingsOrgName] = useState('')
   const [settingsDisplayName, setSettingsDisplayName] = useState('')
   const [settingsTimezone, setSettingsTimezone] = useState('America/New_York')
@@ -77,6 +85,7 @@ export default function TripsPage() {
   const [settingsMessage, setSettingsMessage] = useState('')
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null)
+  const [settingsPhone, setSettingsPhone] = useState('')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -106,7 +115,7 @@ export default function TripsPage() {
 
     const { data } = await supabase
       .from('user_settings')
-      .select('org_name, logo_url, display_name, timezone')
+      .select('org_name, logo_url, display_name, timezone, photo_url, phone')
       .eq('user_id', user.id)
       .single()
 
@@ -114,7 +123,9 @@ export default function TripsPage() {
       setUserSettings(data)
       setSettingsOrgName(data.org_name || '')
       setSettingsDisplayName(data.display_name || '')
+      setSettingsPhone(data.phone || '')
       setSettingsTimezone(data.timezone || 'America/New_York')
+      setNewTimezone(data.timezone || 'America/New_York')
     }
   }
 
@@ -132,6 +143,12 @@ export default function TripsPage() {
     const res = await fetch(`/api/admin/trips/${tripId}/invite`)
     const data = await res.json()
     setTripAdmins(Array.isArray(data) ? data : [])
+  }
+
+  async function fetchNewTripAdmins(tripId: string) {
+    const res = await fetch(`/api/admin/trips/${tripId}/invite`)
+    const data = await res.json()
+    setNewTripAdmins(Array.isArray(data) ? data : [])
   }
 
   async function fetchOrgUsers() {
@@ -152,19 +169,50 @@ export default function TripsPage() {
         title: newTitle,
         start_date: newStart,
         end_date: newEnd,
-        timezone: userSettings.timezone || 'America/New_York',
+        timezone: newTimezone,
       }),
     })
     const data = await res.json()
     setCreating(false)
     if (res.ok) {
-      setTrips(prev => [...prev, data])
-      setShowNew(false)
-      setNewTitle('')
-      setNewStart('')
-      setNewEnd('')
+      const newTrip = { ...data, role: 'super' } as Trip
+      setTrips(prev => [...prev, newTrip])
+      setCreatedTrip(newTrip)
+      fetchNewTripAdmins(newTrip.id)
     } else {
       alert(data.error)
+    }
+  }
+
+  function closeNewModal() {
+    setShowNew(false)
+    setCreatedTrip(null)
+    setNewTitle('')
+    setNewStart('')
+    setNewEnd('')
+    setNewTimezone(userSettings.timezone || 'America/New_York')
+    setNewTripAdmins([])
+    setNewInviteEmail('')
+    setNewInviteMessage('')
+  }
+
+  async function handleNewTripInvite() {
+    if (!newInviteEmail.trim() || !createdTrip) return
+    setNewInviting(true)
+    setNewInviteMessage('')
+    const res = await fetch(`/api/admin/trips/${createdTrip.id}/invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: newInviteEmail }),
+    })
+    const data = await res.json()
+    setNewInviting(false)
+    if (res.ok) {
+      setNewInviteMessage(`✓ ${data.message}`)
+      setNewInviteEmail('')
+      fetchNewTripAdmins(createdTrip.id)
+    } else {
+      setNewInviteMessage(`✗ ${data.error}`)
     }
   }
 
@@ -245,6 +293,7 @@ export default function TripsPage() {
         user_id: currentUserId,
         org_name: settingsOrgName.trim() || null,
         display_name: settingsDisplayName.trim() || null,
+        phone: settingsPhone.trim() || null, 
         timezone: settingsTimezone,
         updated_at: new Date().toISOString(),
       })
@@ -257,6 +306,7 @@ export default function TripsPage() {
         ...prev,
         org_name: settingsOrgName.trim() || null,
         display_name: settingsDisplayName.trim() || null,
+        phone: settingsPhone.trim() || null,
         timezone: settingsTimezone,
       }))
       setSettingsMessage('✓ Settings saved')
@@ -299,6 +349,41 @@ export default function TripsPage() {
     if (!dbError) {
       setUserSettings(prev => ({ ...prev, logo_url: publicUrl }))
       setSettingsMessage('✓ Logo updated')
+      setTimeout(() => setSettingsMessage(''), 3000)
+    }
+  }
+
+  async function handleAdminPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !currentUserId) return
+
+    const ext = file.name.split('.').pop()
+    const path = `${currentUserId}/admin-photo.${ext}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('admin-photos')
+      .upload(path, file, { upsert: true })
+
+    if (uploadError) {
+      setSettingsMessage(`✗ Photo upload failed: ${uploadError.message}`)
+      return
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('admin-photos')
+      .getPublicUrl(path)
+
+    const { error: dbError } = await supabase
+      .from('user_settings')
+      .upsert({
+        user_id: currentUserId,
+        photo_url: publicUrl,
+        updated_at: new Date().toISOString(),
+      })
+
+    if (!dbError) {
+      setUserSettings(prev => ({ ...prev, photo_url: publicUrl }))
+      setSettingsMessage('✓ Photo updated')
       setTimeout(() => setSettingsMessage(''), 3000)
     }
   }
@@ -477,11 +562,10 @@ export default function TripsPage() {
                     {formatDateRange(trip) && (
                       <p className="text-slate-400 text-sm mt-0.5">{formatDateRange(trip)}</p>
                     )}
-                    <span className={`inline-block mt-2 px-2.5 py-1 rounded-full text-xs font-medium border ${
-                      trip.role === 'super'
-                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                        : 'bg-slate-700 text-slate-400 border-slate-600'
-                    }`}>
+                    <span className={`inline-block mt-2 px-2.5 py-1 rounded-full text-xs font-medium border ${trip.role === 'super'
+                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                      : 'bg-slate-700 text-slate-400 border-slate-600'
+                      }`}>
                       {trip.role === 'super' ? '⭐ Super Admin' : '👤 Admin'}
                     </span>
                   </div>
@@ -508,37 +592,127 @@ export default function TripsPage() {
         {/* New Trip Modal */}
         {showNew && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-white font-semibold text-lg">Create New Trip</h2>
-                <button onClick={() => setShowNew(false)} className="text-slate-400 hover:text-white">✕</button>
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+                <h2 className="text-white font-semibold text-lg">
+                  {createdTrip ? `✓ Trip Created — Add Details` : 'Create New Trip'}
+                </h2>
+                <button onClick={closeNewModal} className="text-slate-400 hover:text-white">✕</button>
               </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Trip Title *</label>
-                  <input type="text" value={newTitle} onChange={e => setNewTitle(e.target.value)}
-                    placeholder="e.g. ACME Corp Hill Day 2026"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">Start Date</label>
-                    <input type="date" value={newStart} onChange={e => setNewStart(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">End Date</label>
-                    <input type="date" value={newEnd} onChange={e => setNewEnd(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-                  </div>
-                </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                {!createdTrip ? (
+                  // Step 1: Basic info
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Trip Title *</label>
+                      <input type="text" value={newTitle} onChange={e => setNewTitle(e.target.value)}
+                        placeholder="e.g. ACME Corp Hill Day 2026"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Start Date</label>
+                        <input type="date" value={newStart} onChange={e => setNewStart(e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">End Date</label>
+                        <input type="date" value={newEnd} onChange={e => setNewEnd(e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Trip Timezone</label>
+                      <select value={newTimezone} onChange={e => setNewTimezone(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                        {TIMEZONES.map(tz => (
+                          <option key={tz} value={tz}>{tz}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                ) : (
+                  // Step 2: Logo + Admins after creation
+                  <>
+                    <div className="bg-slate-800/50 rounded-lg p-3 mb-2">
+                      <p className="text-slate-400 text-xs">Trip <span className="text-white font-medium">{createdTrip.title}</span> created. Add a logo and invite admins, or close to finish.</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Logo</label>
+                      <div className="flex items-center gap-3">
+                        {createdTrip.logo_url && (
+                          <img src={createdTrip.logo_url} alt="logo" className="w-12 h-12 rounded-lg object-contain bg-slate-700 p-1" />
+                        )}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={async e => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            const fd = new FormData()
+                            fd.append('file', file)
+                            const res = await fetch(`/api/admin/trips/${createdTrip.id}/logo`, { method: 'POST', body: fd })
+                            const data = await res.json()
+                            if (res.ok) {
+                              setCreatedTrip(prev => prev ? { ...prev, logo_url: data.url } : prev)
+                              setTrips(prev => prev.map(t => t.id === createdTrip.id ? { ...t, logo_url: data.url } : t))
+                            }
+                          }}
+                          className="text-sm text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-800 pt-4">
+                      <h3 className="text-white font-medium mb-3 text-sm">👥 Trip Admins</h3>
+                      {newTripAdmins.length > 0 && (
+                        <div className="space-y-2 mb-4">
+                          {newTripAdmins.map(admin => (
+                            <div key={admin.id} className="flex items-center gap-2 p-2.5 bg-slate-800/50 rounded-lg">
+                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${admin.role === 'super' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'}`}>
+                                {admin.role === 'super' ? '⭐ Super' : '👤 Admin'}
+                              </span>
+                              <span className="text-slate-300 text-sm">{admin.email}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Invite by Email</label>
+                      <div className="flex gap-2">
+                        <input type="email" value={newInviteEmail} onChange={e => setNewInviteEmail(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleNewTripInvite()}
+                          placeholder="colleague@example.com"
+                          className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                        <button onClick={handleNewTripInvite} disabled={newInviting || !newInviteEmail.trim()}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-medium rounded-lg transition-colors">
+                          {newInviting ? '...' : 'Invite'}
+                        </button>
+                      </div>
+                      {newInviteMessage && (
+                        <p className={`text-xs mt-1.5 ${newInviteMessage.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
+                          {newInviteMessage}
+                        </p>
+                      )}
+                      <p className="text-slate-500 text-xs mt-1.5">
+                        If they don't have an account, they'll receive an email invitation to join.
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
-              <div className="flex items-center justify-end gap-3 mt-6">
-                <button onClick={() => setShowNew(false)} className="px-4 py-2 text-slate-400 hover:text-white text-sm">Cancel</button>
-                <button onClick={handleCreate} disabled={creating || !newTitle.trim()}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-medium rounded-lg text-sm transition-colors">
-                  {creating ? 'Creating...' : 'Create Trip'}
+
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800">
+                <button onClick={closeNewModal} className="px-4 py-2 text-slate-400 hover:text-white text-sm">
+                  {createdTrip ? 'Done' : 'Cancel'}
                 </button>
+                {!createdTrip && (
+                  <button onClick={handleCreate} disabled={creating || !newTitle.trim()}
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-medium rounded-lg text-sm transition-colors">
+                    {creating ? 'Creating...' : 'Create Trip'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -671,7 +845,6 @@ export default function TripsPage() {
                 <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white">✕</button>
               </div>
 
-              {/* Tabs */}
               <div className="flex gap-1 px-6 pt-4 pb-2">
                 {(['general', 'account', ...(isSuperAdmin ? ['users'] : [])] as const).map(t => (
                   <button
@@ -686,18 +859,13 @@ export default function TripsPage() {
 
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
 
-                {/* General Tab */}
                 {settingsTab === 'general' && (
                   <>
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">Organization Name</label>
-                      <input
-                        type="text"
-                        value={settingsOrgName}
-                        onChange={e => setSettingsOrgName(e.target.value)}
+                      <input type="text" value={settingsOrgName} onChange={e => setSettingsOrgName(e.target.value)}
                         placeholder="e.g. ACME Corp"
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                      />
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                       <p className="text-slate-500 text-xs mt-1.5">Replaces "[Your Group]" in the header.</p>
                     </div>
                     <div>
@@ -711,23 +879,16 @@ export default function TripsPage() {
                             <span className="text-slate-500 text-xs">None</span>
                           </div>
                         )}
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp,image/svg+xml"
-                          onChange={handleOrgLogoUpload}
-                          disabled={uploadingLogo}
-                          className="text-sm text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer disabled:opacity-50"
-                        />
+                        <input type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                          onChange={handleOrgLogoUpload} disabled={uploadingLogo}
+                          className="text-sm text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer disabled:opacity-50" />
                       </div>
                       {uploadingLogo && <p className="text-slate-400 text-xs mt-1.5">Uploading...</p>}
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">Default Timezone</label>
-                      <select
-                        value={settingsTimezone}
-                        onChange={e => setSettingsTimezone(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                      >
+                      <select value={settingsTimezone} onChange={e => setSettingsTimezone(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
                         {TIMEZONES.map(tz => (
                           <option key={tz} value={tz}>{tz}</option>
                         ))}
@@ -742,18 +903,44 @@ export default function TripsPage() {
                   </>
                 )}
 
-                {/* Account Tab */}
                 {settingsTab === 'account' && (
                   <>
+                    {/* Photo upload */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-2">Profile Photo</label>
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          {userSettings.photo_url ? (
+                            <img src={userSettings.photo_url} alt="Profile" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-white text-xl font-bold">
+                              {settingsDisplayName?.charAt(0) || currentUserEmail?.charAt(0) || '?'}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={handleAdminPhotoUpload}
+                            className="text-sm text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer"
+                          />
+                          <p className="text-slate-500 text-xs mt-1">JPG, PNG or WebP</p>
+                        </div>
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">Your Name</label>
-                      <input
-                        type="text"
-                        value={settingsDisplayName}
-                        onChange={e => setSettingsDisplayName(e.target.value)}
+                      <input type="text" value={settingsDisplayName} onChange={e => setSettingsDisplayName(e.target.value)}
                         placeholder="e.g. Jane Smith"
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                      />
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Your Phone</label>
+                      <input type="tel" value={settingsPhone} onChange={e => setSettingsPhone(e.target.value)}
+                        placeholder="e.g. (202) 555-0100"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                     </div>
                     <div className="border-t border-slate-800 pt-4 space-y-3">
                       <h3 className="text-white font-medium text-sm">Account Info</h3>
@@ -799,7 +986,6 @@ export default function TripsPage() {
                   </>
                 )}
 
-                {/* Users Tab — super admin only */}
                 {settingsTab === 'users' && (
                   <>
                     <h3 className="text-white font-medium text-sm">All Users</h3>
@@ -819,11 +1005,9 @@ export default function TripsPage() {
                                 </p>
                               </div>
                               {u.id !== currentUserId && (
-                                <button
-                                  onClick={() => handleDeleteUser(u.id, u.email)}
+                                <button onClick={() => handleDeleteUser(u.id, u.email)}
                                   disabled={deletingUserId === u.id}
-                                  className="text-slate-600 hover:text-red-400 text-xs transition-colors flex-shrink-0 mt-0.5"
-                                >
+                                  className="text-slate-600 hover:text-red-400 text-xs transition-colors flex-shrink-0 mt-0.5">
                                   {deletingUserId === u.id ? '...' : 'Delete'}
                                 </button>
                               )}
@@ -832,30 +1016,26 @@ export default function TripsPage() {
                               )}
                             </div>
                             <div className="flex flex-wrap gap-2 mt-2">
-                              {trips
-                                .filter(t => t.role === 'super')
-                                .map(trip => {
-                                  const admin = tripAdmins.find(a => a.user_id === u.id)
-                                  if (!admin && u.id !== currentUserId) return null
-                                  const role = admin?.role || (u.id === currentUserId ? 'super' : null)
-                                  if (!role) return null
-                                  return (
-                                    <div key={trip.id} className="flex items-center gap-1.5">
-                                      <span className="text-slate-600 text-xs">{trip.title}:</span>
-                                      <button
-                                        onClick={() => u.id !== currentUserId && handleToggleUserRole(u.id, role as 'super' | 'admin')}
-                                        disabled={u.id === currentUserId}
-                                        className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
-                                          role === 'super'
-                                            ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 disabled:cursor-default'
-                                            : 'bg-slate-700 text-slate-400 hover:bg-slate-600 disabled:cursor-default'
-                                        }`}
-                                      >
-                                        {role === 'super' ? '⭐ Super' : '👤 Admin'}
-                                      </button>
-                                    </div>
-                                  )
-                                })}
+                              {trips.filter(t => t.role === 'super').map(trip => {
+                                const admin = tripAdmins.find(a => a.user_id === u.id)
+                                if (!admin && u.id !== currentUserId) return null
+                                const role = admin?.role || (u.id === currentUserId ? 'super' : null)
+                                if (!role) return null
+                                return (
+                                  <div key={trip.id} className="flex items-center gap-1.5">
+                                    <span className="text-slate-600 text-xs">{trip.title}:</span>
+                                    <button
+                                      onClick={() => u.id !== currentUserId && handleToggleUserRole(u.id, role as 'super' | 'admin')}
+                                      disabled={u.id === currentUserId}
+                                      className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${role === 'super'
+                                        ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 disabled:cursor-default'
+                                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600 disabled:cursor-default'
+                                        }`}>
+                                      {role === 'super' ? '⭐ Super' : '👤 Admin'}
+                                    </button>
+                                  </div>
+                                )
+                              })}
                             </div>
                           </div>
                         ))}
@@ -870,11 +1050,8 @@ export default function TripsPage() {
                   Close
                 </button>
                 {settingsTab !== 'users' && (
-                  <button
-                    onClick={handleSaveSettings}
-                    disabled={savingSettings}
-                    className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-medium rounded-lg text-sm transition-colors"
-                  >
+                  <button onClick={handleSaveSettings} disabled={savingSettings}
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-medium rounded-lg text-sm transition-colors">
                     {savingSettings ? 'Saving...' : 'Save Settings'}
                   </button>
                 )}
