@@ -911,7 +911,7 @@ export default function TripsPage() {
                       <div className="flex items-center gap-4">
                         <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden flex-shrink-0">
                           {userSettings.photo_url ? (
-                            <img src={userSettings.photo_url} alt="Profile" className="w-full h-full object-cover" />
+                            <img src={`${userSettings.photo_url}?t=${Date.now()}`} alt="Profile" className="w-full h-full object-cover" />
                           ) : (
                             <span className="text-white text-xl font-bold">
                               {settingsDisplayName?.charAt(0) || currentUserEmail?.charAt(0) || '?'}

@@ -9,6 +9,53 @@ async function getAdminUser() {
   return user
 }
 
+async function upsertAdminAsParticipant(tripId: string, userId: string) {
+  // Get user's auth info and settings
+  const { data: { user: authUser } } = await supabaseAdmin.auth.admin.getUserById(userId)
+  if (!authUser) return
+
+  const { data: settings } = await supabaseAdmin
+    .from('user_settings')
+    .select('display_name, phone, photo_url')
+    .eq('user_id', userId)
+    .single()
+
+  const name = settings?.display_name || authUser.email || ''
+  const email = authUser.email || ''
+
+  // Upsert into participants — match on email + trip_id
+  const { data: existing } = await supabaseAdmin
+    .from('participants')
+    .select('id')
+    .eq('email', email)
+    .eq('trip_id', tripId)
+    .maybeSingle()
+
+  if (existing) {
+    // Update existing participant with latest info
+    await supabaseAdmin
+      .from('participants')
+      .update({
+        name,
+        phone: settings?.phone || null,
+        photo_url: settings?.photo_url || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id)
+  } else {
+    // Insert new participant
+    await supabaseAdmin
+      .from('participants')
+      .insert([{
+        name,
+        email,
+        phone: settings?.phone || null,
+        photo_url: settings?.photo_url || null,
+        trip_id: tripId,
+      }])
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -68,6 +115,9 @@ export async function POST(
       .from('trip_admins')
       .insert([{ trip_id: id, user_id: newUser.user.id, role: 'admin', invited_by: user.id }])
 
+    // Add new user as participant
+    await upsertAdminAsParticipant(id, newUser.user.id)
+
     return NextResponse.json({ message: `Invitation sent to ${email}` })
   }
 
@@ -77,6 +127,10 @@ export async function POST(
       { onConflict: 'trip_id,user_id' })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Add existing user as participant
+  await upsertAdminAsParticipant(id, invitedUser.id)
+
   return NextResponse.json({ message: `${email} added as admin` })
 }
 

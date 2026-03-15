@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   // Fetch user's subscription tier and expiry
   const { data: settings } = await supabaseAdmin
     .from('user_settings')
-    .select('subscription_tier, subscription_expires_at')
+    .select('subscription_tier, subscription_expires_at, display_name, phone, photo_url')
     .eq('user_id', user.id)
     .single()
 
@@ -80,9 +80,30 @@ export async function POST(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // Add creator as super admin
   await supabaseAdmin
     .from('trip_admins')
     .insert([{ trip_id: trip.id, user_id: user.id, role: 'super', invited_by: user.id }])
+
+  // Auto-add trip creator as participant
+  const { data: existingParticipant } = await supabaseAdmin
+    .from('participants')
+    .select('id')
+    .eq('email', user.email!)
+    .eq('trip_id', trip.id)
+    .maybeSingle()
+
+  if (!existingParticipant) {
+    await supabaseAdmin
+      .from('participants')
+      .insert([{
+        name: settings?.display_name || user.email || '',
+        email: user.email,
+        phone: settings?.phone || null,
+        photo_url: settings?.photo_url || null,
+        trip_id: trip.id,
+      }])
+  }
 
   return NextResponse.json({ ...trip, role: 'super' }, { status: 201 })
 }
