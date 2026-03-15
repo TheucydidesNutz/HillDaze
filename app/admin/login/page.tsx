@@ -38,7 +38,6 @@ export default function LoginPage() {
 
         {/* Hero block */}
         <div className="text-center mb-8">
-
           <div className="flex justify-center mb-4">
             <div className="rounded-xl overflow-hidden" style={{ width: '125%', aspectRatio: '5/5' }}>
               <img
@@ -48,8 +47,6 @@ export default function LoginPage() {
               />
             </div>
           </div>
-
-          {/* Covaled — full width of the max-w-md container */}
           <h1 className="text-6xl font-bold text-white tracking-tight">
             Covaled
           </h1>
@@ -105,6 +102,13 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
+
+          <p className="text-slate-500 text-sm text-center mt-6">
+            Don't have an account?{' '}
+            <a href="/admin/signup" className="text-blue-400 hover:text-blue-300">
+              Sign up free
+            </a>
+          </p>
         </div>
 
       </div>

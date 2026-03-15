@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin, createSupabaseServerClient } from '@/lib/supabase'
+import { canCreateTrip, isExpired } from '@/lib/limits'
+import type { SubscriptionTier } from '@/lib/limits'
 
 async function getAdminUser() {
   const supabase = await createSupabaseServerClient()
@@ -27,14 +29,52 @@ export async function POST(request: NextRequest) {
   const user = await getAdminUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // Fetch user's subscription tier and expiry
+  const { data: settings } = await supabaseAdmin
+    .from('user_settings')
+    .select('subscription_tier, subscription_expires_at')
+    .eq('user_id', user.id)
+    .single()
+
+  const tier = (settings?.subscription_tier || 'free') as SubscriptionTier
+  const expiresAt = settings?.subscription_expires_at || null
+
+  // Check if free tier has expired
+  if (isExpired(tier, expiresAt)) {
+    return NextResponse.json({
+      error: 'Your free trial has expired. Please upgrade to continue creating trips.',
+      code: 'TRIAL_EXPIRED',
+    }, { status: 403 })
+  }
+
+  // Count current trips owned by this user
+  const { count: tripCount } = await supabaseAdmin
+    .from('trip_admins')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('role', 'super')
+
+  if (!canCreateTrip(tier, tripCount || 0)) {
+    return NextResponse.json({
+      error: `Your ${tier} plan allows a maximum of ${tier === 'free' || tier === 'basic' ? 3 : 5} trips. Please upgrade to create more.`,
+      code: 'TRIP_LIMIT_REACHED',
+    }, { status: 403 })
+  }
+
   const body = await request.json()
-  const { title, start_date, end_date } = body
+  const { title, start_date, end_date, timezone } = body
 
   if (!title?.trim()) return NextResponse.json({ error: 'Title required' }, { status: 400 })
 
   const { data: trip, error } = await supabaseAdmin
     .from('trips')
-    .insert([{ title, start_date: start_date || null, end_date: end_date || null, created_by: user.id }])
+    .insert([{
+      title,
+      start_date: start_date || null,
+      end_date: end_date || null,
+      timezone: timezone || 'America/New_York',
+      created_by: user.id
+    }])
     .select()
     .single()
 

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin, createSupabaseServerClient } from '@/lib/supabase'
+import { canInviteAdmin } from '@/lib/limits'
+import type { SubscriptionTier } from '@/lib/limits'
 
 async function getAdminUser() {
   const supabase = await createSupabaseServerClient()
@@ -19,6 +21,7 @@ export async function POST(
 
   if (!email?.trim()) return NextResponse.json({ error: 'Email required' }, { status: 400 })
 
+  // Check inviter is super admin on this trip
   const { data: inviterAccess } = await supabaseAdmin
     .from('trip_admins')
     .select('role')
@@ -28,6 +31,30 @@ export async function POST(
 
   if (inviterAccess?.role !== 'super') {
     return NextResponse.json({ error: 'Only super admins can invite others' }, { status: 403 })
+  }
+
+  // Check subscription tier allows inviting admins
+  const { data: settings } = await supabaseAdmin
+    .from('user_settings')
+    .select('subscription_tier')
+    .eq('user_id', user.id)
+    .single()
+
+  const tier = (settings?.subscription_tier || 'free') as SubscriptionTier
+
+  // Count current admins on this trip
+  const { count: adminCount } = await supabaseAdmin
+    .from('trip_admins')
+    .select('*', { count: 'exact', head: true })
+    .eq('trip_id', id)
+
+  if (!canInviteAdmin(tier, adminCount || 0)) {
+    return NextResponse.json({
+      error: tier === 'free' || tier === 'basic'
+        ? 'Your plan does not support multiple admins. Upgrade to Pro or Enterprise to invite collaborators.'
+        : 'You have reached the maximum number of admins for your plan.',
+      code: 'ADMIN_LIMIT_REACHED',
+    }, { status: 403 })
   }
 
   const { data: { users } } = await supabaseAdmin.auth.admin.listUsers()
@@ -69,7 +96,6 @@ export async function GET(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Enrich with email from auth.users
   const { data: { users } } = await supabaseAdmin.auth.admin.listUsers()
 
   const enriched = (data || []).map((admin: any) => {
@@ -93,7 +119,6 @@ export async function DELETE(
 
   if (!userId) return NextResponse.json({ error: 'user_id required' }, { status: 400 })
 
-  // Verify requester is super admin
   const { data: requesterAccess } = await supabaseAdmin
     .from('trip_admins')
     .select('role')
@@ -110,7 +135,7 @@ export async function DELETE(
     .delete()
     .eq('trip_id', id)
     .eq('user_id', userId)
-    .neq('role', 'super') // Can't remove super admin
+    .neq('role', 'super')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })

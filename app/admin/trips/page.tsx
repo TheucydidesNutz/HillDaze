@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Trip } from '@/lib/types'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
+import UsageBanner from '@/components/UsageBanner'
 
 interface TripAdmin {
   id: string
@@ -162,7 +163,9 @@ export default function TripsPage() {
       setNewTitle('')
       setNewStart('')
       setNewEnd('')
-    } else alert(data.error)
+    } else {
+      alert(data.error)
+    }
   }
 
   async function handleSaveEdit() {
@@ -413,6 +416,9 @@ export default function TripsPage() {
             </button>
           </div>
         </div>
+
+        {/* Usage Banner */}
+        <UsageBanner />
 
         {/* Trips grid */}
         {loading ? (
@@ -812,7 +818,6 @@ export default function TripsPage() {
                                   Last sign in: {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : 'Never'}
                                 </p>
                               </div>
-                              {/* Don't show delete for current user */}
                               {u.id !== currentUserId && (
                                 <button
                                   onClick={() => handleDeleteUser(u.id, u.email)}
@@ -826,15 +831,12 @@ export default function TripsPage() {
                                 <span className="text-slate-600 text-xs flex-shrink-0 mt-0.5">You</span>
                               )}
                             </div>
-                            {/* Role toggle — show for all users across all trips where current user is super */}
                             <div className="flex flex-wrap gap-2 mt-2">
                               {trips
                                 .filter(t => t.role === 'super')
                                 .map(trip => {
                                   const admin = tripAdmins.find(a => a.user_id === u.id)
-                                  // For users who aren't admins on this trip yet, skip
                                   if (!admin && u.id !== currentUserId) return null
-                                  // For current user, show their role but don't let them toggle themselves
                                   const role = admin?.role || (u.id === currentUserId ? 'super' : null)
                                   if (!role) return null
                                   return (
