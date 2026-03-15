@@ -22,7 +22,8 @@ import {
   ChevronRight,
 } from 'lucide-react'
 
-// ─── Landing page data ────────────────────────────────────────────────────────
+// ─── Data ─────────────────────────────────────────────────────────────────────
+
 const features = [
   {
     icon: Users,
@@ -76,10 +77,6 @@ const micrositeItems = [
   { icon: MapPin,      color: 'text-red-400',     label: 'Maps & venues' },
 ]
 
-// ─── Screenshot carousel data ─────────────────────────────────────────────────
-// objectPosition controls where the image is anchored inside the crop.
-// objectScale, when set, wraps the image in a slightly zoomed-out container
-// so more of the screenshot is visible vertically.
 const slides: {
   src: string
   headline: string
@@ -123,7 +120,6 @@ const slides: {
     objectPosition: 'center top',
   },
   {
-    // Notes: content lives in the BOTTOM half — anchor to bottom
     src: '/sample_Notes_Page.png',
     headline: 'A live notes feed from the field',
     description:
@@ -131,8 +127,6 @@ const slides: {
     objectPosition: 'center bottom',
   },
   {
-    // Groups: image is narrower than the slot — zoom out slightly so it fills
-    // width without cropping the sides, and center it
     src: '/sample_Groups_Page.png',
     headline: 'Organize attendees into groups',
     description:
@@ -141,7 +135,6 @@ const slides: {
     objectScale: true,
   },
   {
-    // File Mgmt Top: shift downward ~20% to reveal the document list below the upload form
     src: '/sample_File_Mgmt_Top.png',
     headline: 'One active fact sheet, always current',
     description:
@@ -149,7 +142,6 @@ const slides: {
     objectPosition: 'center 30%',
   },
   {
-    // File Mgmt Bottom: shift down further to show the docs & maps section
     src: '/sample_File_Mgmt_Bottom.png',
     headline: 'Documents and maps for every group',
     description:
@@ -157,7 +149,6 @@ const slides: {
     objectPosition: 'center 40%',
   },
   {
-    // Import: shift down to show the preview table at the bottom
     src: '/sample_Import_Page.png',
     headline: 'Bulk import participants in seconds',
     description:
@@ -167,6 +158,7 @@ const slides: {
 ]
 
 // ─── Screenshot Carousel ──────────────────────────────────────────────────────
+
 function ScreenshotCarousel() {
   const [current, setCurrent] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -202,7 +194,6 @@ function ScreenshotCarousel() {
   return (
     <section className="py-24 px-6">
       <div className="max-w-5xl mx-auto">
-
         <div className="text-center mb-12">
           <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">
             See it in action
@@ -230,11 +221,6 @@ function ScreenshotCarousel() {
                   i === current ? 'opacity-100 z-10' : 'opacity-0 z-0'
                 }`}
               >
-                {/*
-                  objectScale slides: render image at 90% size inside a flex
-                  container so the full width is visible without side-cropping.
-                  Regular slides: standard object-cover with custom objectPosition.
-                */}
                 {slide.objectScale ? (
                   <div className="w-full h-full flex items-center justify-center bg-slate-900">
                     <img
@@ -253,11 +239,7 @@ function ScreenshotCarousel() {
                     draggable={false}
                   />
                 )}
-
-                {/* Gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/55 to-transparent" />
-
-                {/* Text overlay */}
                 <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 z-20">
                   <p className="text-white font-bold text-xl md:text-2xl leading-snug mb-2">
                     {slide.headline}
@@ -270,7 +252,6 @@ function ScreenshotCarousel() {
             ))}
           </div>
 
-          {/* Left arrow */}
           <button
             onClick={() => { prev(); setPaused(true) }}
             aria-label="Previous slide"
@@ -279,7 +260,6 @@ function ScreenshotCarousel() {
             <ChevronLeft className="w-5 h-5" />
           </button>
 
-          {/* Right arrow */}
           <button
             onClick={() => { next(); setPaused(true) }}
             aria-label="Next slide"
@@ -288,7 +268,6 @@ function ScreenshotCarousel() {
             <ChevronRight className="w-5 h-5" />
           </button>
 
-          {/* Dot indicators */}
           <div className="absolute bottom-4 right-6 z-30 flex items-center gap-1.5">
             {slides.map((_, i) => (
               <button
@@ -308,13 +287,13 @@ function ScreenshotCarousel() {
         <p className="text-center text-slate-600 text-xs mt-4 tabular-nums">
           {current + 1} / {total}
         </p>
-
       </div>
     </section>
   )
 }
 
-// ─── Main Landing Page ────────────────────────────────────────────────────────
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function LandingPage() {
   const router = useRouter()
 
@@ -338,7 +317,7 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* Hero */}
+      {/* ── 1. HERO ── */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <img src="/covaled-hero.png" alt="Group travel" className="w-full h-full object-cover object-center" />
@@ -376,35 +355,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Pain section */}
-      <section className="py-24 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            Managing a group trip
-            <span className="text-slate-500"> should not feel like this.</span>
-          </h2>
-          <p className="text-slate-400 text-xl mb-16 max-w-2xl mx-auto">
-            You have been the person holding everything together. You know what that looks like.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
-            {painPoints.map((point, i) => (
-              <div key={i} className="flex items-center gap-3 p-4 bg-red-500/5 border border-red-500/10 rounded-xl text-left">
-                <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                <span className="text-slate-300">{point}</span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-16 max-w-2xl mx-auto">
-            <div className="h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent mb-16" />
-            <p className="text-2xl text-white font-medium leading-relaxed">
-              There is a better way. One link, sent to each person.
-              <span className="text-blue-400"> Everything they need, nothing they do not.</span>
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Microsite spotlight */}
+      {/* ── 2. THE CORE IDEA ── */}
       <section className="py-24 px-6 bg-slate-900/50">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
@@ -433,11 +384,66 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Screenshot Carousel */}
+      {/* ── 3. VIDEO ── */}
+      <section className="py-24 px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">
+              Watch it in action
+            </span>
+            <h2 className="text-4xl md:text-5xl font-bold text-white mt-3">
+              See a full trip,
+              <br />
+              <span className="text-slate-400">start to finish.</span>
+            </h2>
+          </div>
+          <div className="rounded-2xl overflow-hidden border border-slate-700/60 shadow-2xl shadow-black/50">
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              controls
+              className="w-full"
+              src="https://fferiutafqvcomnwvmal.supabase.co/storage/v1/object/public/video_assets/Covaled%20(720.a).mp4"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ── 4. PAIN SECTION ── */}
+      <section className="py-24 px-6 bg-slate-900/50">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+            Managing a group trip
+            <span className="text-slate-500"> should not feel like this.</span>
+          </h2>
+          <p className="text-slate-400 text-xl mb-16 max-w-2xl mx-auto">
+            You have been the person holding everything together. You know what that looks like.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+            {painPoints.map((point, i) => (
+              <div key={i} className="flex items-center gap-3 p-4 bg-red-500/5 border border-red-500/10 rounded-xl text-left">
+                <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                <span className="text-slate-300">{point}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-16 max-w-2xl mx-auto">
+            <div className="h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent mb-16" />
+            <p className="text-2xl text-white font-medium leading-relaxed">
+              There is a better way. One link, sent to each person.
+              <span className="text-blue-400"> Everything they need, nothing they do not.</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 5. SCREENSHOT CAROUSEL ── */}
       <ScreenshotCarousel />
 
       {/* Features */}
-      <section className="py-24 px-6">
+      <section className="py-24 px-6 bg-slate-900/50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">Built for organizers</span>
@@ -462,7 +468,7 @@ export default function LandingPage() {
       </section>
 
       {/* Who it's for */}
-      <section className="py-24 px-6 bg-slate-900/50">
+      <section className="py-24 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl font-bold text-white mb-4">Built for anyone leading a group.</h2>
           <p className="text-slate-400 text-xl mb-16">From Capitol Hill fly-ins to corporate retreats.</p>
@@ -483,7 +489,7 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing teaser */}
-      <section className="py-24 px-6">
+      <section className="py-24 px-6 bg-slate-900/50">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-4xl font-bold text-white mb-4">Start free. Scale when you are ready.</h2>
           <p className="text-slate-400 text-xl mb-10">The free tier gives you 90 days and up to 3 trips with 15 participants each.</p>
