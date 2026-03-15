@@ -24,7 +24,7 @@ export default function UsageBanner() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const [{ data: settings }, { count: tripCount }] = await Promise.all([
+      const [{ data: settings }, { data: tripAdminRows }] = await Promise.all([
         supabase
           .from('user_settings')
           .select('subscription_tier, subscription_expires_at')
@@ -32,7 +32,7 @@ export default function UsageBanner() {
           .single(),
         supabase
           .from('trip_admins')
-          .select('*', { count: 'exact', head: true })
+          .select('id')
           .eq('user_id', user.id)
           .eq('role', 'super'),
       ])
@@ -40,7 +40,7 @@ export default function UsageBanner() {
       setUsage({
         tier: (settings?.subscription_tier || 'free') as SubscriptionTier,
         expiresAt: settings?.subscription_expires_at || null,
-        tripCount: tripCount || 0,
+        tripCount: tripAdminRows?.length || 0,
       })
     }
     load()
@@ -51,9 +51,7 @@ export default function UsageBanner() {
   const limits = TIER_LIMITS[usage.tier]
   const expired = isExpired(usage.tier, usage.expiresAt)
   const tripLimitHit = usage.tripCount >= limits.trips
-  const tripsRemaining = limits.trips === Infinity ? null : limits.trips - usage.tripCount
 
-  // Days remaining for free tier
   let daysRemaining: number | null = null
   if (usage.tier === 'free' && usage.expiresAt) {
     daysRemaining = Math.ceil(
@@ -112,7 +110,9 @@ export default function UsageBanner() {
           )}
 
           {limits.trips === Infinity && (
-            <span className="text-slate-400 text-xs">{usage.tripCount} trip{usage.tripCount !== 1 ? 's' : ''} · unlimited</span>
+            <span className="text-slate-400 text-xs">
+              {usage.tripCount} trip{usage.tripCount !== 1 ? 's' : ''} · unlimited
+            </span>
           )}
 
           {/* Free tier expiry */}
@@ -125,7 +125,7 @@ export default function UsageBanner() {
           )}
         </div>
 
-        {/* Upgrade CTA — show for free/basic/pro */}
+        {/* Upgrade CTA */}
         {usage.tier !== 'enterprise' && (
           <a href="/pricing" className="text-blue-400 hover:text-blue-300 text-xs transition-colors">
             Upgrade →
@@ -133,7 +133,7 @@ export default function UsageBanner() {
         )}
       </div>
 
-      {/* Warning bar when at limit */}
+      {/* Warning when at limit */}
       {tripLimitHit && (
         <div className="mt-3 pt-3 border-t border-slate-800">
           <p className="text-amber-400 text-xs">
