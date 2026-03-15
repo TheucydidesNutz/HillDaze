@@ -44,22 +44,16 @@ export default function SignupPage() {
       return
     }
 
-    // Create user_settings row with free tier
-    const { error: settingsError } = await supabase
-      .from('user_settings')
-      .upsert({
-        user_id: data.user.id,
-        org_name: orgName.trim() || null,
-        subscription_tier: 'free',
-        subscription_expires_at: new Date(
-          Date.now() + 90 * 24 * 60 * 60 * 1000
-        ).toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+    // Create user_settings via server route (bypasses RLS)
+    const settingsRes = await fetch('/api/admin/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: data.user.id, orgName }),
+    })
+    const settingsData = await settingsRes.json()
 
-    if (settingsError) {
-      setError('Account created but settings failed to save. Please contact support.')
+    if (!settingsRes.ok) {
+      setError(settingsData.error || 'Account created but settings failed to save. Please contact support.')
       setLoading(false)
       return
     }
@@ -94,9 +88,7 @@ export default function SignupPage() {
 
           <form onSubmit={handleSignup} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Email
-              </label>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Email</label>
               <input
                 type="email"
                 value={email}
@@ -108,9 +100,7 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Password
-              </label>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
               <input
                 type="password"
                 value={password}
@@ -122,9 +112,7 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Confirm Password
-              </label>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Confirm Password</label>
               <input
                 type="password"
                 value={confirmPassword}
@@ -166,12 +154,9 @@ export default function SignupPage() {
 
           <p className="text-slate-500 text-sm text-center mt-6">
             Already have an account?{' '}
-            <a href="/admin/login" className="text-blue-400 hover:text-blue-300">
-              Sign in
-            </a>
+            <a href="/admin/login" className="text-blue-400 hover:text-blue-300">Sign in</a>
           </p>
 
-          {/* Free tier info */}
           <div className="mt-6 pt-6 border-t border-slate-800">
             <p className="text-slate-500 text-xs text-center mb-3">Free tier includes:</p>
             <div className="space-y-1.5">
