@@ -25,6 +25,7 @@ interface OrgUser {
   email: string
   created_at: string
   last_sign_in_at: string | null
+  role?: 'super' | 'admin' | null
 }
 
 const TIMEZONES = [
@@ -62,8 +63,6 @@ export default function TripsPage() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviting, setInviting] = useState(false)
   const [inviteMessage, setInviteMessage] = useState('')
-
-  // Delete confirmation state
   const [deleteStep, setDeleteStep] = useState<{ id: string; step: 1 | 2 } | null>(null)
 
   // Settings state
@@ -85,6 +84,7 @@ export default function TripsPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [orgUsers, setOrgUsers] = useState<OrgUser[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
 
   const router = useRouter()
   const supabase = createBrowserClient(
@@ -122,7 +122,6 @@ export default function TripsPage() {
     const data = await res.json()
     setTrips(data)
     setLoading(false)
-    // Check if current user is super admin on any trip
     if (Array.isArray(data) && data.some((t: Trip) => t.role === 'super')) {
       setIsSuperAdmin(true)
     }
@@ -327,12 +326,34 @@ export default function TripsPage() {
   async function handleToggleUserRole(userId: string, currentRole: 'super' | 'admin') {
     const newRole = currentRole === 'super' ? 'admin' : 'super'
     if (!confirm(`Change this user to ${newRole}?`)) return
-    await fetch('/api/admin/users', {
+    const res = await fetch('/api/admin/users', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, role: newRole }),
     })
-    fetchOrgUsers()
+    if (res.ok) {
+      setOrgUsers(prev => prev.map(u =>
+        u.id === userId ? { ...u, role: newRole } : u
+      ))
+    }
+  }
+
+  async function handleDeleteUser(userId: string, email: string) {
+    if (userId === currentUserId) return alert("You can't delete your own account.")
+    if (!confirm(`Delete user ${email}? This cannot be undone.`)) return
+    setDeletingUserId(userId)
+    const res = await fetch('/api/admin/users', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    })
+    setDeletingUserId(null)
+    if (res.ok) {
+      setOrgUsers(prev => prev.filter(u => u.id !== userId))
+    } else {
+      const data = await res.json()
+      alert(data.error || 'Failed to delete user')
+    }
   }
 
   function formatDateRange(trip: Trip) {
@@ -357,7 +378,7 @@ export default function TripsPage() {
                 <img
                   src={userSettings.logo_url}
                   alt="org logo"
-                  className="w-36 h-36 object-contain flex-shrink-0 rounded-2x1"
+                  className="w-36 h-36 object-contain flex-shrink-0 rounded-2xl"
                 />
               )}
               <div className="text-center">
@@ -407,8 +428,6 @@ export default function TripsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {trips.map(trip => (
               <div key={trip.id} className="relative bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-6 transition-colors">
-
-                {/* ✕ delete button — super admin only, two-step */}
                 {trip.role === 'super' && (
                   <div className="absolute top-3 right-3">
                     {deleteStep?.id === trip.id && deleteStep.step === 1 && (
@@ -439,7 +458,6 @@ export default function TripsPage() {
                     </button>
                   </div>
                 )}
-
                 <div className="flex items-start gap-4 mb-4">
                   {trip.logo_url ? (
                     <img src={trip.logo_url} alt={trip.title} className="w-14 h-14 rounded-xl object-contain bg-slate-800 p-1 flex-shrink-0" />
@@ -546,8 +564,6 @@ export default function TripsPage() {
                       className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                   </div>
                 </div>
-
-                {/* Per-trip timezone */}
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">Trip Timezone</label>
                   <select value={editTimezone} onChange={e => setEditTimezone(e.target.value)}
@@ -557,7 +573,6 @@ export default function TripsPage() {
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">Logo</label>
                   <div className="flex items-center gap-3">
@@ -583,7 +598,6 @@ export default function TripsPage() {
                     />
                   </div>
                 </div>
-
                 <div className="border-t border-slate-800 pt-4">
                   <h3 className="text-white font-medium mb-3">👥 Trip Admins</h3>
                   {tripAdmins.length > 0 && (
@@ -680,7 +694,6 @@ export default function TripsPage() {
                       />
                       <p className="text-slate-500 text-xs mt-1.5">Replaces "[Your Group]" in the header.</p>
                     </div>
-
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-2">Organization Logo</label>
                       <div className="flex items-center gap-3">
@@ -702,7 +715,6 @@ export default function TripsPage() {
                       </div>
                       {uploadingLogo && <p className="text-slate-400 text-xs mt-1.5">Uploading...</p>}
                     </div>
-
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">Default Timezone</label>
                       <select
@@ -716,7 +728,6 @@ export default function TripsPage() {
                       </select>
                       <p className="text-slate-500 text-xs mt-1.5">Applied as default when creating new trips.</p>
                     </div>
-
                     {settingsMessage && (
                       <p className={`text-sm ${settingsMessage.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
                         {settingsMessage}
@@ -738,7 +749,6 @@ export default function TripsPage() {
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                       />
                     </div>
-
                     <div className="border-t border-slate-800 pt-4 space-y-3">
                       <h3 className="text-white font-medium text-sm">Account Info</h3>
                       <div>
@@ -750,43 +760,31 @@ export default function TripsPage() {
                         <p className="text-slate-500 text-xs font-mono break-all">{currentUserId}</p>
                       </div>
                     </div>
-
                     <div className="border-t border-slate-800 pt-4 space-y-3">
                       <h3 className="text-white font-medium text-sm">Change Password</h3>
                       <div>
                         <label className="block text-xs font-medium text-slate-400 mb-1">New Password</label>
-                        <input
-                          type="password"
-                          value={newPassword}
-                          onChange={e => setNewPassword(e.target.value)}
+                        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        />
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-slate-400 mb-1">Confirm Password</label>
-                        <input
-                          type="password"
-                          value={confirmPassword}
-                          onChange={e => setConfirmPassword(e.target.value)}
+                        <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        />
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                       </div>
                       {passwordMessage && (
                         <p className={`text-xs ${passwordMessage.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
                           {passwordMessage}
                         </p>
                       )}
-                      <button
-                        onClick={handleChangePassword}
+                      <button onClick={handleChangePassword}
                         disabled={changingPassword || !newPassword || !confirmPassword}
-                        className="w-full py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-medium rounded-lg transition-colors"
-                      >
+                        className="w-full py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-medium rounded-lg transition-colors">
                         {changingPassword ? 'Updating...' : 'Update Password'}
                       </button>
                     </div>
-
                     {settingsMessage && (
                       <p className={`text-sm ${settingsMessage.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
                         {settingsMessage}
@@ -806,31 +804,56 @@ export default function TripsPage() {
                     ) : (
                       <div className="space-y-2">
                         {orgUsers.map(u => (
-                          <div key={u.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
-                            <div>
-                              <p className="text-slate-300 text-sm">{u.email}</p>
-                              <p className="text-slate-500 text-xs">
-                                Last sign in: {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : 'Never'}
-                              </p>
+                          <div key={u.id} className="p-3 bg-slate-800/50 rounded-lg">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-slate-300 text-sm truncate">{u.email}</p>
+                                <p className="text-slate-500 text-xs mt-0.5">
+                                  Last sign in: {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : 'Never'}
+                                </p>
+                              </div>
+                              {/* Don't show delete for current user */}
+                              {u.id !== currentUserId && (
+                                <button
+                                  onClick={() => handleDeleteUser(u.id, u.email)}
+                                  disabled={deletingUserId === u.id}
+                                  className="text-slate-600 hover:text-red-400 text-xs transition-colors flex-shrink-0 mt-0.5"
+                                >
+                                  {deletingUserId === u.id ? '...' : 'Delete'}
+                                </button>
+                              )}
+                              {u.id === currentUserId && (
+                                <span className="text-slate-600 text-xs flex-shrink-0 mt-0.5">You</span>
+                              )}
                             </div>
-                            <div className="flex items-center gap-2">
-                              {trips.filter(t => t.role === 'super').map(trip => {
-                                const admin = tripAdmins.find(a => a.user_id === u.id)
-                                if (!admin) return null
-                                return (
-                                  <button
-                                    key={trip.id}
-                                    onClick={() => handleToggleUserRole(u.id, admin.role)}
-                                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                                      admin.role === 'super'
-                                        ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
-                                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
-                                    }`}
-                                  >
-                                    {admin.role === 'super' ? '⭐ Super' : '👤 Admin'}
-                                  </button>
-                                )
-                              })}
+                            {/* Role toggle — show for all users across all trips where current user is super */}
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {trips
+                                .filter(t => t.role === 'super')
+                                .map(trip => {
+                                  const admin = tripAdmins.find(a => a.user_id === u.id)
+                                  // For users who aren't admins on this trip yet, skip
+                                  if (!admin && u.id !== currentUserId) return null
+                                  // For current user, show their role but don't let them toggle themselves
+                                  const role = admin?.role || (u.id === currentUserId ? 'super' : null)
+                                  if (!role) return null
+                                  return (
+                                    <div key={trip.id} className="flex items-center gap-1.5">
+                                      <span className="text-slate-600 text-xs">{trip.title}:</span>
+                                      <button
+                                        onClick={() => u.id !== currentUserId && handleToggleUserRole(u.id, role as 'super' | 'admin')}
+                                        disabled={u.id === currentUserId}
+                                        className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                                          role === 'super'
+                                            ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 disabled:cursor-default'
+                                            : 'bg-slate-700 text-slate-400 hover:bg-slate-600 disabled:cursor-default'
+                                        }`}
+                                      >
+                                        {role === 'super' ? '⭐ Super' : '👤 Admin'}
+                                      </button>
+                                    </div>
+                                  )
+                                })}
                             </div>
                           </div>
                         ))}

@@ -5,23 +5,23 @@ import { Participant, Group } from '@/lib/types'
 import { apiFetch } from '@/lib/apiFetch'
 
 interface Event {
-    id: string
-    title: string
-    description: string
-    start_time: string
-    end_time: string
-    location: string
-    type: 'mandatory' | 'optional'
-  }
+  id: string
+  title: string
+  description: string
+  start_time: string
+  end_time: string
+  location: string
+  type: 'mandatory' | 'optional'
+}
 
-  interface Props {
-    event: Partial<Event> | null
-    participants: Participant[]
-    groups: Group[]
-    onClose: () => void
-    onSaved: (e: Event) => void
-    onDeleted?: (id: string) => void
-  }
+interface Props {
+  event: Partial<Event> | null
+  participants: Participant[]
+  groups: Group[]
+  onClose: () => void
+  onSaved: (e: Event) => void
+  onDeleted?: (id: string) => void
+}
 
 export default function EventModal({ event, participants, groups, onClose, onSaved, onDeleted }: Props) {
   const [saving, setSaving] = useState(false)
@@ -35,6 +35,13 @@ export default function EventModal({ event, participants, groups, onClose, onSav
     location: event?.location || '',
     type: event?.type || 'optional' as 'mandatory' | 'optional',
   })
+
+  // Default to all participants selected for new events
+  useEffect(() => {
+    if (!event?.id) {
+      setSelectedParticipants(participants.map(p => p.id))
+    }
+  }, [participants])
 
   function set(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -77,7 +84,7 @@ export default function EventModal({ event, participants, groups, onClose, onSav
     const url = isNew ? '/api/admin/events' : `/api/admin/events/${event.id}`
     const method = isNew ? 'POST' : 'PATCH'
 
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -92,7 +99,7 @@ export default function EventModal({ event, participants, groups, onClose, onSav
   async function handleDelete() {
     if (!event?.id) return
     if (!confirm('Delete this event?')) return
-    await fetch(`/api/admin/events/${event.id}`, { method: 'DELETE' })
+    await apiFetch(`/api/admin/events/${event.id}`, { method: 'DELETE' })
     onDeleted?.(event.id)
   }
 
@@ -113,6 +120,7 @@ export default function EventModal({ event, participants, groups, onClose, onSav
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
           <h2 className="text-white font-semibold text-lg">
@@ -122,6 +130,7 @@ export default function EventModal({ event, participants, groups, onClose, onSav
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+
           {/* Title */}
           <div>
             {label('Event Title *')}
@@ -140,7 +149,7 @@ export default function EventModal({ event, participants, groups, onClose, onSav
                     : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
                 }`}
               >
-                🔴 Mandatory
+                Mandatory
               </button>
               <button
                 onClick={() => set('type', 'optional')}
@@ -150,7 +159,7 @@ export default function EventModal({ event, participants, groups, onClose, onSav
                     : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
                 }`}
               >
-                🔵 Optional
+                Optional
               </button>
             </div>
           </div>
@@ -236,7 +245,7 @@ export default function EventModal({ event, participants, groups, onClose, onSav
                 ))}
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                {selectedParticipants.length} participant{selectedParticipants.length !== 1 ? 's' : ''} selected
+                {selectedParticipants.length} of {participants.length} participant{participants.length !== 1 ? 's' : ''} selected
               </p>
             </div>
           )}
