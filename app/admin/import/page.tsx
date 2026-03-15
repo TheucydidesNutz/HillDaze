@@ -6,7 +6,14 @@ import { apiFetch } from '@/lib/apiFetch'
 import { useRouter } from 'next/navigation'
 import { Trip } from '@/lib/types'
 import TripHeader from '@/components/TripHeader'
-
+import {
+  Users,
+  CalendarDays,
+  ClipboardList,
+  Upload,
+  CheckCircle,
+  MapPin,
+} from 'lucide-react'
 
 type Tab = 'csv' | 'ics'
 
@@ -26,13 +33,10 @@ export default function ImportPage() {
   const [groups, setGroups] = useState<Group[]>([])
   const [trip, setTrip] = useState<Trip | null>(null)
   const router = useRouter()
-  // CSV state
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [csvPreview, setCsvPreview] = useState<CSVPreview | null>(null)
   const [csvLoading, setCsvLoading] = useState(false)
   const [csvResult, setCsvResult] = useState<any>(null)
-
-  // ICS state
   const [icsFile, setIcsFile] = useState<File | null>(null)
   const [icsPreview, setIcsPreview] = useState<ICSPreview | null>(null)
   const [icsLoading, setIcsLoading] = useState(false)
@@ -49,7 +53,6 @@ export default function ImportPage() {
       .then(setGroups)
   }, [])
 
-  // ── CSV ──────────────────────────────────────────
   async function handleCSVPreview() {
     if (!csvFile) return
     setCsvLoading(true)
@@ -78,7 +81,6 @@ export default function ImportPage() {
     setCsvFile(null)
   }
 
-  // ── ICS ──────────────────────────────────────────
   async function handleICSPreview() {
     if (!icsFile) return
     setIcsLoading(true)
@@ -124,15 +126,17 @@ export default function ImportPage() {
         <div className="flex gap-2 mb-8">
           <button
             onClick={() => setTab('csv')}
-            className={`px-5 py-2.5 rounded-lg font-medium text-sm transition-colors ${tab === 'csv' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm transition-colors ${tab === 'csv' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
           >
-            👥 CSV — Participants
+            <Users className="w-4 h-4" />
+            CSV — Participants
           </button>
           <button
             onClick={() => setTab('ics')}
-            className={`px-5 py-2.5 rounded-lg font-medium text-sm transition-colors ${tab === 'ics' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm transition-colors ${tab === 'ics' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
           >
-            📅 ICS — Calendar Events
+            <CalendarDays className="w-4 h-4" />
+            ICS — Calendar Events
           </button>
         </div>
 
@@ -145,9 +149,11 @@ export default function ImportPage() {
                 Upload a CSV file with participant info. Existing participants matched by email will be updated.
               </p>
 
-              {/* Template download */}
               <div className="bg-slate-800/50 rounded-lg p-4 mb-5">
-                <p className="text-slate-300 text-sm font-medium mb-2">📋 Expected CSV columns:</p>
+                <p className="text-slate-300 text-sm font-medium mb-2 flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-slate-400" />
+                  Expected CSV columns:
+                </p>
                 <p className="text-slate-400 text-xs font-mono leading-relaxed">
                   name, company, title, phone, email, emergency_name, emergency_phone, emergency_email,
                   arrival_airline, arrival_flight_no, arrival_datetime, arrival_airport,
@@ -166,9 +172,10 @@ export default function ImportPage() {
                     a.download = 'participants_template.csv'
                     a.click()
                   }}
-                  className="mt-3 text-blue-400 hover:text-blue-300 text-xs underline"
+                  className="mt-3 text-blue-400 hover:text-blue-300 text-xs underline flex items-center gap-1"
                 >
-                  ↓ Download template CSV
+                  <Upload className="w-3 h-3" />
+                  Download template CSV
                 </button>
               </div>
 
@@ -190,7 +197,7 @@ export default function ImportPage() {
                   >
                     {csvLoading ? 'Parsing...' : 'Preview Import'}
                   </button>
-                  {csvFile && !csvLoading && !csvPreview && (
+                  {!csvLoading && !csvPreview && (
                     <span className="text-slate-400 text-sm">Click Preview Import to proceed</span>
                   )}
                 </div>
@@ -237,7 +244,10 @@ export default function ImportPage() {
             {/* CSV Result */}
             {csvResult && (
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-                <h3 className="text-white font-semibold mb-3">✅ Import Complete</h3>
+                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                  Import Complete
+                </h3>
                 <div className="flex gap-6">
                   <div className="text-center">
                     <p className="text-3xl font-bold text-green-400">{csvResult.created}</p>
@@ -278,12 +288,14 @@ export default function ImportPage() {
                 Export your Google Calendar as an ICS file and upload it here.
               </p>
 
-              {/* How to export instructions */}
               <div className="bg-slate-800/50 rounded-lg p-4 mb-5 space-y-2">
-                <p className="text-slate-300 text-sm font-medium">📤 How to export from Google Calendar:</p>
+                <p className="text-slate-300 text-sm font-medium flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-slate-400" />
+                  How to export from Google Calendar:
+                </p>
                 <ol className="text-slate-400 text-sm space-y-1 list-decimal list-inside">
                   <li>Go to <span className="text-blue-400">calendar.google.com</span></li>
-                  <li>Click the ⚙️ gear icon → <strong className="text-slate-300">Settings</strong></li>
+                  <li>Click the gear icon → <strong className="text-slate-300">Settings</strong></li>
                   <li>Click <strong className="text-slate-300">Import & Export</strong> in the left sidebar</li>
                   <li>Click <strong className="text-slate-300">Export</strong> — downloads a .zip</li>
                   <li>Unzip it and upload the <strong className="text-slate-300">.ics</strong> file here</li>
@@ -308,7 +320,7 @@ export default function ImportPage() {
                     onChange={e => setIcsGroupId(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   >
-                    <option value="">👥 All Participants</option>
+                    <option value="">All Participants</option>
                     {groups.map(g => (
                       <option key={g.id} value={g.id}>{g.name}</option>
                     ))}
@@ -322,13 +334,13 @@ export default function ImportPage() {
                       onClick={() => setIcsEventType('mandatory')}
                       className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${icsEventType === 'mandatory' ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}
                     >
-                      🔴 Mandatory
+                      Mandatory
                     </button>
                     <button
                       onClick={() => setIcsEventType('optional')}
                       className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${icsEventType === 'optional' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}
                     >
-                      🔵 Optional
+                      Optional
                     </button>
                   </div>
                 </div>
@@ -362,9 +374,15 @@ export default function ImportPage() {
                   {icsPreview.preview.map((e, i) => (
                     <div key={i} className="p-3 bg-slate-800/50 rounded-lg">
                       <p className="text-white text-sm font-medium">{e.title}</p>
-                      <p className="text-slate-400 text-xs mt-0.5">
+                      <p className="text-slate-400 text-xs mt-0.5 flex items-center gap-1">
                         {e.start ? new Date(e.start).toLocaleString() : 'No date'}
-                        {e.location ? ` · 📍 ${e.location}` : ''}
+                        {e.location && (
+                          <>
+                            <span>·</span>
+                            <MapPin className="w-3 h-3" />
+                            {e.location}
+                          </>
+                        )}
                       </p>
                     </div>
                   ))}
@@ -380,7 +398,10 @@ export default function ImportPage() {
             {/* ICS Result */}
             {icsResult && (
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-                <h3 className="text-white font-semibold mb-3">✅ Import Complete</h3>
+                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                  Import Complete
+                </h3>
                 <div className="flex gap-6">
                   <div className="text-center">
                     <p className="text-3xl font-bold text-green-400">{icsResult.created}</p>

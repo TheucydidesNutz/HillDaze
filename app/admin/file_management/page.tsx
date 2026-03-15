@@ -5,6 +5,15 @@ import { apiFetch } from '@/lib/apiFetch'
 import { useRouter } from 'next/navigation'
 import { Trip } from '@/lib/types'
 import TripHeader from '@/components/TripHeader'
+import {
+  FileText,
+  FolderOpen,
+  Map,
+  Globe,
+  Users,
+  CheckCircle,
+  Image,
+} from 'lucide-react'
 
 interface FactSheet {
   id: string
@@ -133,7 +142,10 @@ export default function SettingsPage() {
 
         {/* ── FACT SHEET ─────────────────────────────── */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-          <h2 className="text-white font-semibold text-lg mb-1">📄 Fact Sheet PDF</h2>
+          <h2 className="text-white font-semibold text-lg mb-1 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-blue-400" />
+            Fact Sheet PDF
+          </h2>
           <p className="text-slate-400 text-sm mb-5">The active fact sheet appears as a download button on every attendee micro-site.</p>
           <div className="space-y-4">
             <div>
@@ -161,14 +173,18 @@ export default function SettingsPage() {
               {factSheets.map(f => (
                 <div key={f.id} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
                   <div className="flex items-center gap-3">
-                    <span className="text-xl">📄</span>
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-4 h-4 text-blue-400" />
+                    </div>
                     <div>
                       <p className="text-white text-sm font-medium">{f.label}</p>
                       <p className="text-slate-500 text-xs">{new Date(f.uploaded_at).toLocaleDateString()}</p>
                     </div>
                   </div>
                   {f.is_active ? (
-                    <span className="px-2.5 py-1 bg-green-500/10 text-green-400 text-xs font-medium rounded-full border border-green-500/20">✓ Active</span>
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 text-green-400 text-xs font-medium rounded-full border border-green-500/20">
+                      <CheckCircle className="w-3 h-3" /> Active
+                    </span>
                   ) : (
                     <button onClick={() => handleActivate(f.id)}
                       className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium rounded-lg transition-colors">
@@ -183,17 +199,22 @@ export default function SettingsPage() {
 
         {/* ── DOCUMENTS & MAP UPLOAD ──────────────────── */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-          <h2 className="text-white font-semibold text-lg mb-1">📁 Documents & Maps</h2>
+          <h2 className="text-white font-semibold text-lg mb-1 flex items-center gap-2">
+            <FolderOpen className="w-4 h-4 text-orange-400" />
+            Documents & Maps
+          </h2>
           <p className="text-slate-400 text-sm mb-5">Upload PDFs or images. Documents appear in the attendee's "Your Documents" section. Maps appear via the Map button in the header.</p>
 
           <div className="flex gap-3 mb-5">
             <button onClick={() => setDocType('document')}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${docType === 'document' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}>
-              📁 Document
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border flex items-center justify-center gap-2 ${docType === 'document' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}>
+              <FolderOpen className="w-4 h-4" />
+              Document
             </button>
             <button onClick={() => setDocType('map')}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${docType === 'map' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}>
-              🗺️ Map
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border flex items-center justify-center gap-2 ${docType === 'map' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}>
+              <Map className="w-4 h-4" />
+              Map
             </button>
           </div>
 
@@ -210,9 +231,9 @@ export default function SettingsPage() {
                 <label className="block text-xs font-medium text-slate-400 mb-1">Visible To</label>
                 <select value={docGroupId} onChange={e => setDocGroupId(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                  <option value="">🌐 All Groups</option>
+                  <option value="">All Groups</option>
                   {groups.map(g => (
-                    <option key={g.id} value={g.id}>👥 {g.name} only</option>
+                    <option key={g.id} value={g.id}>{g.name} only</option>
                   ))}
                 </select>
               </div>
@@ -234,11 +255,16 @@ export default function SettingsPage() {
 
           {maps.length > 0 && (
             <div className="mt-6 space-y-3">
-              <p className="text-slate-400 text-sm font-medium">🗺️ Maps</p>
+              <p className="text-slate-400 text-sm font-medium flex items-center gap-2">
+                <Map className="w-3.5 h-3.5 text-slate-500" />
+                Maps
+              </p>
               {maps.map(d => (
                 <div key={d.id} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
                   <div className="flex items-center gap-3">
-                    <span className="text-xl">🗺️</span>
+                    <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                      <Map className="w-4 h-4 text-green-400" />
+                    </div>
                     <div>
                       <p className="text-white text-sm font-medium">{d.label}</p>
                       <p className="text-slate-500 text-xs">{new Date(d.uploaded_at).toLocaleDateString()}</p>
@@ -253,15 +279,27 @@ export default function SettingsPage() {
 
           {docs.length > 0 && (
             <div className="mt-6 space-y-3">
-              <p className="text-slate-400 text-sm font-medium">📁 Documents</p>
+              <p className="text-slate-400 text-sm font-medium flex items-center gap-2">
+                <FolderOpen className="w-3.5 h-3.5 text-slate-500" />
+                Documents
+              </p>
               {docs.map(d => (
                 <div key={d.id} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
                   <div className="flex items-center gap-3">
-                    <span className="text-xl">{d.file_type === 'pdf' ? '📄' : '🖼️'}</span>
+                    <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                      {d.file_type === 'pdf'
+                        ? <FileText className="w-4 h-4 text-orange-400" />
+                        : <Image className="w-4 h-4 text-orange-400" />
+                      }
+                    </div>
                     <div>
                       <p className="text-white text-sm font-medium">{d.label}</p>
-                      <p className="text-slate-500 text-xs">
-                        {d.group ? `👥 ${d.group.name} only` : '🌐 All groups'} · {new Date(d.uploaded_at).toLocaleDateString()}
+                      <p className="text-slate-500 text-xs flex items-center gap-1">
+                        {d.group
+                          ? <><Users className="w-3 h-3" /> {d.group.name} only</>
+                          : <><Globe className="w-3 h-3" /> All groups</>
+                        }
+                        {' · '}{new Date(d.uploaded_at).toLocaleDateString()}
                       </p>
                     </div>
                   </div>

@@ -6,12 +6,14 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import listPlugin from '@fullcalendar/list'
 import { Event } from '@/lib/types'
 import { useState } from 'react'
+import { Clock, MapPin } from 'lucide-react'
 
 interface Props {
   events: Event[]
+  timezone?: string
 }
 
-export default function AttendeeCalendar({ events }: Props) {
+export default function AttendeeCalendar({ events, timezone }: Props) {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
 
   const ONE_HOUR_AGO = new Date(Date.now() - 60 * 60 * 1000)
@@ -19,7 +21,6 @@ export default function AttendeeCalendar({ events }: Props) {
   const calendarEvents = events.map(e => {
     const recentlyUpdated = e.updated_at && new Date(e.updated_at) > ONE_HOUR_AGO &&
       new Date(e.updated_at) > new Date(e.created_at)
-  
     return {
       id: e.id,
       title: recentlyUpdated ? `⚡ ${e.title}` : e.title,
@@ -33,6 +34,13 @@ export default function AttendeeCalendar({ events }: Props) {
   function handleEventClick(info: any) {
     const event = events.find(e => e.id === info.event.id)
     if (event) setSelectedEvent(event)
+  }
+
+  function formatTime(utcStr: string, opts: Intl.DateTimeFormatOptions) {
+    return new Date(utcStr).toLocaleString('en-US', {
+      ...opts,
+      timeZone: timezone || undefined,
+    })
   }
 
   return (
@@ -49,6 +57,7 @@ export default function AttendeeCalendar({ events }: Props) {
         eventClick={handleEventClick}
         height="auto"
         eventDisplay="block"
+        timeZone={timezone || 'local'}
       />
 
       {/* Event detail popover */}
@@ -67,11 +76,24 @@ export default function AttendeeCalendar({ events }: Props) {
               <button onClick={() => setSelectedEvent(null)} className="text-slate-400 hover:text-white">✕</button>
             </div>
             <h3 className="text-white font-semibold text-lg mb-2">{selectedEvent.title}</h3>
-            <p className="text-slate-300 text-sm mb-1">
-              🕐 {new Date(selectedEvent.start_time).toLocaleString()} — {new Date(selectedEvent.end_time).toLocaleTimeString()}
+            <p className="text-slate-300 text-sm mb-1 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-slate-500" />
+              {formatTime(selectedEvent.start_time, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              {' — '}
+              {formatTime(selectedEvent.end_time, { hour: 'numeric', minute: '2-digit' })}
             </p>
-            {selectedEvent.location && <p className="text-slate-300 text-sm mb-1">📍 {selectedEvent.location}</p>}
-            {selectedEvent.description && <p className="text-slate-400 text-sm mt-3">{selectedEvent.description}</p>}
+            {timezone && (
+              <p className="text-slate-600 text-xs mb-1 ml-5">{timezone}</p>
+            )}
+            {selectedEvent.location && (
+              <p className="text-slate-300 text-sm mb-1 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                {selectedEvent.location}
+              </p>
+            )}
+            {selectedEvent.description && (
+              <p className="text-slate-400 text-sm mt-3">{selectedEvent.description}</p>
+            )}
           </div>
         </div>
       )}

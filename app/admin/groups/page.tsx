@@ -6,6 +6,7 @@ import GroupModal from '@/components/GroupModal'
 import TripHeader from '@/components/TripHeader'
 import { apiFetch } from '@/lib/apiFetch'
 import { useRouter } from 'next/navigation'
+import { Mail, Phone } from 'lucide-react'
 
 export default function GroupsPage() {
   const router = useRouter()
@@ -110,12 +111,14 @@ export default function GroupsPage() {
                   <div className="space-y-1 mb-4 border-t border-slate-800 pt-4">
                     {g.lead_email && (
                       <p className="text-slate-400 text-sm flex items-center gap-2">
-                        <span>✉️</span> {g.lead_email}
+                        <Mail className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                        {g.lead_email}
                       </p>
                     )}
                     {g.lead_phone && (
                       <p className="text-slate-400 text-sm flex items-center gap-2">
-                        <span>📞</span> {g.lead_phone}
+                        <Phone className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                        {g.lead_phone}
                       </p>
                     )}
                   </div>

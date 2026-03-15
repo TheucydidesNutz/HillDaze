@@ -30,6 +30,11 @@ export default function EventsPage() {
   const [groups, setGroups] = useState<Group[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
+  const [useEventTimezone, setUseEventTimezone] = useState(false)
+
+  const tripTimezone = (trip as any)?.timezone || null
+  const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const activeTimezone = useEventTimezone && tripTimezone ? tripTimezone : undefined
 
   useEffect(() => {
     const tripStr = localStorage.getItem('current_trip')
@@ -96,7 +101,7 @@ export default function EventsPage() {
           />
         )}
 
-        {/* Legend + Create button */}
+        {/* Legend + timezone toggle + Create button */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4 text-sm">
             <span className="flex items-center gap-1.5">
@@ -108,12 +113,43 @@ export default function EventsPage() {
               <span className="text-slate-400">Optional</span>
             </span>
           </div>
-          <button
-            onClick={() => { setEditingEvent(null); setModalOpen(true) }}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
-          >
-            + Create Event
-          </button>
+
+          <div className="flex items-center gap-3">
+            {/* Timezone toggle — only show if trip has a timezone set */}
+            {tripTimezone && (
+              <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 text-xs">
+                <button
+                  onClick={() => setUseEventTimezone(false)}
+                  className={`px-3 py-1.5 rounded-md transition-colors ${
+                    !useEventTimezone
+                      ? 'bg-slate-600 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  My Time
+                  <span className="ml-1 text-slate-500 hidden sm:inline">({browserTimezone.split('/').pop()?.replace('_', ' ')})</span>
+                </button>
+                <button
+                  onClick={() => setUseEventTimezone(true)}
+                  className={`px-3 py-1.5 rounded-md transition-colors ${
+                    useEventTimezone
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Event Time
+                  <span className="ml-1 text-slate-500 hidden sm:inline">({tripTimezone.split('/').pop()?.replace('_', ' ')})</span>
+                </button>
+              </div>
+            )}
+
+            <button
+              onClick={() => { setEditingEvent(null); setModalOpen(true) }}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
+            >
+              + Create Event
+            </button>
+          </div>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 calendar-container">
@@ -129,8 +165,14 @@ export default function EventsPage() {
             eventClick={handleEventClick}
             height="auto"
             eventDisplay="block"
+            timeZone={activeTimezone || 'local'}
           />
         </div>
+
+        {/* Active timezone indicator */}
+        <p className="text-slate-600 text-xs mt-2 text-right">
+          Showing times in: {useEventTimezone && tripTimezone ? tripTimezone : browserTimezone}
+        </p>
       </div>
 
       {modalOpen && (

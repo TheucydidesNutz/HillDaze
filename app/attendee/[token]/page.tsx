@@ -6,6 +6,22 @@ import AttendeeCalendar from '@/components/AttendeeCalendar'
 import JournalSection from '@/components/JournalSection'
 import MapModal from '@/components/MapModal'
 import BroadcastFeed from '@/components/BroadcastFeed'
+import {
+  Phone,
+  Mail,
+  Tag,
+  Plane,
+  Hotel,
+  PartyPopper,
+  CalendarDays,
+  FolderOpen,
+  NotebookPen,
+  Map,
+  FileText,
+  Camera,
+  Smartphone,
+  X,
+} from 'lucide-react'
 
 interface FactSheet {
   id: string
@@ -48,8 +64,8 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const [useEventTimezone, setUseEventTimezone] = useState(false)
 
-  // PWA state
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
@@ -58,58 +74,41 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   useEffect(() => {
     params.then(async ({ token: t }) => {
       setToken(t)
-
       const [attendeeRes, mapRes] = await Promise.all([
         fetch(`/api/attendee/${t}`),
         fetch(`/api/attendee/map?token=${t}`),
       ])
-
       const [attendeeData, mapData] = await Promise.all([
         attendeeRes.json(),
         mapRes.json(),
       ])
-
       if (attendeeData.error) setError(attendeeData.error)
       else setData(attendeeData)
-
       if (mapData.map) setMap(mapData.map)
-
       const docsRes = await fetch(`/api/attendee/documents?token=${t}`)
       const docsData = await docsRes.json()
       if (Array.isArray(docsData)) setDocuments(docsData)
-
       setLoading(false)
     })
   }, [params])
 
-  // PWA install logic
   useEffect(() => {
     if (typeof window === 'undefined') return
-
-    // Already installed as PWA
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true)
       return
     }
-
-    // Detect iOS
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent)
     setIsIOS(ios)
-
-    // Register service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(console.error)
     }
-
-    // Android/Chrome install prompt
     const handler = (e: any) => {
       e.preventDefault()
       setInstallPrompt(e)
       setShowInstallBanner(true)
     }
     window.addEventListener('beforeinstallprompt', handler)
-
-    // Show iOS banner after 3 seconds
     if (ios) {
       const timer = setTimeout(() => setShowInstallBanner(true), 3000)
       return () => {
@@ -117,7 +116,6 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         window.removeEventListener('beforeinstallprompt', handler)
       }
     }
-
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
@@ -157,23 +155,15 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !token) return
-
     setUploadingPhoto(true)
     const preview = URL.createObjectURL(file)
     setPhotoPreview(preview)
-
     const formData = new FormData()
     formData.append('file', file)
     formData.append('token', token)
-
-    const res = await fetch('/api/attendee/upload-photo', {
-      method: 'POST',
-      body: formData,
-    })
-
+    const res = await fetch('/api/attendee/upload-photo', { method: 'POST', body: formData })
     const result = await res.json()
     setUploadingPhoto(false)
-
     if (!res.ok) {
       setPhotoPreview(null)
       alert(result.error || 'Photo upload failed')
@@ -213,11 +203,13 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   const currentPhoto = photoPreview || p.photo_url
   const tripTitle = trip?.title || 'HillDayTracker'
   const tripLogo = trip?.logo_url
+  const tripTimezone = (trip as any)?.timezone || null
+  const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const activeTimezone = useEventTimezone && tripTimezone ? tripTimezone : undefined
 
   return (
     <div className="min-h-screen bg-slate-950">
 
-      {/* PWA manifest link + meta tags */}
       {token && (
         <>
           <link rel="manifest" href={`/attendee/${token}/manifest`} />
@@ -246,11 +238,8 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
                 <span className="text-blue-400">Add to Home Screen</span> to install {tripTitle}
               </p>
             </div>
-            <button
-              onClick={() => setShowInstallBanner(false)}
-              className="text-slate-500 hover:text-white text-lg flex-shrink-0"
-            >
-              ✕
+            <button onClick={() => setShowInstallBanner(false)} className="text-slate-500 hover:text-white flex-shrink-0">
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -271,16 +260,11 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               <p className="text-white text-sm font-medium">Add to Home Screen</p>
               <p className="text-slate-400 text-xs mt-0.5">Install {tripTitle} for quick access</p>
             </div>
-            <button
-              onClick={() => setShowInstallBanner(false)}
-              className="text-slate-500 hover:text-white mr-2 flex-shrink-0"
-            >
-              ✕
+            <button onClick={() => setShowInstallBanner(false)} className="text-slate-500 hover:text-white mr-2 flex-shrink-0">
+              <X className="w-5 h-5" />
             </button>
-            <button
-              onClick={handleInstall}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
-            >
+            <button onClick={handleInstall}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0">
               Install
             </button>
           </div>
@@ -292,8 +276,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             {tripLogo ? (
-              <img src={tripLogo} alt={tripTitle}
-                className="w-10 h-10 rounded-lg object-contain bg-slate-800 p-0.5" />
+              <img src={tripLogo} alt={tripTitle} className="w-10 h-10 rounded-lg object-contain bg-slate-800 p-0.5" />
             ) : (
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
                 <span className="text-white text-sm font-bold">{tripTitle.charAt(0)}</span>
@@ -309,14 +292,16 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
           <div className="flex items-center gap-2">
             {map && (
               <button onClick={handleMapOpen}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors">
-                🗺️ Map
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors">
+                <Map className="w-4 h-4" />
+                Map
               </button>
             )}
             {factSheet && (
               <button onClick={handlePdfDownload}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
-                📄 Fact Sheet
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
+                <FileText className="w-4 h-4" />
+                Fact Sheet
               </button>
             )}
           </div>
@@ -342,11 +327,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
                 className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 hover:bg-blue-500 rounded-full flex items-center justify-center transition-colors border-2 border-slate-900"
                 title="Update photo"
               >
-                {uploadingPhoto ? (
-                  <span className="text-white text-xs">...</span>
-                ) : (
-                  <span className="text-white text-xs">📷</span>
-                )}
+                <Camera className="w-3.5 h-3.5 text-white" />
               </button>
               <input
                 ref={photoInputRef}
@@ -356,26 +337,32 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
                 className="hidden"
               />
             </div>
-
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-white">{p.name}</h1>
               {p.title && <p className="text-slate-300">{p.title}</p>}
               {p.company && <p className="text-slate-400 text-sm">{p.company}</p>}
               <div className="flex gap-4 mt-2">
-                {p.phone && <a href={`tel:${p.phone}`} className="text-blue-400 text-sm hover:text-blue-300">📞 {p.phone}</a>}
-                {p.email && <a href={`mailto:${p.email}`} className="text-blue-400 text-sm hover:text-blue-300">✉️ {p.email}</a>}
+                {p.phone && (
+                  <a href={`tel:${p.phone}`} className="flex items-center gap-1.5 text-blue-400 text-sm hover:text-blue-300">
+                    <Phone className="w-3.5 h-3.5" />{p.phone}
+                  </a>
+                )}
+                {p.email && (
+                  <a href={`mailto:${p.email}`} className="flex items-center gap-1.5 text-blue-400 text-sm hover:text-blue-300">
+                    <Mail className="w-3.5 h-3.5" />{p.email}
+                  </a>
+                )}
               </div>
             </div>
           </div>
-
-          {/* Always-visible install button */}
           {!isInstalled && token && (isIOS || installPrompt) && (
             <div className="mt-4 pt-4 border-t border-slate-800">
               <button
                 onClick={isIOS ? () => setShowInstallBanner(true) : handleInstall}
                 className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
               >
-                📱 Add to Home Screen
+                <Smartphone className="w-4 h-4" />
+                Add to Home Screen
               </button>
             </div>
           )}
@@ -387,7 +374,10 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         {/* Group Info */}
         {p.group && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <h2 className="text-white font-semibold mb-4">🏷️ Your Group</h2>
+            <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+              <Tag className="w-4 h-4 text-purple-400" />
+              Your Group
+            </h2>
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {p.group.lead_photo_url ? (
@@ -400,8 +390,16 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
                 <p className="text-white font-medium">{p.group.name}</p>
                 {p.group.lead_name && <p className="text-slate-300 text-sm">Lead: {p.group.lead_name}</p>}
                 <div className="flex gap-4 mt-1">
-                  {p.group.lead_phone && <a href={`tel:${p.group.lead_phone}`} className="text-blue-400 text-sm hover:text-blue-300">📞 {p.group.lead_phone}</a>}
-                  {p.group.lead_email && <a href={`mailto:${p.group.lead_email}`} className="text-blue-400 text-sm hover:text-blue-300">✉️ {p.group.lead_email}</a>}
+                  {p.group.lead_phone && (
+                    <a href={`tel:${p.group.lead_phone}`} className="flex items-center gap-1.5 text-blue-400 text-sm hover:text-blue-300">
+                      <Phone className="w-3.5 h-3.5" />{p.group.lead_phone}
+                    </a>
+                  )}
+                  {p.group.lead_email && (
+                    <a href={`mailto:${p.group.lead_email}`} className="flex items-center gap-1.5 text-blue-400 text-sm hover:text-blue-300">
+                      <Mail className="w-3.5 h-3.5" />{p.group.lead_email}
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
@@ -411,14 +409,17 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         {/* Flights */}
         {(p.arrival_airline || p.departure_airline) && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <h2 className="text-white font-semibold mb-4">✈️ Flights</h2>
+            <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+              <Plane className="w-4 h-4 text-cyan-400" />
+              Flights
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {p.arrival_airline && (
                 <div>
                   <p className="text-slate-400 text-xs uppercase tracking-wide mb-2">Arrival</p>
                   <p className="text-white font-medium">{p.arrival_airline} {p.arrival_flight_no}</p>
                   {p.arrival_datetime && <p className="text-slate-300 text-sm">{new Date(p.arrival_datetime).toLocaleString()}</p>}
-                  {p.arrival_airport && <p className="text-slate-400 text-sm">✈ {p.arrival_airport}</p>}
+                  {p.arrival_airport && <p className="text-slate-400 text-sm flex items-center gap-1"><Plane className="w-3 h-3" />{p.arrival_airport}</p>}
                 </div>
               )}
               {p.departure_airline && (
@@ -426,7 +427,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
                   <p className="text-slate-400 text-xs uppercase tracking-wide mb-2">Departure</p>
                   <p className="text-white font-medium">{p.departure_airline} {p.departure_flight_no}</p>
                   {p.departure_datetime && <p className="text-slate-300 text-sm">{new Date(p.departure_datetime).toLocaleString()}</p>}
-                  {p.departure_airport && <p className="text-slate-400 text-sm">✈ {p.departure_airport}</p>}
+                  {p.departure_airport && <p className="text-slate-400 text-sm flex items-center gap-1"><Plane className="w-3 h-3" />{p.departure_airport}</p>}
                 </div>
               )}
             </div>
@@ -436,7 +437,10 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         {/* Hotel */}
         {p.hotel_name && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <h2 className="text-white font-semibold mb-3">🏨 Hotel</h2>
+            <h2 className="text-white font-semibold mb-3 flex items-center gap-2">
+              <Hotel className="w-4 h-4 text-green-400" />
+              Hotel
+            </h2>
             <p className="text-white text-lg">{p.hotel_name}</p>
             {p.hotel_room && <p className="text-slate-400">Room {p.hotel_room}</p>}
           </div>
@@ -445,14 +449,42 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         {/* Fun Diversions */}
         {p.fun_diversions && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <h2 className="text-white font-semibold mb-3">🎉 Fun Diversions</h2>
+            <h2 className="text-white font-semibold mb-3 flex items-center gap-2">
+              <PartyPopper className="w-4 h-4 text-yellow-400" />
+              Fun Diversions
+            </h2>
             <p className="text-slate-300 whitespace-pre-wrap">{p.fun_diversions}</p>
           </div>
         )}
 
         {/* Calendar */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-          <h2 className="text-white font-semibold mb-4">📅 Your Schedule</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-white font-semibold flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-blue-400" />
+              Your Schedule
+            </h2>
+            {tripTimezone && (
+              <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 text-xs">
+                <button
+                  onClick={() => setUseEventTimezone(false)}
+                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                    !useEventTimezone ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  My Time
+                </button>
+                <button
+                  onClick={() => setUseEventTimezone(true)}
+                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                    useEventTimezone ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Event Time
+                </button>
+              </div>
+            )}
+          </div>
           <div className="flex flex-wrap gap-4 mb-4 text-sm">
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
@@ -467,18 +499,31 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               <span className="text-slate-400">⚡ Recently updated</span>
             </span>
           </div>
-          <AttendeeCalendar events={events} />
+          <AttendeeCalendar events={events} timezone={activeTimezone} />
+          {tripTimezone && (
+            <p className="text-slate-600 text-xs mt-2 text-right">
+              {useEventTimezone ? tripTimezone : browserTimezone}
+            </p>
+          )}
         </div>
 
         {/* Your Documents */}
         {documents.length > 0 && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <h2 className="text-white font-semibold mb-4">📁 Your Documents</h2>
+            <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+              <FolderOpen className="w-4 h-4 text-orange-400" />
+              Your Documents
+            </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {documents.map(doc => (
                 <button key={doc.id} onClick={() => handleDocOpen(doc)}
                   className="flex items-center gap-3 p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-xl text-left transition-colors">
-                  <span className="text-2xl flex-shrink-0">{doc.file_type === 'pdf' ? '📄' : '🖼️'}</span>
+                  <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                    {doc.file_type === 'pdf'
+                      ? <FileText className="w-4 h-4 text-orange-400" />
+                      : <FolderOpen className="w-4 h-4 text-orange-400" />
+                    }
+                  </div>
                   <div>
                     <p className="text-white text-sm font-medium">{doc.label}</p>
                     <p className="text-slate-400 text-xs">{doc.file_type === 'pdf' ? 'PDF Document' : 'Image'}</p>
@@ -491,15 +536,16 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
 
         {/* Journal */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-          <h2 className="text-white font-semibold mb-4">📝 Notes & Journal</h2>
+          <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+            <NotebookPen className="w-4 h-4 text-yellow-400" />
+            Notes & Journal
+          </h2>
           <JournalSection token={token} />
         </div>
 
-        {/* Bottom padding for install banner */}
         {showInstallBanner && !isInstalled && <div className="h-20" />}
       </div>
 
-      {/* Map Modal */}
       {showMap && mapUrl && map && (
         <MapModal mapUrl={mapUrl} mapLabel={map.label} onClose={() => setShowMap(false)} />
       )}

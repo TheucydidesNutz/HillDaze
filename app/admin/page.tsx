@@ -6,6 +6,65 @@ import { Trip } from '@/lib/types'
 import { getCurrentTrip } from '@/lib/tripContext'
 import LogoutButton from '@/components/LogoutButton'
 import BroadcastComposer from '@/components/BroadcastComposer'
+import {
+  Users,
+  Tag,
+  CalendarDays,
+  NotebookPen,
+  Download,
+  FolderOpen,
+} from 'lucide-react'
+
+const navItems = [
+  {
+    href: '/admin/participants',
+    icon: Users,
+    title: 'Participants',
+    description: 'Manage your attendees',
+    color: 'text-blue-400',
+    bg: 'bg-blue-500/10',
+  },
+  {
+    href: '/admin/groups',
+    icon: Tag,
+    title: 'Groups',
+    description: 'Manage group assignments',
+    color: 'text-purple-400',
+    bg: 'bg-purple-500/10',
+  },
+  {
+    href: '/admin/events',
+    icon: CalendarDays,
+    title: 'Schedule',
+    description: 'Calendar & activities',
+    color: 'text-green-400',
+    bg: 'bg-green-500/10',
+  },
+  {
+    href: '/admin/notes',
+    icon: NotebookPen,
+    title: 'Notes Feed',
+    description: 'Participant submissions',
+    color: 'text-yellow-400',
+    bg: 'bg-yellow-500/10',
+  },
+  {
+    href: '/admin/import',
+    icon: Download,
+    title: 'Import',
+    description: 'CSV participants & ICS calendar',
+    color: 'text-cyan-400',
+    bg: 'bg-cyan-500/10',
+  },
+  {
+    href: '/admin/file_management',
+    icon: FolderOpen,
+    title: 'File Management',
+    description: 'Fact sheets & configuration',
+    color: 'text-orange-400',
+    bg: 'bg-orange-500/10',
+  },
+]
 
 export default function AdminDashboard() {
   const [trip, setTrip] = useState<Trip | null>(null)
@@ -37,12 +96,16 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-950 p-8">
       <div className="max-w-7xl mx-auto">
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             {trip.logo_url ? (
-              <img src={trip.logo_url} alt={trip.title}
-                className="w-14 h-14 rounded-xl object-contain bg-slate-800 p-1 flex-shrink-0" />
+              <img
+                src={trip.logo_url}
+                alt={trip.title}
+                className="w-14 h-14 rounded-xl object-contain bg-slate-800 p-1 flex-shrink-0"
+              />
             ) : (
               <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
                 <span className="text-white text-2xl font-bold">{trip.title.charAt(0)}</span>
@@ -68,40 +131,24 @@ export default function AdminDashboard() {
 
         {/* Nav Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <a href="/admin/participants" className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-xl p-6 transition-colors group">
-            <div className="text-2xl mb-3">👥</div>
-            <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">Participants</h3>
-            <p className="text-slate-400 text-sm">Manage your attendees</p>
-          </a>
-          <a href="/admin/groups" className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-xl p-6 transition-colors group">
-            <div className="text-2xl mb-3">🏷️</div>
-            <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">Groups</h3>
-            <p className="text-slate-400 text-sm">Manage group assignments</p>
-          </a>
-          <a href="/admin/events" className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-xl p-6 transition-colors group">
-            <div className="text-2xl mb-3">📅</div>
-            <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">Schedule</h3>
-            <p className="text-slate-400 text-sm">Calendar & activities</p>
-          </a>
-          <a href="/admin/notes" className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-xl p-6 transition-colors group">
-            <div className="text-2xl mb-3">📝</div>
-            <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">Notes Feed</h3>
-            <p className="text-slate-400 text-sm">Participant submissions</p>
-          </a>
-          <a href="/admin/import" className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-xl p-6 transition-colors group">
-            <div className="text-2xl mb-3">📥</div>
-            <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">Import</h3>
-            <p className="text-slate-400 text-sm">CSV participants & ICS calendar</p>
-          </a>
-          <a href="/admin/file_management" className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-xl p-6 transition-colors group">
-            <div className="text-2xl mb-3">⚙️</div>
-            <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">File Management</h3>
-            <p className="text-slate-400 text-sm">Fact sheets & configuration</p>
-          </a>
+          {navItems.map(({ href, icon: Icon, title, description, color, bg }) => (
+            <a
+              key={href}
+              href={href}
+              className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-6 transition-all group hover:bg-slate-800/50"
+            >
+              <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${bg} mb-4`}>
+                <Icon className={`w-5 h-5 ${color}`} />
+              </div>
+              <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">{title}</h3>
+              <p className="text-slate-400 text-sm">{description}</p>
+            </a>
+          ))}
         </div>
 
         {/* Broadcast composer */}
         <BroadcastComposer />
+
       </div>
     </div>
   )

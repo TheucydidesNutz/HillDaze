@@ -16,7 +16,33 @@ interface TripAdmin {
 interface UserSettings {
   org_name: string | null
   logo_url: string | null
+  display_name: string | null
+  timezone: string | null
 }
+
+interface OrgUser {
+  id: string
+  email: string
+  created_at: string
+  last_sign_in_at: string | null
+}
+
+const TIMEZONES = [
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Anchorage',
+  'Pacific/Honolulu',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Asia/Tokyo',
+  'Asia/Shanghai',
+  'Asia/Dubai',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+]
 
 export default function TripsPage() {
   const [trips, setTrips] = useState<Trip[]>([])
@@ -30,25 +56,35 @@ export default function TripsPage() {
   const [editTitle, setEditTitle] = useState('')
   const [editStart, setEditStart] = useState('')
   const [editEnd, setEditEnd] = useState('')
+  const [editTimezone, setEditTimezone] = useState('')
   const [saving, setSaving] = useState(false)
   const [tripAdmins, setTripAdmins] = useState<TripAdmin[]>([])
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviting, setInviting] = useState(false)
   const [inviteMessage, setInviteMessage] = useState('')
 
+  // Delete confirmation state
+  const [deleteStep, setDeleteStep] = useState<{ id: string; step: 1 | 2 } | null>(null)
+
   // Settings state
   const [showSettings, setShowSettings] = useState(false)
-  const [userSettings, setUserSettings] = useState<UserSettings>({ org_name: null, logo_url: null })
+  const [settingsTab, setSettingsTab] = useState<'general' | 'account' | 'users'>('general')
+  const [userSettings, setUserSettings] = useState<UserSettings>({ org_name: null, logo_url: null, display_name: null, timezone: null })
   const [settingsOrgName, setSettingsOrgName] = useState('')
+  const [settingsDisplayName, setSettingsDisplayName] = useState('')
+  const [settingsTimezone, setSettingsTimezone] = useState('America/New_York')
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsMessage, setSettingsMessage] = useState('')
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
   const [passwordMessage, setPasswordMessage] = useState('')
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [orgUsers, setOrgUsers] = useState<OrgUser[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
 
   const router = useRouter()
   const supabase = createBrowserClient(
@@ -69,13 +105,15 @@ export default function TripsPage() {
 
     const { data } = await supabase
       .from('user_settings')
-      .select('org_name, logo_url')
+      .select('org_name, logo_url, display_name, timezone')
       .eq('user_id', user.id)
       .single()
 
     if (data) {
       setUserSettings(data)
       setSettingsOrgName(data.org_name || '')
+      setSettingsDisplayName(data.display_name || '')
+      setSettingsTimezone(data.timezone || 'America/New_York')
     }
   }
 
@@ -84,6 +122,10 @@ export default function TripsPage() {
     const data = await res.json()
     setTrips(data)
     setLoading(false)
+    // Check if current user is super admin on any trip
+    if (Array.isArray(data) && data.some((t: Trip) => t.role === 'super')) {
+      setIsSuperAdmin(true)
+    }
   }
 
   async function fetchTripAdmins(tripId: string) {
@@ -92,13 +134,26 @@ export default function TripsPage() {
     setTripAdmins(Array.isArray(data) ? data : [])
   }
 
+  async function fetchOrgUsers() {
+    setLoadingUsers(true)
+    const res = await fetch('/api/admin/users')
+    const data = await res.json()
+    setOrgUsers(Array.isArray(data) ? data : [])
+    setLoadingUsers(false)
+  }
+
   async function handleCreate() {
     if (!newTitle.trim()) return alert('Title required')
     setCreating(true)
     const res = await fetch('/api/admin/trips', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: newTitle, start_date: newStart, end_date: newEnd }),
+      body: JSON.stringify({
+        title: newTitle,
+        start_date: newStart,
+        end_date: newEnd,
+        timezone: userSettings.timezone || 'America/New_York',
+      }),
     })
     const data = await res.json()
     setCreating(false)
@@ -121,13 +176,14 @@ export default function TripsPage() {
         title: editTitle,
         start_date: editStart || null,
         end_date: editEnd || null,
+        timezone: editTimezone || 'America/New_York',
       }),
     })
     const data = await res.json()
     setSaving(false)
     if (res.ok) {
       setTrips(prev => prev.map(t => t.id === data.id ? { ...t, ...data } : t))
-      setEditingTrip(prev => prev ? { ...prev, ...data } : prev)
+      setEditingTrip(null)
     } else alert(data.error)
   }
 
@@ -159,9 +215,9 @@ export default function TripsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this trip and ALL its data? This cannot be undone.')) return
     await fetch(`/api/admin/trips/${id}`, { method: 'DELETE' })
     setTrips(prev => prev.filter(t => t.id !== id))
+    setDeleteStep(null)
   }
 
   function openEdit(trip: Trip) {
@@ -170,6 +226,7 @@ export default function TripsPage() {
     setEditTitle(fullTrip.title)
     setEditStart(fullTrip.start_date || '')
     setEditEnd(fullTrip.end_date || '')
+    setEditTimezone((fullTrip as any).timezone || userSettings.timezone || 'America/New_York')
     setInviteMessage('')
     setInviteEmail('')
     fetchTripAdmins(fullTrip.id)
@@ -179,26 +236,32 @@ export default function TripsPage() {
     if (!currentUserId) return
     setSavingSettings(true)
     setSettingsMessage('')
-  
+
     const { error } = await supabase
       .from('user_settings')
       .upsert({
         user_id: currentUserId,
         org_name: settingsOrgName.trim() || null,
+        display_name: settingsDisplayName.trim() || null,
+        timezone: settingsTimezone,
         updated_at: new Date().toISOString(),
       })
-  
+
     setSavingSettings(false)
     if (error) {
       setSettingsMessage('✗ Failed to save settings')
     } else {
-      setUserSettings(prev => ({ ...prev, org_name: settingsOrgName.trim() || null }))
+      setUserSettings(prev => ({
+        ...prev,
+        org_name: settingsOrgName.trim() || null,
+        display_name: settingsDisplayName.trim() || null,
+        timezone: settingsTimezone,
+      }))
       setSettingsMessage('✓ Settings saved')
-      setShowSettings(false)  // ← add here
+      setShowSettings(false)
       setTimeout(() => setSettingsMessage(''), 3000)
     }
   }
-
 
   async function handleOrgLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -212,11 +275,11 @@ export default function TripsPage() {
       .from('org-logos')
       .upload(path, file, { upsert: true })
 
-      if (uploadError) {
-        setSettingsMessage(`✗ Logo upload failed: ${uploadError.message}`)
-        setUploadingLogo(false)
-        return
-      }
+    if (uploadError) {
+      setSettingsMessage(`✗ Logo upload failed: ${uploadError.message}`)
+      setUploadingLogo(false)
+      return
+    }
 
     const { data: { publicUrl } } = supabase.storage
       .from('org-logos')
@@ -261,6 +324,17 @@ export default function TripsPage() {
     }
   }
 
+  async function handleToggleUserRole(userId: string, currentRole: 'super' | 'admin') {
+    const newRole = currentRole === 'super' ? 'admin' : 'super'
+    if (!confirm(`Change this user to ${newRole}?`)) return
+    await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, role: newRole }),
+    })
+    fetchOrgUsers()
+  }
+
   function formatDateRange(trip: Trip) {
     if (!trip.start_date) return null
     const start = new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -269,7 +343,7 @@ export default function TripsPage() {
     return `${start} – ${end}`
   }
 
-  const displayName = userSettings.org_name || 'Covaled'
+  const displayName = userSettings.org_name || '[Your Group]'
 
   return (
     <div className="min-h-screen bg-slate-950 p-8">
@@ -283,7 +357,7 @@ export default function TripsPage() {
                 <img
                   src={userSettings.logo_url}
                   alt="org logo"
-                  className="w-12 h-12 rounded-xl object-contain bg-slate-800 p-1"
+                  className="w-36 h-36 object-contain flex-shrink-0 rounded-2x1"
                 />
               )}
               <div className="text-center">
@@ -295,7 +369,7 @@ export default function TripsPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => { setShowSettings(true); setSettingsMessage(''); setPasswordMessage('') }}
+              onClick={() => { setShowSettings(true); setSettingsMessage(''); setPasswordMessage(''); setSettingsTab('general') }}
               className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors"
               title="Settings"
             >
@@ -319,7 +393,7 @@ export default function TripsPage() {
           </div>
         </div>
 
-        {/* Trips grid — unchanged */}
+        {/* Trips grid */}
         {loading ? (
           <div className="text-slate-400 text-center py-20">Loading...</div>
         ) : trips.length === 0 ? (
@@ -332,7 +406,40 @@ export default function TripsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {trips.map(trip => (
-              <div key={trip.id} className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-6 transition-colors">
+              <div key={trip.id} className="relative bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-6 transition-colors">
+
+                {/* ✕ delete button — super admin only, two-step */}
+                {trip.role === 'super' && (
+                  <div className="absolute top-3 right-3">
+                    {deleteStep?.id === trip.id && deleteStep.step === 1 && (
+                      <div className="absolute right-0 top-7 bg-slate-800 border border-slate-700 rounded-xl p-3 z-10 w-52 shadow-xl">
+                        <p className="text-white text-xs font-medium mb-2">Delete this trip?</p>
+                        <p className="text-slate-400 text-xs mb-3">All data will be permanently removed.</p>
+                        <div className="flex gap-2">
+                          <button onClick={() => setDeleteStep(null)} className="flex-1 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors">Cancel</button>
+                          <button onClick={() => setDeleteStep({ id: trip.id, step: 2 })} className="flex-1 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs rounded-lg transition-colors">Yes, delete</button>
+                        </div>
+                      </div>
+                    )}
+                    {deleteStep?.id === trip.id && deleteStep.step === 2 && (
+                      <div className="absolute right-0 top-7 bg-slate-800 border border-red-500/30 rounded-xl p-3 z-10 w-52 shadow-xl">
+                        <p className="text-red-400 text-xs font-medium mb-2">⚠️ Are you absolutely sure?</p>
+                        <p className="text-slate-400 text-xs mb-3">This cannot be undone.</p>
+                        <div className="flex gap-2">
+                          <button onClick={() => setDeleteStep(null)} className="flex-1 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors">Cancel</button>
+                          <button onClick={() => handleDelete(trip.id)} className="flex-1 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-lg transition-colors">Delete</button>
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setDeleteStep(deleteStep?.id === trip.id ? null : { id: trip.id, step: 1 })}
+                      className="w-6 h-6 flex items-center justify-center text-slate-600 hover:text-red-400 transition-colors text-sm"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
                 <div className="flex items-start gap-4 mb-4">
                   {trip.logo_url ? (
                     <img src={trip.logo_url} alt={trip.title} className="w-14 h-14 rounded-xl object-contain bg-slate-800 p-1 flex-shrink-0" />
@@ -341,15 +448,16 @@ export default function TripsPage() {
                       <span className="text-white text-2xl font-bold">{trip.title.charAt(0)}</span>
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 pr-6">
                     <h2 className="text-white font-semibold text-xl truncate">{trip.title}</h2>
                     {formatDateRange(trip) && (
                       <p className="text-slate-400 text-sm mt-0.5">{formatDateRange(trip)}</p>
                     )}
-                    <span className={`inline-block mt-2 px-2.5 py-1 rounded-full text-xs font-medium border ${trip.role === 'super'
+                    <span className={`inline-block mt-2 px-2.5 py-1 rounded-full text-xs font-medium border ${
+                      trip.role === 'super'
                         ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                         : 'bg-slate-700 text-slate-400 border-slate-600'
-                      }`}>
+                    }`}>
                       {trip.role === 'super' ? '⭐ Super Admin' : '👤 Admin'}
                     </span>
                   </div>
@@ -367,19 +475,13 @@ export default function TripsPage() {
                     className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors">
                     Edit
                   </button>
-                  {trip.role === 'super' && (
-                    <button onClick={() => handleDelete(trip.id)}
-                      className="px-4 py-2 bg-slate-800 hover:bg-red-500/20 text-slate-500 hover:text-red-400 text-sm font-medium rounded-lg transition-colors">
-                      Delete
-                    </button>
-                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* New Trip Modal — unchanged */}
+        {/* New Trip Modal */}
         {showNew && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
             <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6">
@@ -418,7 +520,7 @@ export default function TripsPage() {
           </div>
         )}
 
-        {/* Edit Trip Modal — unchanged */}
+        {/* Edit Trip Modal */}
         {editingTrip && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
             <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col">
@@ -444,6 +546,18 @@ export default function TripsPage() {
                       className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                   </div>
                 </div>
+
+                {/* Per-trip timezone */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Trip Timezone</label>
+                  <select value={editTimezone} onChange={e => setEditTimezone(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    {TIMEZONES.map(tz => (
+                      <option key={tz} value={tz}>{tz}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">Logo</label>
                   <div className="flex items-center gap-3">
@@ -469,6 +583,7 @@ export default function TripsPage() {
                     />
                   </div>
                 </div>
+
                 <div className="border-t border-slate-800 pt-4">
                   <h3 className="text-white font-medium mb-3">👥 Trip Admins</h3>
                   {tripAdmins.length > 0 && (
@@ -476,8 +591,7 @@ export default function TripsPage() {
                       {tripAdmins.map(admin => (
                         <div key={admin.id} className="flex items-center justify-between p-2.5 bg-slate-800/50 rounded-lg">
                           <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${admin.role === 'super' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'
-                              }`}>
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${admin.role === 'super' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'}`}>
                               {admin.role === 'super' ? '⭐ Super' : '👤 Admin'}
                             </span>
                             <span className="text-slate-300 text-sm">{admin.email}</span>
@@ -537,115 +651,208 @@ export default function TripsPage() {
                 <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white">✕</button>
               </div>
 
+              {/* Tabs */}
+              <div className="flex gap-1 px-6 pt-4 pb-2">
+                {(['general', 'account', ...(isSuperAdmin ? ['users'] : [])] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => { setSettingsTab(t as any); if (t === 'users') fetchOrgUsers() }}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize ${settingsTab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
 
-                {/* Org Name */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Organization Name</label>
-                  <input
-                    type="text"
-                    value={settingsOrgName}
-                    onChange={e => setSettingsOrgName(e.target.value)}
-                    placeholder="e.g. ACME Corp"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                  <p className="text-slate-500 text-xs mt-1.5">
-                    Replaces "Covaled" in the header.
-                  </p>
-                </div>
+                {/* General Tab */}
+                {settingsTab === 'general' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Organization Name</label>
+                      <input
+                        type="text"
+                        value={settingsOrgName}
+                        onChange={e => setSettingsOrgName(e.target.value)}
+                        placeholder="e.g. ACME Corp"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                      <p className="text-slate-500 text-xs mt-1.5">Replaces "[Your Group]" in the header.</p>
+                    </div>
 
-                {/* Org Logo */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-2">Organization Logo</label>
-                  <div className="flex items-center gap-3">
-                    {userSettings.logo_url ? (
-                      <img src={userSettings.logo_url} alt="org logo"
-                        className="w-12 h-12 rounded-xl object-contain bg-slate-800 p-1 flex-shrink-0" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center flex-shrink-0">
-                        <span className="text-slate-500 text-xs">None</span>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-2">Organization Logo</label>
+                      <div className="flex items-center gap-3">
+                        {userSettings.logo_url ? (
+                          <img src={userSettings.logo_url} alt="org logo"
+                            className="w-12 h-12 rounded-xl object-contain bg-slate-800 p-1 flex-shrink-0" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center flex-shrink-0">
+                            <span className="text-slate-500 text-xs">None</span>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                          onChange={handleOrgLogoUpload}
+                          disabled={uploadingLogo}
+                          className="text-sm text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer disabled:opacity-50"
+                        />
                       </div>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/svg+xml"
-                      onChange={handleOrgLogoUpload}
-                      disabled={uploadingLogo}
-                      className="text-sm text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer disabled:opacity-50"
-                    />
-                  </div>
-                  {uploadingLogo && <p className="text-slate-400 text-xs mt-1.5">Uploading...</p>}
-                </div>
+                      {uploadingLogo && <p className="text-slate-400 text-xs mt-1.5">Uploading...</p>}
+                    </div>
 
-                {settingsMessage && (
-                  <p className={`text-sm ${settingsMessage.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
-                    {settingsMessage}
-                  </p>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Default Timezone</label>
+                      <select
+                        value={settingsTimezone}
+                        onChange={e => setSettingsTimezone(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      >
+                        {TIMEZONES.map(tz => (
+                          <option key={tz} value={tz}>{tz}</option>
+                        ))}
+                      </select>
+                      <p className="text-slate-500 text-xs mt-1.5">Applied as default when creating new trips.</p>
+                    </div>
+
+                    {settingsMessage && (
+                      <p className={`text-sm ${settingsMessage.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
+                        {settingsMessage}
+                      </p>
+                    )}
+                  </>
                 )}
 
-                {/* User Info */}
-                <div className="border-t border-slate-800 pt-4 space-y-3">
-                  <h3 className="text-white font-medium text-sm">Account</h3>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">Email</label>
-                    <p className="text-slate-300 text-sm">{currentUserEmail}</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">User ID</label>
-                    <p className="text-slate-500 text-xs font-mono break-all">{currentUserId}</p>
-                  </div>
-                </div>
+                {/* Account Tab */}
+                {settingsTab === 'account' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Your Name</label>
+                      <input
+                        type="text"
+                        value={settingsDisplayName}
+                        onChange={e => setSettingsDisplayName(e.target.value)}
+                        placeholder="e.g. Jane Smith"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
 
-                {/* Change Password */}
-                <div className="border-t border-slate-800 pt-4 space-y-3">
-                  <h3 className="text-white font-medium text-sm">Change Password</h3>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">New Password</label>
-                    <input
-                      type="password"
-                      value={newPassword}
-                      onChange={e => setNewPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">Confirm Password</label>
-                    <input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={e => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                  </div>
-                  {passwordMessage && (
-                    <p className={`text-xs ${passwordMessage.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
-                      {passwordMessage}
-                    </p>
-                  )}
-                  <button
-                    onClick={handleChangePassword}
-                    disabled={changingPassword || !newPassword || !confirmPassword}
-                    className="w-full py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-medium rounded-lg transition-colors"
-                  >
-                    {changingPassword ? 'Updating...' : 'Update Password'}
-                  </button>
-                </div>
+                    <div className="border-t border-slate-800 pt-4 space-y-3">
+                      <h3 className="text-white font-medium text-sm">Account Info</h3>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Email</label>
+                        <p className="text-slate-300 text-sm">{currentUserEmail}</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">User ID</label>
+                        <p className="text-slate-500 text-xs font-mono break-all">{currentUserId}</p>
+                      </div>
+                    </div>
 
+                    <div className="border-t border-slate-800 pt-4 space-y-3">
+                      <h3 className="text-white font-medium text-sm">Change Password</h3>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">New Password</label>
+                        <input
+                          type="password"
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Confirm Password</label>
+                        <input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={e => setConfirmPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                      </div>
+                      {passwordMessage && (
+                        <p className={`text-xs ${passwordMessage.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
+                          {passwordMessage}
+                        </p>
+                      )}
+                      <button
+                        onClick={handleChangePassword}
+                        disabled={changingPassword || !newPassword || !confirmPassword}
+                        className="w-full py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        {changingPassword ? 'Updating...' : 'Update Password'}
+                      </button>
+                    </div>
+
+                    {settingsMessage && (
+                      <p className={`text-sm ${settingsMessage.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
+                        {settingsMessage}
+                      </p>
+                    )}
+                  </>
+                )}
+
+                {/* Users Tab — super admin only */}
+                {settingsTab === 'users' && (
+                  <>
+                    <h3 className="text-white font-medium text-sm">All Users</h3>
+                    {loadingUsers ? (
+                      <p className="text-slate-400 text-sm">Loading...</p>
+                    ) : orgUsers.length === 0 ? (
+                      <p className="text-slate-400 text-sm">No users found.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {orgUsers.map(u => (
+                          <div key={u.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
+                            <div>
+                              <p className="text-slate-300 text-sm">{u.email}</p>
+                              <p className="text-slate-500 text-xs">
+                                Last sign in: {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : 'Never'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {trips.filter(t => t.role === 'super').map(trip => {
+                                const admin = tripAdmins.find(a => a.user_id === u.id)
+                                if (!admin) return null
+                                return (
+                                  <button
+                                    key={trip.id}
+                                    onClick={() => handleToggleUserRole(u.id, admin.role)}
+                                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                      admin.role === 'super'
+                                        ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                                    }`}
+                                  >
+                                    {admin.role === 'super' ? '⭐ Super' : '👤 Admin'}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800">
                 <button onClick={() => setShowSettings(false)} className="px-4 py-2 text-slate-400 hover:text-white text-sm">
                   Close
                 </button>
-                <button
-                  onClick={handleSaveSettings}
-                  disabled={savingSettings}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-medium rounded-lg text-sm transition-colors"
-                >
-                  {savingSettings ? 'Saving...' : 'Save Settings'}
-                </button>
+                {settingsTab !== 'users' && (
+                  <button
+                    onClick={handleSaveSettings}
+                    disabled={savingSettings}
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-medium rounded-lg text-sm transition-colors"
+                  >
+                    {savingSettings ? 'Saving...' : 'Save Settings'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
