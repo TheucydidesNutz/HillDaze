@@ -22,7 +22,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 
-// ─── Landing page feature cards ───────────────────────────────────────────────
+// ─── Landing page data ────────────────────────────────────────────────────────
 const features = [
   {
     icon: Users,
@@ -77,70 +77,96 @@ const micrositeItems = [
 ]
 
 // ─── Screenshot carousel data ─────────────────────────────────────────────────
-const slides = [
+// objectPosition controls where the image is anchored inside the crop.
+// objectScale, when set, wraps the image in a slightly zoomed-out container
+// so more of the screenshot is visible vertically.
+const slides: {
+  src: string
+  headline: string
+  description: string
+  objectPosition?: string
+  objectScale?: boolean
+}[] = [
   {
     src: '/sample_Trip_management_Page.png',
     headline: 'Command center for every trip',
     description:
       'See all your participants, broadcast messages, and jump to any section of your trip from one clean dashboard.',
+    objectPosition: 'center top',
   },
   {
     src: '/sample_Participants_Page.png',
     headline: 'Every attendee, at a glance',
     description:
       'View all attendees with their company, email, group, and hotel room — search, sort, and copy their personal microsite link in one click.',
+    objectPosition: 'center top',
   },
   {
     src: '/sample_Scheduling_Page.png',
     headline: 'A full calendar built for group travel',
     description:
       'Plot mandatory and optional events across the trip dates. Attendees only see the events that apply to them, always in their own timezone.',
+    objectPosition: 'center top',
   },
   {
     src: '/sample_Microsite_top.png',
     headline: 'Their personal link — everything they need',
     description:
       'Each attendee sees their own profile, live broadcast alerts, group lead contact, flights, hotel room, and fun diversions — no login required.',
+    objectPosition: 'center top',
   },
   {
     src: '/sample_Microsite_bottom.png',
     headline: 'Schedule, notes, and maps — always in pocket',
     description:
       'Attendees can view their personal schedule, take trip notes, and install the site as a PWA on their home screen for offline access.',
+    objectPosition: 'center top',
   },
   {
+    // Notes: content lives in the BOTTOM half — anchor to bottom
     src: '/sample_Notes_Page.png',
     headline: 'A live notes feed from the field',
     description:
       'Participants submit notes from their meetings and you see them in real time — filterable by group, sortable by time, and downloadable as a report.',
+    objectPosition: 'center bottom',
   },
   {
+    // Groups: image is narrower than the slot — zoom out slightly so it fills
+    // width without cropping the sides, and center it
     src: '/sample_Groups_Page.png',
     headline: 'Organize attendees into groups',
     description:
       'Create subgroups with a named lead, email, and phone. Participants are assigned to a group and see their lead contact on their microsite.',
+    objectPosition: 'center center',
+    objectScale: true,
   },
   {
+    // File Mgmt Top: shift downward ~20% to reveal the document list below the upload form
     src: '/sample_File_Mgmt_Top.png',
     headline: 'One active fact sheet, always current',
     description:
       'Upload a PDF fact sheet and mark it active — it surfaces as a download button on every attendee microsite automatically.',
+    objectPosition: 'center 30%',
   },
   {
+    // File Mgmt Bottom: shift down further to show the docs & maps section
     src: '/sample_File_Mgmt_Bottom.png',
     headline: 'Documents and maps for every group',
     description:
       'Upload briefing docs and maps, then scope visibility to all groups or specific ones. Documents appear in the attendee "Your Documents" section.',
+    objectPosition: 'center 40%',
   },
   {
+    // Import: shift down to show the preview table at the bottom
     src: '/sample_Import_Page.png',
     headline: 'Bulk import participants in seconds',
     description:
       'Upload a CSV with flights, hotels, and emergency contacts. Preview the import before committing — existing attendees are updated, not duplicated.',
+    objectPosition: 'center 35%',
   },
 ]
 
-// ─── Screenshot Carousel Component ───────────────────────────────────────────
+// ─── Screenshot Carousel ──────────────────────────────────────────────────────
 function ScreenshotCarousel() {
   const [current, setCurrent] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -152,16 +178,12 @@ function ScreenshotCarousel() {
   const next = useCallback(() => setCurrent(c => (c + 1) % total), [total])
   const prev = useCallback(() => setCurrent(c => (c - 1 + total) % total), [total])
 
-  // Auto-advance every 4 s; pause on hover
   useEffect(() => {
     if (paused) return
     timerRef.current = setInterval(next, 4000)
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [paused, next])
 
-  // Swipe support
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
@@ -181,7 +203,6 @@ function ScreenshotCarousel() {
     <section className="py-24 px-6">
       <div className="max-w-5xl mx-auto">
 
-        {/* Section header */}
         <div className="text-center mb-12">
           <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">
             See it in action
@@ -193,7 +214,6 @@ function ScreenshotCarousel() {
           </h2>
         </div>
 
-        {/* Carousel container */}
         <div
           className="relative rounded-2xl overflow-hidden border border-slate-700/60 shadow-2xl shadow-black/50 select-none"
           onMouseEnter={() => setPaused(true)}
@@ -201,7 +221,6 @@ function ScreenshotCarousel() {
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Slide stack */}
           <div className="relative aspect-[16/10] bg-slate-900">
             {slides.map((slide, i) => (
               <div
@@ -211,14 +230,31 @@ function ScreenshotCarousel() {
                   i === current ? 'opacity-100 z-10' : 'opacity-0 z-0'
                 }`}
               >
-                <img
-                  src={slide.src}
-                  alt={slide.headline}
-                  className="w-full h-full object-cover object-top"
-                  draggable={false}
-                />
+                {/*
+                  objectScale slides: render image at 90% size inside a flex
+                  container so the full width is visible without side-cropping.
+                  Regular slides: standard object-cover with custom objectPosition.
+                */}
+                {slide.objectScale ? (
+                  <div className="w-full h-full flex items-center justify-center bg-slate-900">
+                    <img
+                      src={slide.src}
+                      alt={slide.headline}
+                      className="w-[110%] h-full object-contain"
+                      draggable={false}
+                    />
+                  </div>
+                ) : (
+                  <img
+                    src={slide.src}
+                    alt={slide.headline}
+                    className="w-full h-full object-cover"
+                    style={{ objectPosition: slide.objectPosition ?? 'center top' }}
+                    draggable={false}
+                  />
+                )}
 
-                {/* Gradient overlay so text is legible */}
+                {/* Gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/55 to-transparent" />
 
                 {/* Text overlay */}
@@ -269,7 +305,6 @@ function ScreenshotCarousel() {
           </div>
         </div>
 
-        {/* Slide counter */}
         <p className="text-center text-slate-600 text-xs mt-4 tabular-nums">
           {current + 1} / {total}
         </p>
@@ -398,7 +433,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Screenshot Carousel ── inserted between microsite spotlight & features */}
+      {/* Screenshot Carousel */}
       <ScreenshotCarousel />
 
       {/* Features */}
