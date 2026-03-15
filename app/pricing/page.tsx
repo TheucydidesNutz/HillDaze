@@ -262,7 +262,7 @@ export default function PricingPage() {
             
               href="mailto:admin@covaled.com"
               className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-lg transition-colors"
-            >
+            <a>
               Contact us
             </a>
           </div>
