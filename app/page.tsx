@@ -1,5 +1,6 @@
 'use client'
 
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Users,
@@ -17,36 +18,43 @@ import {
   Radio,
   NotebookPen,
   MapPin,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 
+// ─── Landing page feature cards ───────────────────────────────────────────────
 const features = [
   {
     icon: Users,
     color: 'text-blue-400',
     bg: 'bg-blue-500/10',
     title: 'Personal Attendee Microsites',
-    description: 'Every participant gets their own private link with everything they need — flights, hotel, schedule, documents, and emergency contacts. No app download required.',
+    description:
+      'Every participant gets their own private link with everything they need — flights, hotel, schedule, documents, and emergency contacts. No app download required.',
   },
   {
     icon: CalendarDays,
     color: 'text-green-400',
     bg: 'bg-green-500/10',
     title: 'Schedule & Calendar Management',
-    description: 'Build a detailed trip schedule with mandatory and optional events. Attendees see only what applies to them, always in their timezone.',
+    description:
+      'Build a detailed trip schedule with mandatory and optional events. Attendees see only what applies to them, always in their timezone.',
   },
   {
     icon: Megaphone,
     color: 'text-amber-400',
     bg: 'bg-amber-500/10',
     title: 'Broadcast Messaging',
-    description: 'Send real-time updates to your whole group or specific subgroups. Dinner moved to 7pm? Gate change? Everyone knows instantly.',
+    description:
+      'Send real-time updates to your whole group or specific subgroups. Dinner moved to 7pm? Gate change? Everyone knows instantly.',
   },
   {
     icon: FolderOpen,
     color: 'text-orange-400',
     bg: 'bg-orange-500/10',
     title: 'Documents & Fact Sheets',
-    description: 'Upload briefing documents, maps, and fact sheets. Attach them to specific groups or share with everyone — available on every microsite.',
+    description:
+      'Upload briefing documents, maps, and fact sheets. Attach them to specific groups or share with everyone — available on every microsite.',
   },
 ]
 
@@ -58,16 +66,220 @@ const painPoints = [
 ]
 
 const micrositeItems = [
-  { icon: Plane,        color: 'text-blue-400',   label: 'Their flights' },
-  { icon: Hotel,        color: 'text-purple-400',  label: 'Their hotel' },
-  { icon: Calendar,     color: 'text-green-400',   label: 'Their schedule' },
-  { icon: FileText,     color: 'text-orange-400',  label: 'Their documents' },
-  { icon: UserCircle,   color: 'text-sky-400',     label: 'Their group lead' },
-  { icon: Radio,        color: 'text-amber-400',   label: 'Live broadcasts' },
-  { icon: NotebookPen,  color: 'text-pink-400',    label: 'Notes & journal' },
-  { icon: MapPin,       color: 'text-red-400',     label: 'Maps & venues' },
+  { icon: Plane,       color: 'text-blue-400',   label: 'Their flights' },
+  { icon: Hotel,       color: 'text-purple-400',  label: 'Their hotel' },
+  { icon: Calendar,    color: 'text-green-400',   label: 'Their schedule' },
+  { icon: FileText,    color: 'text-orange-400',  label: 'Their documents' },
+  { icon: UserCircle,  color: 'text-sky-400',     label: 'Their group lead' },
+  { icon: Radio,       color: 'text-amber-400',   label: 'Live broadcasts' },
+  { icon: NotebookPen, color: 'text-pink-400',    label: 'Notes & journal' },
+  { icon: MapPin,      color: 'text-red-400',     label: 'Maps & venues' },
 ]
 
+// ─── Screenshot carousel data ─────────────────────────────────────────────────
+const slides = [
+  {
+    src: '/sample_Trip_management_Page.png',
+    headline: 'Command center for every trip',
+    description:
+      'See all your participants, broadcast messages, and jump to any section of your trip from one clean dashboard.',
+  },
+  {
+    src: '/sample_Participants_Page.png',
+    headline: 'Every attendee, at a glance',
+    description:
+      'View all attendees with their company, email, group, and hotel room — search, sort, and copy their personal microsite link in one click.',
+  },
+  {
+    src: '/sample_Scheduling_Page.png',
+    headline: 'A full calendar built for group travel',
+    description:
+      'Plot mandatory and optional events across the trip dates. Attendees only see the events that apply to them, always in their own timezone.',
+  },
+  {
+    src: '/sample_Microsite_top.png',
+    headline: 'Their personal link — everything they need',
+    description:
+      'Each attendee sees their own profile, live broadcast alerts, group lead contact, flights, hotel room, and fun diversions — no login required.',
+  },
+  {
+    src: '/sample_Microsite_bottom.png',
+    headline: 'Schedule, notes, and maps — always in pocket',
+    description:
+      'Attendees can view their personal schedule, take trip notes, and install the site as a PWA on their home screen for offline access.',
+  },
+  {
+    src: '/sample_Notes_Page.png',
+    headline: 'A live notes feed from the field',
+    description:
+      'Participants submit notes from their meetings and you see them in real time — filterable by group, sortable by time, and downloadable as a report.',
+  },
+  {
+    src: '/sample_Groups_Page.png',
+    headline: 'Organize attendees into groups',
+    description:
+      'Create subgroups with a named lead, email, and phone. Participants are assigned to a group and see their lead contact on their microsite.',
+  },
+  {
+    src: '/sample_File_Mgmt_Top.png',
+    headline: 'One active fact sheet, always current',
+    description:
+      'Upload a PDF fact sheet and mark it active — it surfaces as a download button on every attendee microsite automatically.',
+  },
+  {
+    src: '/sample_File_Mgmt_Bottom.png',
+    headline: 'Documents and maps for every group',
+    description:
+      'Upload briefing docs and maps, then scope visibility to all groups or specific ones. Documents appear in the attendee "Your Documents" section.',
+  },
+  {
+    src: '/sample_Import_Page.png',
+    headline: 'Bulk import participants in seconds',
+    description:
+      'Upload a CSV with flights, hotels, and emergency contacts. Preview the import before committing — existing attendees are updated, not duplicated.',
+  },
+]
+
+// ─── Screenshot Carousel Component ───────────────────────────────────────────
+function ScreenshotCarousel() {
+  const [current, setCurrent] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const touchStartX = useRef<number | null>(null)
+  const touchStartY = useRef<number | null>(null)
+  const total = slides.length
+
+  const next = useCallback(() => setCurrent(c => (c + 1) % total), [total])
+  const prev = useCallback(() => setCurrent(c => (c - 1 + total) % total), [total])
+
+  // Auto-advance every 4 s; pause on hover
+  useEffect(() => {
+    if (paused) return
+    timerRef.current = setInterval(next, 4000)
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [paused, next])
+
+  // Swipe support
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+  }
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    const dy = e.changedTouches[0].clientY - touchStartY.current
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+      dx < 0 ? next() : prev()
+    }
+    touchStartX.current = null
+    touchStartY.current = null
+  }
+
+  return (
+    <section className="py-24 px-6">
+      <div className="max-w-5xl mx-auto">
+
+        {/* Section header */}
+        <div className="text-center mb-12">
+          <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">
+            See it in action
+          </span>
+          <h2 className="text-4xl md:text-5xl font-bold text-white mt-3">
+            Built for the way
+            <br />
+            <span className="text-slate-400">organizers actually work.</span>
+          </h2>
+        </div>
+
+        {/* Carousel container */}
+        <div
+          className="relative rounded-2xl overflow-hidden border border-slate-700/60 shadow-2xl shadow-black/50 select-none"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Slide stack */}
+          <div className="relative aspect-[16/10] bg-slate-900">
+            {slides.map((slide, i) => (
+              <div
+                key={slide.src}
+                aria-hidden={i !== current}
+                className={`absolute inset-0 transition-opacity duration-700 ${
+                  i === current ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                }`}
+              >
+                <img
+                  src={slide.src}
+                  alt={slide.headline}
+                  className="w-full h-full object-cover object-top"
+                  draggable={false}
+                />
+
+                {/* Gradient overlay so text is legible */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/55 to-transparent" />
+
+                {/* Text overlay */}
+                <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 z-20">
+                  <p className="text-white font-bold text-xl md:text-2xl leading-snug mb-2">
+                    {slide.headline}
+                  </p>
+                  <p className="text-slate-300 text-sm md:text-base leading-relaxed max-w-2xl">
+                    {slide.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Left arrow */}
+          <button
+            onClick={() => { prev(); setPaused(true) }}
+            aria-label="Previous slide"
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-slate-900/70 border border-slate-700/50 text-white hover:bg-slate-800 hover:border-slate-600 transition-all backdrop-blur-sm"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+
+          {/* Right arrow */}
+          <button
+            onClick={() => { next(); setPaused(true) }}
+            aria-label="Next slide"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-slate-900/70 border border-slate-700/50 text-white hover:bg-slate-800 hover:border-slate-600 transition-all backdrop-blur-sm"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+
+          {/* Dot indicators */}
+          <div className="absolute bottom-4 right-6 z-30 flex items-center gap-1.5">
+            {slides.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => { setCurrent(i); setPaused(true) }}
+                aria-label={`Go to slide ${i + 1}`}
+                className={`rounded-full transition-all duration-300 ${
+                  i === current
+                    ? 'bg-blue-400 w-4 h-2'
+                    : 'bg-slate-500/70 hover:bg-slate-400 w-2 h-2'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Slide counter */}
+        <p className="text-center text-slate-600 text-xs mt-4 tabular-nums">
+          {current + 1} / {total}
+        </p>
+
+      </div>
+    </section>
+  )
+}
+
+// ─── Main Landing Page ────────────────────────────────────────────────────────
 export default function LandingPage() {
   const router = useRouter()
 
@@ -186,6 +398,9 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Screenshot Carousel ── inserted between microsite spotlight & features */}
+      <ScreenshotCarousel />
+
       {/* Features */}
       <section className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
@@ -219,9 +434,9 @@ export default function LandingPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: 'Trade Associations', desc: 'Hill Days and Fly-Ins' },
-              { label: 'Corporate Teams', desc: 'Offsites and Retreats' },
-              { label: 'Event Planners', desc: 'Group Conferences' },
-              { label: 'Tour Operators', desc: 'Managed Group Travel' },
+              { label: 'Corporate Teams',    desc: 'Offsites and Retreats' },
+              { label: 'Event Planners',     desc: 'Group Conferences' },
+              { label: 'Tour Operators',     desc: 'Managed Group Travel' },
             ].map(item => (
               <div key={item.label} className="p-5 bg-slate-800/50 border border-slate-700/50 rounded-xl">
                 <p className="text-white font-semibold text-sm">{item.label}</p>

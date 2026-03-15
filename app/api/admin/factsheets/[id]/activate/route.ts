@@ -7,20 +7,30 @@ async function requireAdmin() {
   return user
 }
 
-export async function GET(request: NextRequest) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const tripId = getTripId(request)
+  const { id } = await params
 
-  let query = supabaseAdmin
+  // Set all fact sheets for this trip to inactive
+  await supabaseAdmin
     .from('fact_sheets')
-    .select('*')
-    .order('uploaded_at', { ascending: false })
+    .update({ is_active: false })
+    .eq('trip_id', tripId)
 
-  if (tripId) query = query.eq('trip_id', tripId)
+  // Set this one to active
+  const { data, error } = await supabaseAdmin
+    .from('fact_sheets')
+    .update({ is_active: true })
+    .eq('id', id)
+    .select()
+    .single()
 
-  const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
