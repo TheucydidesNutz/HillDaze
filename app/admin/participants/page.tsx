@@ -39,8 +39,6 @@ function ViewParticipantModal({
             <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
           </div>
         </div>
-
-        {/* Avatar + name */}
         <div className="flex items-center gap-4 px-6 pt-4">
           {p.photo_url ? (
             <img src={p.photo_url} alt={p.name} className="w-14 h-14 rounded-full object-cover flex-shrink-0" />
@@ -55,8 +53,6 @@ function ViewParticipantModal({
             <p className="text-slate-400 text-sm">{p.company || '—'}</p>
           </div>
         </div>
-
-        {/* Tabs */}
         <div className="flex gap-1 px-6 pt-4 pb-2 flex-wrap">
           {(['personal', 'flights', 'hotel', 'emergency', 'group'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} className={tabClass(t)}>
@@ -64,14 +60,10 @@ function ViewParticipantModal({
             </button>
           ))}
         </div>
-
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {tab === 'personal' && (
             <>
-              {[
-                { label: 'Email', value: p.email },
-                { label: 'Phone', value: p.phone },
-              ].map(({ label, value }) => (
+              {[{ label: 'Email', value: p.email }, { label: 'Phone', value: p.phone }].map(({ label, value }) => (
                 <div key={label}>
                   <p className="text-xs font-medium text-slate-500 mb-0.5">{label}</p>
                   <p className="text-slate-300 text-sm">{value || '—'}</p>
@@ -85,7 +77,6 @@ function ViewParticipantModal({
               </div>
             </>
           )}
-
           {tab === 'flights' && (
             <>
               {[
@@ -105,7 +96,6 @@ function ViewParticipantModal({
               ))}
             </>
           )}
-
           {tab === 'hotel' && (
             <>
               {[
@@ -120,7 +110,6 @@ function ViewParticipantModal({
               ))}
             </>
           )}
-
           {tab === 'emergency' && (
             <>
               {[
@@ -135,7 +124,6 @@ function ViewParticipantModal({
               ))}
             </>
           )}
-
           {tab === 'group' && (
             <div>
               <p className="text-xs font-medium text-slate-500 mb-0.5">Group</p>
@@ -162,6 +150,8 @@ export default function ParticipantsPage() {
   const [bulkGroupId, setBulkGroupId] = useState('')
   const [bulkAssigning, setBulkAssigning] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [sortField, setSortField] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   useEffect(() => {
     const tripStr = localStorage.getItem('current_trip')
@@ -251,14 +241,54 @@ export default function ParticipantsPage() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
-  const filtered = participants.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.company?.toLowerCase().includes(search.toLowerCase()) ||
-    p.email?.toLowerCase().includes(search.toLowerCase())
-  )
+  function handleSort(field: string) {
+    if (sortField === field) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDir('asc')
+    }
+  }
+
+  function getVal(p: Participant, field: string): string {
+    if (field === 'name') return p.name
+    if (field === 'company') return p.company || ''
+    if (field === 'email') return p.email || ''
+    if (field === 'phone') return p.phone || ''
+    if (field === 'group') return p.group?.name || ''
+    if (field === 'hotel') return p.hotel_name || ''
+    if (field === 'arrival') return p.arrival_airline || ''
+    if (field === 'departure') return p.departure_airline || ''
+    return ''
+  }
+
+  const filtered = participants
+    .filter(p =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.company?.toLowerCase().includes(search.toLowerCase()) ||
+      p.email?.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (!sortField) return 0
+      const valA = getVal(a, sortField).toLowerCase()
+      const valB = getVal(b, sortField).toLowerCase()
+      return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA)
+    })
 
   const allSelected = filtered.length > 0 && selected.size === filtered.length
   const someSelected = selected.size > 0
+
+  const columns = [
+    { label: 'Name', field: 'name' },
+    { label: 'Actions', field: null },
+    { label: 'Company', field: 'company' },
+    { label: 'Email', field: 'email' },
+    { label: 'Phone', field: 'phone' },
+    { label: 'Group', field: 'group' },
+    { label: 'Hotel', field: 'hotel' },
+    { label: 'Arrival', field: 'arrival' },
+    { label: 'Departure', field: 'departure' },
+  ]
 
   return (
     <div className="min-h-screen bg-slate-950 p-8">
@@ -346,15 +376,23 @@ export default function ParticipantsPage() {
                         />
                       </div>
                     </th>
-                    <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Name</th>
-                    <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium w-32">Actions</th>
-                    <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Company</th>
-                    <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Email</th>
-                    <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Phone</th>
-                    <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Group</th>
-                    <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Hotel</th>
-                    <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Arrival</th>
-                    <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Departure</th>
+                    {columns.map(({ label, field }) => (
+                      <th
+                        key={label}
+                        onClick={() => field && handleSort(field)}
+                        className={`text-left px-4 py-4 text-slate-400 text-sm font-medium ${label === 'Actions' ? 'w-32' : ''} ${field ? 'cursor-pointer hover:text-white select-none' : ''}`}
+                      >
+                        <span className="flex items-center gap-1">
+                          {label}
+                          {field && sortField === field && (
+                            <span className="text-blue-400">{sortDir === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                          {field && sortField !== field && (
+                            <span className="text-slate-700">↕</span>
+                          )}
+                        </span>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -418,7 +456,6 @@ export default function ParticipantsPage() {
                         </div>
                       </td>
 
-                      {/* Correctly ordered to match headers */}
                       <td className="px-4 py-4 text-slate-300 text-sm">{p.company || '—'}</td>
                       <td className="px-4 py-4 text-slate-300 text-sm">{p.email || '—'}</td>
                       <td className="px-4 py-4 text-slate-300 text-sm whitespace-nowrap">{p.phone || '—'}</td>

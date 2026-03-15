@@ -40,11 +40,11 @@ export default function LoginPage() {
         <div className="text-center mb-8">
 
           {/* Image — slightly narrower than the text below */}
-          <div className="mx-auto mb-4 rounded-xl overflow-hidden" style={{ width: '88%' }}>
+          <div className="mx-auto mb-4 rounded-xl overflow-hidden" style={{ width: '88%', aspectRatio: '2/3' }}>
             <img
               src="/covaled-hero.png"
               alt="Group travel"
-              className="w-full h-48 object-cover"
+              className="w-full h-full object-cover"
             />
           </div>
 
