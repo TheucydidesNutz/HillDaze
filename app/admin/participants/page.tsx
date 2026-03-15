@@ -418,7 +418,10 @@ export default function ParticipantsPage() {
                         </div>
                       </td>
 
+                      {/* Correctly ordered to match headers */}
                       <td className="px-4 py-4 text-slate-300 text-sm">{p.company || '—'}</td>
+                      <td className="px-4 py-4 text-slate-300 text-sm">{p.email || '—'}</td>
+                      <td className="px-4 py-4 text-slate-300 text-sm whitespace-nowrap">{p.phone || '—'}</td>
                       <td className="px-4 py-4">
                         {p.group ? (
                           <span className="px-2.5 py-1 bg-blue-500/10 text-blue-400 text-xs rounded-full border border-blue-500/20 whitespace-nowrap">
@@ -431,8 +434,6 @@ export default function ParticipantsPage() {
                       <td className="px-4 py-4 text-slate-300 text-sm whitespace-nowrap">
                         {p.hotel_name ? `${p.hotel_name}${p.hotel_room ? ` · Rm ${p.hotel_room}` : ''}` : '—'}
                       </td>
-                      <td className="px-4 py-4 text-slate-300 text-sm">{p.email || '—'}</td>
-                      <td className="px-4 py-4 text-slate-300 text-sm whitespace-nowrap">{p.phone || '—'}</td>
                       <td className="px-4 py-4 text-slate-400 text-xs whitespace-nowrap">
                         {p.arrival_airline && p.arrival_flight_no
                           ? `${p.arrival_airline} ${p.arrival_flight_no}`

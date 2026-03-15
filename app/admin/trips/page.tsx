@@ -179,7 +179,7 @@ export default function TripsPage() {
     if (!currentUserId) return
     setSavingSettings(true)
     setSettingsMessage('')
-
+  
     const { error } = await supabase
       .from('user_settings')
       .upsert({
@@ -187,16 +187,18 @@ export default function TripsPage() {
         org_name: settingsOrgName.trim() || null,
         updated_at: new Date().toISOString(),
       })
-
+  
     setSavingSettings(false)
     if (error) {
       setSettingsMessage('✗ Failed to save settings')
     } else {
       setUserSettings(prev => ({ ...prev, org_name: settingsOrgName.trim() || null }))
       setSettingsMessage('✓ Settings saved')
+      setShowSettings(false)  // ← add here
       setTimeout(() => setSettingsMessage(''), 3000)
     }
   }
+
 
   async function handleOrgLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
