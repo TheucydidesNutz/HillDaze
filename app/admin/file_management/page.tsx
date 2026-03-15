@@ -100,6 +100,12 @@ export default function SettingsPage() {
     if (res.ok) setFactSheets(prev => prev.map(f => ({ ...f, is_active: f.id === id })))
   }
 
+  async function handleDeleteFactSheet(id: string) {
+    if (!confirm('Delete this fact sheet?')) return
+    await apiFetch(`/api/admin/factsheets?id=${id}`, { method: 'DELETE' })
+    setFactSheets(prev => prev.filter(f => f.id !== id))
+  }
+
   async function handleDocUpload() {
     if (!docFile || !docLabel.trim()) return alert('Please provide a label and file')
     setDocUploading(true)
@@ -181,16 +187,22 @@ export default function SettingsPage() {
                       <p className="text-slate-500 text-xs">{new Date(f.uploaded_at).toLocaleDateString()}</p>
                     </div>
                   </div>
-                  {f.is_active ? (
-                    <span className="flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 text-green-400 text-xs font-medium rounded-full border border-green-500/20">
-                      <CheckCircle className="w-3 h-3" /> Active
-                    </span>
-                  ) : (
-                    <button onClick={() => handleActivate(f.id)}
-                      className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium rounded-lg transition-colors">
-                      Set Active
+                  <div className="flex items-center gap-2">
+                    {f.is_active ? (
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 text-green-400 text-xs font-medium rounded-full border border-green-500/20">
+                        <CheckCircle className="w-3 h-3" /> Active
+                      </span>
+                    ) : (
+                      <button onClick={() => handleActivate(f.id)}
+                        className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium rounded-lg transition-colors">
+                        Set Active
+                      </button>
+                    )}
+                    <button onClick={() => handleDeleteFactSheet(f.id)}
+                      className="text-slate-500 hover:text-red-400 text-xs transition-colors">
+                      Delete
                     </button>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
