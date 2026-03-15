@@ -42,7 +42,7 @@ export default function LoginPage() {
           {/* Image — slightly narrower than the text below */}
           <div className="mx-auto mb-4 rounded-xl overflow-hidden" style={{ width: '88%' }}>
             <img
-              src="covaled-hero.png"
+              src="/covaled-hero.png"
               alt="Group travel"
               className="w-full h-48 object-cover"
             />

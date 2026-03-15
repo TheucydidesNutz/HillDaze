@@ -210,11 +210,11 @@ export default function TripsPage() {
       .from('org-logos')
       .upload(path, file, { upsert: true })
 
-    if (uploadError) {
-      setSettingsMessage('✗ Logo upload failed')
-      setUploadingLogo(false)
-      return
-    }
+      if (uploadError) {
+        setSettingsMessage(`✗ Logo upload failed: ${uploadError.message}`)
+        setUploadingLogo(false)
+        return
+      }
 
     const { data: { publicUrl } } = supabase.storage
       .from('org-logos')
@@ -300,6 +300,15 @@ export default function TripsPage() {
               ⚙️
             </button>
             <button
+              onClick={async () => {
+                await supabase.auth.signOut()
+                router.push('/admin/login')
+              }}
+              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors"
+            >
+              Sign out
+            </button>
+            <button
               onClick={() => setShowNew(true)}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
             >
@@ -335,11 +344,10 @@ export default function TripsPage() {
                     {formatDateRange(trip) && (
                       <p className="text-slate-400 text-sm mt-0.5">{formatDateRange(trip)}</p>
                     )}
-                    <span className={`inline-block mt-2 px-2.5 py-1 rounded-full text-xs font-medium border ${
-                      trip.role === 'super'
+                    <span className={`inline-block mt-2 px-2.5 py-1 rounded-full text-xs font-medium border ${trip.role === 'super'
                         ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                         : 'bg-slate-700 text-slate-400 border-slate-600'
-                    }`}>
+                      }`}>
                       {trip.role === 'super' ? '⭐ Super Admin' : '👤 Admin'}
                     </span>
                   </div>
@@ -466,9 +474,8 @@ export default function TripsPage() {
                       {tripAdmins.map(admin => (
                         <div key={admin.id} className="flex items-center justify-between p-2.5 bg-slate-800/50 rounded-lg">
                           <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                              admin.role === 'super' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'
-                            }`}>
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${admin.role === 'super' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'
+                              }`}>
                               {admin.role === 'super' ? '⭐ Super' : '👤 Admin'}
                             </span>
                             <span className="text-slate-300 text-sm">{admin.email}</span>

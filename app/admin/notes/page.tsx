@@ -123,14 +123,14 @@ export default function NotesFeedPage() {
             disabled={filteredNotes.length === 0}
             className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-slate-300 text-sm font-medium rounded-lg transition-colors"
           >
-            ↓ Visible Notes
+            ↓ DownloadVisible Notes
           </button>
           <button
             onClick={() => exportCSV(notes, 'notes-all')}
             disabled={notes.length === 0}
             className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-slate-300 text-sm font-medium rounded-lg transition-colors"
           >
-            ↓ All Notes
+            ↓ Download All Notes
           </button>
           <button
             onClick={fetchNotes}

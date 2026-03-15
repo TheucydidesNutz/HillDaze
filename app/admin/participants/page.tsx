@@ -7,6 +7,147 @@ import TripHeader from '@/components/TripHeader'
 import { apiFetch } from '@/lib/apiFetch'
 import { useRouter } from 'next/navigation'
 
+function ViewParticipantModal({
+  participant,
+  groups,
+  copiedId,
+  onCopy,
+  onEdit,
+  onClose,
+}: {
+  participant: Participant
+  groups: Group[]
+  copiedId: string | null
+  onCopy: (p: Participant) => void
+  onEdit: () => void
+  onClose: () => void
+}) {
+  const [tab, setTab] = useState<'personal' | 'flights' | 'hotel' | 'emergency' | 'group'>('personal')
+  const p = participant
+  const tabClass = (t: string) =>
+    `px-4 py-2 text-sm font-medium rounded-lg transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+          <h2 className="text-white font-semibold text-lg">Participant Info</h2>
+          <div className="flex items-center gap-3">
+            <button onClick={onEdit} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors">
+              Edit
+            </button>
+            <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
+          </div>
+        </div>
+
+        {/* Avatar + name */}
+        <div className="flex items-center gap-4 px-6 pt-4">
+          {p.photo_url ? (
+            <img src={p.photo_url} alt={p.name} className="w-14 h-14 rounded-full object-cover flex-shrink-0" />
+          ) : (
+            <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
+              {p.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div>
+            <p className="text-white font-semibold text-lg">{p.name}</p>
+            <p className="text-slate-400 text-sm">{p.title || '—'}</p>
+            <p className="text-slate-400 text-sm">{p.company || '—'}</p>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 px-6 pt-4 pb-2 flex-wrap">
+          {(['personal', 'flights', 'hotel', 'emergency', 'group'] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)} className={tabClass(t)}>
+              {t === 'personal' ? 'Personal' : t === 'flights' ? 'Flights' : t === 'hotel' ? 'Hotel & Fun' : t === 'emergency' ? 'Emergency' : 'Group'}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          {tab === 'personal' && (
+            <>
+              {[
+                { label: 'Email', value: p.email },
+                { label: 'Phone', value: p.phone },
+              ].map(({ label, value }) => (
+                <div key={label}>
+                  <p className="text-xs font-medium text-slate-500 mb-0.5">{label}</p>
+                  <p className="text-slate-300 text-sm">{value || '—'}</p>
+                </div>
+              ))}
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-0.5">Attendee Link</p>
+                <button onClick={() => onCopy(p)} className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
+                  {copiedId === p.id ? '✓ Copied!' : 'Copy URL'}
+                </button>
+              </div>
+            </>
+          )}
+
+          {tab === 'flights' && (
+            <>
+              {[
+                { label: 'Arrival Airline', value: p.arrival_airline },
+                { label: 'Arrival Flight', value: p.arrival_flight_no },
+                { label: 'Arrival Time', value: p.arrival_datetime ? new Date(p.arrival_datetime).toLocaleString() : null },
+                { label: 'Arrival Airport', value: p.arrival_airport },
+                { label: 'Departure Airline', value: p.departure_airline },
+                { label: 'Departure Flight', value: p.departure_flight_no },
+                { label: 'Departure Time', value: p.departure_datetime ? new Date(p.departure_datetime).toLocaleString() : null },
+                { label: 'Departure Airport', value: p.departure_airport },
+              ].map(({ label, value }) => (
+                <div key={label}>
+                  <p className="text-xs font-medium text-slate-500 mb-0.5">{label}</p>
+                  <p className="text-slate-300 text-sm">{value || '—'}</p>
+                </div>
+              ))}
+            </>
+          )}
+
+          {tab === 'hotel' && (
+            <>
+              {[
+                { label: 'Hotel', value: p.hotel_name },
+                { label: 'Room', value: p.hotel_room },
+                { label: 'Fun Diversions', value: p.fun_diversions },
+              ].map(({ label, value }) => (
+                <div key={label}>
+                  <p className="text-xs font-medium text-slate-500 mb-0.5">{label}</p>
+                  <p className="text-slate-300 text-sm">{value || '—'}</p>
+                </div>
+              ))}
+            </>
+          )}
+
+          {tab === 'emergency' && (
+            <>
+              {[
+                { label: 'Emergency Contact', value: p.emergency_name },
+                { label: 'Emergency Phone', value: p.emergency_phone },
+                { label: 'Emergency Email', value: p.emergency_email },
+              ].map(({ label, value }) => (
+                <div key={label}>
+                  <p className="text-xs font-medium text-slate-500 mb-0.5">{label}</p>
+                  <p className="text-slate-300 text-sm">{value || '—'}</p>
+                </div>
+              ))}
+            </>
+          )}
+
+          {tab === 'group' && (
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-0.5">Group</p>
+              <p className="text-slate-300 text-sm">{groups.find(g => g.id === p.group_id)?.name || '—'}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ParticipantsPage() {
   const router = useRouter()
   const [trip, setTrip] = useState<Trip | null>(null)
@@ -196,7 +337,7 @@ export default function ParticipantsPage() {
                   <tr className="border-b border-slate-800">
                     <th className="px-4 py-4 w-24 text-left text-slate-400 text-sm font-medium">
                       <div className="flex flex-col gap-1.5">
-                        <span>Select All</span>
+                        <span>Select</span>
                         <input
                           type="checkbox"
                           checked={allSelected}
@@ -208,10 +349,10 @@ export default function ParticipantsPage() {
                     <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Name</th>
                     <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium w-32">Actions</th>
                     <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Company</th>
-                    <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Group</th>
-                    <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Hotel</th>
                     <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Email</th>
                     <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Phone</th>
+                    <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Group</th>
+                    <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Hotel</th>
                     <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Arrival</th>
                     <th className="text-left px-4 py-4 text-slate-400 text-sm font-medium">Departure</th>
                   </tr>
@@ -258,7 +399,7 @@ export default function ParticipantsPage() {
                             onClick={() => copyLink(p)}
                             className={`text-xs transition-colors ${copiedId === p.id ? 'text-green-400' : 'text-slate-400 hover:text-blue-400'}`}
                           >
-                            {copiedId === p.id ? '✓ Copied' : 'Copy'}
+                            {copiedId === p.id ? '✓ Copied' : 'Copy Link'}
                           </button>
                           <span className="text-slate-700">·</span>
                           <button
@@ -272,7 +413,7 @@ export default function ParticipantsPage() {
                             onClick={() => handleDelete(p.id)}
                             className="text-slate-400 hover:text-red-400 text-xs transition-colors"
                           >
-                            Del
+                            Delete
                           </button>
                         </div>
                       </td>
@@ -323,63 +464,14 @@ export default function ParticipantsPage() {
 
       {/* View-only modal */}
       {viewingParticipant && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
-              <h2 className="text-white font-semibold text-lg">Participant Info</h2>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => { handleEdit(viewingParticipant); setViewingParticipant(null) }}
-                  className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors"
-                >
-                  Edit
-                </button>
-                <button onClick={() => setViewingParticipant(null)} className="text-slate-400 hover:text-white">✕</button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-              <div className="flex items-center gap-4">
-                {viewingParticipant.photo_url ? (
-                  <img src={viewingParticipant.photo_url} alt={viewingParticipant.name} className="w-16 h-16 rounded-full object-cover" />
-                ) : (
-                  <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold">
-                    {viewingParticipant.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div>
-                  <p className="text-white font-semibold text-lg">{viewingParticipant.name}</p>
-                  <p className="text-slate-400 text-sm">{viewingParticipant.title || '—'}</p>
-                  <p className="text-slate-400 text-sm">{viewingParticipant.company || '—'}</p>
-                </div>
-              </div>
-
-              {[
-                { label: 'Email', value: viewingParticipant.email },
-                { label: 'Phone', value: viewingParticipant.phone },
-                { label: 'Group', value: groups.find(g => g.id === viewingParticipant.group_id)?.name },
-                { label: 'Hotel', value: viewingParticipant.hotel_name ? `${viewingParticipant.hotel_name}${viewingParticipant.hotel_room ? ` · Rm ${viewingParticipant.hotel_room}` : ''}` : null },
-                { label: 'Arrival', value: viewingParticipant.arrival_airline ? `${viewingParticipant.arrival_airline} ${viewingParticipant.arrival_flight_no || ''} — ${viewingParticipant.arrival_datetime ? new Date(viewingParticipant.arrival_datetime).toLocaleString() : ''}` : null },
-                { label: 'Departure', value: viewingParticipant.departure_airline ? `${viewingParticipant.departure_airline} ${viewingParticipant.departure_flight_no || ''} — ${viewingParticipant.departure_datetime ? new Date(viewingParticipant.departure_datetime).toLocaleString() : ''}` : null },
-                { label: 'Emergency Contact', value: viewingParticipant.emergency_name ? `${viewingParticipant.emergency_name}${viewingParticipant.emergency_phone ? ` · ${viewingParticipant.emergency_phone}` : ''}` : null },
-              ].map(({ label, value }) => (
-                <div key={label}>
-                  <p className="text-xs font-medium text-slate-500 mb-0.5">{label}</p>
-                  <p className="text-slate-300 text-sm">{value || '—'}</p>
-                </div>
-              ))}
-
-              <div>
-                <p className="text-xs font-medium text-slate-500 mb-0.5">Attendee Link</p>
-                <button
-                  onClick={() => copyLink(viewingParticipant)}
-                  className="text-blue-400 hover:text-blue-300 text-sm transition-colors"
-                >
-                  {copiedId === viewingParticipant.id ? '✓ Copied!' : 'Copy attendee link'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ViewParticipantModal
+          participant={viewingParticipant}
+          groups={groups}
+          copiedId={copiedId}
+          onCopy={copyLink}
+          onEdit={() => { handleEdit(viewingParticipant); setViewingParticipant(null) }}
+          onClose={() => setViewingParticipant(null)}
+        />
       )}
     </div>
   )
