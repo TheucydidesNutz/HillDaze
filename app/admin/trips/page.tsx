@@ -5,6 +5,7 @@ import { Trip } from '@/lib/types'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import UsageBanner from '@/components/UsageBanner'
+import { Settings, LogOut, Plus } from 'lucide-react'
 
 interface TripAdmin {
   id: string
@@ -20,7 +21,7 @@ interface UserSettings {
   display_name: string | null
   phone: string | null
   timezone: string | null
-  photo_url: string | null  // ← add this
+  photo_url: string | null
 }
 
 interface OrgUser {
@@ -293,7 +294,7 @@ export default function TripsPage() {
         user_id: currentUserId,
         org_name: settingsOrgName.trim() || null,
         display_name: settingsDisplayName.trim() || null,
-        phone: settingsPhone.trim() || null, 
+        phone: settingsPhone.trim() || null,
         timezone: settingsTimezone,
         updated_at: new Date().toISOString(),
       })
@@ -455,49 +456,54 @@ export default function TripsPage() {
   const displayName = userSettings.org_name || '[Your Group]'
 
   return (
-    <div className="min-h-screen bg-slate-950 p-8">
+    <div className="min-h-screen bg-slate-950 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-10">
-          <div className="flex-1 flex justify-center">
-            <div className="flex items-center gap-4">
-              {userSettings.logo_url && (
-                <img
-                  src={userSettings.logo_url}
-                  alt="org logo"
-                  className="w-36 h-36 object-contain flex-shrink-0 rounded-2xl"
-                />
-              )}
-              <div className="text-center">
-                <h1 className="text-4xl font-bold text-white">{displayName}</h1>
-                <p className="text-slate-500 text-xs italic mt-0.5">by Covaled</p>
-                <p className="text-slate-400 mt-1">Select a Trip to manage</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
+        {/* ── Header: logo + org name, centered ── */}
+        <div className="flex flex-col items-center text-center mb-6">
+          {userSettings.logo_url && (
+            <img
+              src={userSettings.logo_url}
+              alt="org logo"
+              className="w-28 h-28 md:w-36 md:h-36 object-contain rounded-2xl mb-4"
+            />
+          )}
+          <h1 className="text-3xl md:text-4xl font-bold text-white">{displayName}</h1>
+          <p className="text-slate-500 text-xs italic mt-0.5">by Covaled</p>
+          <p className="text-slate-400 mt-1 text-sm">Select a Trip to manage</p>
+
+          {/* FIX: action buttons moved below header, centered row */}
+          <div className="flex items-center gap-2 mt-5">
             <button
-              onClick={() => { setShowSettings(true); setSettingsMessage(''); setPasswordMessage(''); setSettingsTab('general') }}
-              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors"
+              onClick={() => {
+                setShowSettings(true)
+                setSettingsMessage('')
+                setPasswordMessage('')
+                setSettingsTab('general')
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors"
               title="Settings"
             >
-              ⚙️
+              {/* FIX: Lucide Settings icon, size 18 */}
+              <Settings className="w-[18px] h-[18px]" />
+              <span className="hidden sm:inline">Settings</span>
             </button>
             <button
               onClick={async () => {
                 await supabase.auth.signOut()
                 router.push('/admin/login')
               }}
-              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors"
             >
-              Sign out
+              <LogOut className="w-[18px] h-[18px]" />
+              <span className="hidden sm:inline">Sign out</span>
             </button>
             <button
               onClick={() => setShowNew(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
             >
-              + New Trip
+              <Plus className="w-[18px] h-[18px]" />
+              <span>New Trip</span>
             </button>
           </div>
         </div>
@@ -602,7 +608,6 @@ export default function TripsPage() {
 
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
                 {!createdTrip ? (
-                  // Step 1: Basic info
                   <>
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">Trip Title *</label>
@@ -633,12 +638,10 @@ export default function TripsPage() {
                     </div>
                   </>
                 ) : (
-                  // Step 2: Logo + Admins after creation
                   <>
                     <div className="bg-slate-800/50 rounded-lg p-3 mb-2">
                       <p className="text-slate-400 text-xs">Trip <span className="text-white font-medium">{createdTrip.title}</span> created. Add a logo and invite admins, or close to finish.</p>
                     </div>
-
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">Logo</label>
                       <div className="flex items-center gap-3">
@@ -664,7 +667,6 @@ export default function TripsPage() {
                         />
                       </div>
                     </div>
-
                     <div className="border-t border-slate-800 pt-4">
                       <h3 className="text-white font-medium mb-3 text-sm">👥 Trip Admins</h3>
                       {newTripAdmins.length > 0 && (
@@ -905,7 +907,6 @@ export default function TripsPage() {
 
                 {settingsTab === 'account' && (
                   <>
-                    {/* Photo upload */}
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-2">Profile Photo</label>
                       <div className="flex items-center gap-4">
@@ -929,7 +930,6 @@ export default function TripsPage() {
                         </div>
                       </div>
                     </div>
-
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">Your Name</label>
                       <input type="text" value={settingsDisplayName} onChange={e => setSettingsDisplayName(e.target.value)}

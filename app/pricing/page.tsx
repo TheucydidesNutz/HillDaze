@@ -1,7 +1,17 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Check, X } from 'lucide-react'
+import {
+  Check,
+  X,
+  Users,
+  CalendarDays,
+  Smartphone,
+  FolderOpen,
+  Megaphone,
+  Map,
+  AlertTriangle,
+} from 'lucide-react'
 
 const plans = [
   {
@@ -90,6 +100,15 @@ const plans = [
   },
 ]
 
+const featureHighlights = [
+  { icon: Users,       label: 'Participant Management' },
+  { icon: CalendarDays, label: 'Schedule & Calendar' },
+  { icon: Smartphone,  label: 'Attendee Microsites' },
+  { icon: FolderOpen,  label: 'Document Sharing' },
+  { icon: Megaphone,   label: 'Broadcast Messaging' },
+  { icon: Map,         label: 'Maps & Fact Sheets' },
+]
+
 const faqs = [
   {
     q: 'What counts as a "trip"?',
@@ -101,7 +120,7 @@ const faqs = [
   },
   {
     q: 'What happens when my free trial expires?',
-    a: 'After 90 days on the free tier, you\'ll need to upgrade to a paid plan to continue creating trips and adding participants. Your existing data is never deleted.',
+    a: "After 90 days on the free tier, you'll need to upgrade to a paid plan to continue creating trips and adding participants. Your existing data is never deleted.",
   },
   {
     q: 'What is an admin seat?',
@@ -134,10 +153,11 @@ export default function PricingPage() {
 
       <div className="max-w-6xl mx-auto px-6 py-16">
 
-        {/* Beta banner */}
+        {/* Beta banner — FIX: replaced ⚠ emoji with AlertTriangle icon */}
         <div className="mb-10 text-center">
-          <p className="text-red-400 text-sm font-medium">
-            ⚠ Currently in Beta Testing — Pricing Not in Effect — Contact Admin to Escalate Privileges for Free
+          <p className="text-red-400 text-sm font-medium flex items-center justify-center gap-2">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            Currently in Beta Testing — Pricing Not in Effect — Contact Admin to Escalate Privileges for Free
           </p>
         </div>
 
@@ -147,7 +167,7 @@ export default function PricingPage() {
             Simple, transparent pricing
           </h2>
           <p className="text-slate-400 text-xl max-w-2xl mx-auto">
-            Covaled is built for organizations that take group travel seriously. 
+            Covaled is built for organizations that take group travel seriously.
             From solo trip organizers to enterprise advocacy teams — there's a plan for every scale.
           </p>
         </div>
@@ -159,7 +179,6 @@ export default function PricingPage() {
               key={plan.name}
               className={`relative bg-slate-900 border-2 ${plan.color} rounded-2xl p-6 flex flex-col`}
             >
-              {/* Badge */}
               {plan.badge && (
                 <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-semibold ${
                   plan.name === 'Pro' ? 'bg-blue-600 text-white' : 'bg-purple-600 text-white'
@@ -168,7 +187,6 @@ export default function PricingPage() {
                 </div>
               )}
 
-              {/* Plan header */}
               <div className="mb-6">
                 <h3 className="text-white font-bold text-xl mb-1">{plan.name}</h3>
                 <div className="mb-3">
@@ -184,7 +202,6 @@ export default function PricingPage() {
                 <p className="text-slate-400 text-sm leading-relaxed">{plan.description}</p>
               </div>
 
-              {/* Features */}
               <ul className="space-y-2.5 mb-8 flex-1">
                 {plan.features.map(f => (
                   <li key={f.text} className="flex items-start gap-2.5">
@@ -200,7 +217,6 @@ export default function PricingPage() {
                 ))}
               </ul>
 
-              {/* CTA */}
               <button
                 onClick={() => router.push('/admin/signup')}
                 className={`w-full py-2.5 rounded-lg font-medium text-sm transition-colors ${plan.ctaStyle}`}
@@ -215,18 +231,14 @@ export default function PricingPage() {
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 mb-20">
           <h3 className="text-white font-bold text-2xl mb-2 text-center">Everything you need to run a flawless trip</h3>
           <p className="text-slate-400 text-center mb-8">Every plan includes Covaled's full feature set.</p>
+          {/* FIX: replaced emoji spans with Lucide icon components */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 text-center">
-            {[
-              { icon: '👥', label: 'Participant Management' },
-              { icon: '📅', label: 'Schedule & Calendar' },
-              { icon: '📱', label: 'Attendee Microsites' },
-              { icon: '📁', label: 'Document Sharing' },
-              { icon: '📢', label: 'Broadcast Messaging' },
-              { icon: '🗺️', label: 'Maps & Fact Sheets' },
-            ].map(f => (
-              <div key={f.label} className="flex flex-col items-center gap-2">
-                <span className="text-3xl">{f.icon}</span>
-                <span className="text-slate-400 text-xs leading-tight">{f.label}</span>
+            {featureHighlights.map(({ icon: Icon, label }) => (
+              <div key={label} className="flex flex-col items-center gap-2">
+                <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center">
+                  <Icon className="w-5 h-5 text-blue-400" />
+                </div>
+                <span className="text-slate-400 text-xs leading-tight">{label}</span>
               </div>
             ))}
           </div>
@@ -259,15 +271,17 @@ export default function PricingPage() {
             >
               Get started free
             </button>
-            
+            {/* FIX: restored malformed <a> tag */}
+            <a
               href="mailto:admin@covaled.com"
               className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-lg transition-colors"
-            <a>
+            >
               Contact us
             </a>
           </div>
-          <p className="text-slate-600 text-xs mt-6">
-            ⚠ Beta pricing is not currently in effect. Contact your administrator to adjust subscription levels.
+          <p className="text-slate-600 text-xs mt-6 flex items-center justify-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+            Beta pricing is not currently in effect. Contact your administrator to adjust subscription levels.
           </p>
         </div>
 

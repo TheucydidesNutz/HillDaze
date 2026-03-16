@@ -192,13 +192,13 @@ function ScreenshotCarousel() {
   }
 
   return (
-    <section className="py-24 px-6">
+    <section className="py-16 md:py-24 px-4 md:px-6">
       <div className="max-w-5xl mx-auto">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8 md:mb-12">
           <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">
             See it in action
           </span>
-          <h2 className="text-4xl md:text-5xl font-bold text-white mt-3">
+          <h2 className="text-3xl md:text-5xl font-bold text-white mt-3">
             Built for the way
             <br />
             <span className="text-slate-400">organizers actually work.</span>
@@ -212,7 +212,8 @@ function ScreenshotCarousel() {
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          <div className="relative aspect-[16/10] bg-slate-900">
+          {/* Mobile uses 4:3, desktop uses 16:10 */}
+          <div className="relative aspect-[4/3] md:aspect-[16/10] bg-slate-900">
             {slides.map((slide, i) => (
               <div
                 key={slide.src}
@@ -240,11 +241,15 @@ function ScreenshotCarousel() {
                   />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/55 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 z-20">
-                  <p className="text-white font-bold text-xl md:text-2xl leading-snug mb-2">
+                <div className="absolute bottom-0 left-0 right-0 p-4 md:p-8 z-20">
+                  <p className="text-white font-bold text-base md:text-2xl leading-snug mb-1 md:mb-2">
                     {slide.headline}
                   </p>
-                  <p className="text-slate-300 text-sm md:text-base leading-relaxed max-w-2xl">
+                  <p className="text-slate-300 text-xs md:text-base leading-relaxed max-w-2xl hidden sm:block">
+                    {slide.description}
+                  </p>
+                  {/* Abbreviated description on mobile */}
+                  <p className="text-slate-300 text-xs leading-relaxed sm:hidden line-clamp-2">
                     {slide.description}
                   </p>
                 </div>
@@ -255,20 +260,20 @@ function ScreenshotCarousel() {
           <button
             onClick={() => { prev(); setPaused(true) }}
             aria-label="Previous slide"
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-slate-900/70 border border-slate-700/50 text-white hover:bg-slate-800 hover:border-slate-600 transition-all backdrop-blur-sm"
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-30 p-1.5 md:p-2 rounded-full bg-slate-900/70 border border-slate-700/50 text-white hover:bg-slate-800 hover:border-slate-600 transition-all backdrop-blur-sm"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
           </button>
 
           <button
             onClick={() => { next(); setPaused(true) }}
             aria-label="Next slide"
-            className="absolute right-3 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-slate-900/70 border border-slate-700/50 text-white hover:bg-slate-800 hover:border-slate-600 transition-all backdrop-blur-sm"
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-30 p-1.5 md:p-2 rounded-full bg-slate-900/70 border border-slate-700/50 text-white hover:bg-slate-800 hover:border-slate-600 transition-all backdrop-blur-sm"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
           </button>
 
-          <div className="absolute bottom-4 right-6 z-30 flex items-center gap-1.5">
+          <div className="absolute bottom-3 right-4 z-30 flex items-center gap-1.5">
             {slides.map((_, i) => (
               <button
                 key={i}
@@ -302,16 +307,17 @@ export default function LandingPage() {
 
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <span className="text-white font-bold text-xl">Covaled</span>
-          <div className="flex items-center gap-4">
-            <a href="/pricing" className="text-slate-400 hover:text-white text-sm transition-colors">Pricing</a>
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-2">
+          <span className="text-white font-bold text-lg md:text-xl shrink-0">Covaled</span>
+          <div className="flex items-center gap-2 md:gap-4">
+            {/* Hide Pricing link on very small screens to avoid crowding */}
+            <a href="/pricing" className="hidden sm:block text-slate-400 hover:text-white text-sm transition-colors">Pricing</a>
             <a href="/admin/login" className="text-slate-400 hover:text-white text-sm transition-colors">Sign in</a>
             <button
               onClick={() => router.push('/admin/signup')}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+              className="px-3 py-1.5 md:px-4 md:py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
             >
-              Get started free
+              Get started
             </button>
           </div>
         </div>
@@ -323,75 +329,83 @@ export default function LandingPage() {
           <img src="/covaled-hero.png" alt="Group travel" className="w-full h-full object-cover object-center" />
           <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-slate-950/50 to-slate-950" />
         </div>
-        <div className="relative z-10 text-center max-w-4xl mx-auto px-6 pt-20">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-400 text-sm font-medium mb-8">
+        <div className="relative z-10 text-center max-w-4xl mx-auto px-5 pt-20 pb-16">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-400 text-xs md:text-sm font-medium mb-6 md:mb-8">
             Group travel, finally coordinated
           </div>
-          <h1 className="text-5xl md:text-7xl font-bold text-white leading-tight mb-6">
+          {/* FIX: text-4xl on mobile (was text-5xl, too large) */}
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold text-white leading-tight mb-5 md:mb-6">
             Every great trip needs
             <span className="text-blue-400"> someone leading</span>
-            <br />the pack.
+            <br />
+            the pack.
           </h1>
-          <p className="text-xl text-slate-300 max-w-2xl mx-auto mb-10 leading-relaxed">
+          {/* FIX: smaller body text on mobile */}
+          <p className="text-base md:text-xl text-slate-300 max-w-2xl mx-auto mb-8 md:mb-10 leading-relaxed">
             Covaled gives group travel organizers a command center — and gives every attendee a personal microsite with everything they need, right in their pocket.
           </p>
-          <div className="flex items-center justify-center gap-4 flex-wrap">
+          {/* FIX: stack buttons vertically on mobile, side-by-side on sm+ */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4">
             <button
               onClick={() => router.push('/admin/signup')}
-              className="flex items-center gap-2 px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-colors text-lg"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 md:px-8 md:py-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-colors text-base md:text-lg"
             >
               Get started free
-              <ArrowRight className="w-5 h-5" />
+              <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
             </button>
-            <a href="/pricing" className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-colors text-lg backdrop-blur-sm">
+            <a
+              href="/pricing"
+              className="w-full sm:w-auto text-center px-6 py-3.5 md:px-8 md:py-4 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-colors text-base md:text-lg backdrop-blur-sm"
+            >
               See pricing
             </a>
           </div>
-          <p className="text-slate-500 text-sm mt-4">Free for 90 days · No credit card required</p>
+          <p className="text-slate-500 text-xs md:text-sm mt-4">Free for 90 days · No credit card required</p>
         </div>
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-slate-500">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-slate-500">
           <span className="text-xs">scroll</span>
           <div className="w-px h-8 bg-gradient-to-b from-slate-500 to-transparent" />
         </div>
       </section>
 
       {/* ── 2. THE CORE IDEA ── */}
-      <section className="py-24 px-6 bg-slate-900/50">
+      <section className="py-16 md:py-24 px-4 md:px-6 bg-slate-900/50">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 md:mb-16">
             <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">The core idea</span>
-            <h2 className="text-4xl md:text-5xl font-bold text-white mt-3 mb-6">
+            <h2 className="text-3xl md:text-5xl font-bold text-white mt-3 mb-4 md:mb-6">
               A personal microsite
               <br />
               <span className="text-slate-400">for every attendee.</span>
             </h2>
-            <p className="text-slate-400 text-xl max-w-2xl mx-auto">
+            <p className="text-slate-400 text-base md:text-xl max-w-2xl mx-auto">
               You set everything up once. Each participant gets a unique private link showing only their information. No login. No app. No confusion.
             </p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16">
+          {/* 2-col on mobile, 4-col on md */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-10 md:mb-16">
             {micrositeItems.map(({ icon: Icon, color, label }) => (
-              <div key={label} className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                <Icon className={`w-6 h-6 ${color}`} />
-                <span className="text-slate-300 text-sm text-center">{label}</span>
+              <div key={label} className="flex flex-col items-center gap-2 p-3 md:p-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                <Icon className={`w-5 h-5 md:w-6 md:h-6 ${color}`} />
+                <span className="text-slate-300 text-xs md:text-sm text-center">{label}</span>
               </div>
             ))}
           </div>
-          <div className="flex items-center justify-center gap-3 p-5 bg-green-500/5 border border-green-500/20 rounded-2xl max-w-lg mx-auto">
-            <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+          <div className="flex items-start gap-3 p-4 md:p-5 bg-green-500/5 border border-green-500/20 rounded-2xl max-w-lg mx-auto">
+            <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
             <p className="text-slate-300 text-sm">Attendees can install it as a PWA on their phone home screen — works offline, no app store needed.</p>
           </div>
         </div>
       </section>
 
       {/* ── 3. VIDEO ── */}
-      <section className="py-24 px-6">
+      <section className="py-16 md:py-24 px-4 md:px-6">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
+          <div className="text-center mb-8 md:mb-12">
             <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">
               Watch it in action
             </span>
-            <h2 className="text-4xl md:text-5xl font-bold text-white mt-3">
+            <h2 className="text-3xl md:text-5xl font-bold text-white mt-3">
               See a full trip,
               <br />
               <span className="text-slate-400">start to finish.</span>
@@ -412,26 +426,27 @@ export default function LandingPage() {
       </section>
 
       {/* ── 4. PAIN SECTION ── */}
-      <section className="py-24 px-6 bg-slate-900/50">
+      <section className="py-16 md:py-24 px-4 md:px-6 bg-slate-900/50">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+          <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 md:mb-6">
             Managing a group trip
             <span className="text-slate-500"> should not feel like this.</span>
           </h2>
-          <p className="text-slate-400 text-xl mb-16 max-w-2xl mx-auto">
+          <p className="text-slate-400 text-base md:text-xl mb-10 md:mb-16 max-w-2xl mx-auto">
             You have been the person holding everything together. You know what that looks like.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+          {/* 1-col on mobile, 2-col on md */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 max-w-2xl mx-auto">
             {painPoints.map((point, i) => (
               <div key={i} className="flex items-center gap-3 p-4 bg-red-500/5 border border-red-500/10 rounded-xl text-left">
                 <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                <span className="text-slate-300">{point}</span>
+                <span className="text-slate-300 text-sm md:text-base">{point}</span>
               </div>
             ))}
           </div>
-          <div className="mt-16 max-w-2xl mx-auto">
-            <div className="h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent mb-16" />
-            <p className="text-2xl text-white font-medium leading-relaxed">
+          <div className="mt-10 md:mt-16 max-w-2xl mx-auto">
+            <div className="h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent mb-10 md:mb-16" />
+            <p className="text-lg md:text-2xl text-white font-medium leading-relaxed">
               There is a better way. One link, sent to each person.
               <span className="text-blue-400"> Everything they need, nothing they do not.</span>
             </p>
@@ -443,24 +458,24 @@ export default function LandingPage() {
       <ScreenshotCarousel />
 
       {/* Features */}
-      <section className="py-24 px-6 bg-slate-900/50">
+      <section className="py-16 md:py-24 px-4 md:px-6 bg-slate-900/50">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 md:mb-16">
             <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">Built for organizers</span>
-            <h2 className="text-4xl md:text-5xl font-bold text-white mt-3">
+            <h2 className="text-3xl md:text-5xl font-bold text-white mt-3">
               Everything you need
               <br />
               <span className="text-slate-400">to run a flawless trip.</span>
             </h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
             {features.map(({ icon: Icon, color, bg, title, description }) => (
-              <div key={title} className="p-8 bg-slate-900 border border-slate-800 rounded-2xl hover:border-slate-700 transition-colors">
-                <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-5 ${bg}`}>
-                  <Icon className={`w-6 h-6 ${color}`} />
+              <div key={title} className="p-6 md:p-8 bg-slate-900 border border-slate-800 rounded-2xl hover:border-slate-700 transition-colors">
+                <div className={`inline-flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl mb-4 md:mb-5 ${bg}`}>
+                  <Icon className={`w-5 h-5 md:w-6 md:h-6 ${color}`} />
                 </div>
-                <h3 className="text-white font-bold text-xl mb-3">{title}</h3>
-                <p className="text-slate-400 leading-relaxed">{description}</p>
+                <h3 className="text-white font-bold text-lg md:text-xl mb-2 md:mb-3">{title}</h3>
+                <p className="text-slate-400 text-sm md:text-base leading-relaxed">{description}</p>
               </div>
             ))}
           </div>
@@ -468,19 +483,19 @@ export default function LandingPage() {
       </section>
 
       {/* Who it's for */}
-      <section className="py-24 px-6">
+      <section className="py-16 md:py-24 px-4 md:px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl font-bold text-white mb-4">Built for anyone leading a group.</h2>
-          <p className="text-slate-400 text-xl mb-16">From Capitol Hill fly-ins to corporate retreats.</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 md:mb-4">Built for anyone leading a group.</h2>
+          <p className="text-slate-400 text-base md:text-xl mb-10 md:mb-16">From Capitol Hill fly-ins to corporate retreats.</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {[
               { label: 'Trade Associations', desc: 'Hill Days and Fly-Ins' },
               { label: 'Corporate Teams',    desc: 'Offsites and Retreats' },
               { label: 'Event Planners',     desc: 'Group Conferences' },
               { label: 'Tour Operators',     desc: 'Managed Group Travel' },
             ].map(item => (
-              <div key={item.label} className="p-5 bg-slate-800/50 border border-slate-700/50 rounded-xl">
-                <p className="text-white font-semibold text-sm">{item.label}</p>
+              <div key={item.label} className="p-4 md:p-5 bg-slate-800/50 border border-slate-700/50 rounded-xl">
+                <p className="text-white font-semibold text-xs md:text-sm">{item.label}</p>
                 <p className="text-slate-500 text-xs mt-1">{item.desc}</p>
               </div>
             ))}
@@ -489,13 +504,14 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing teaser */}
-      <section className="py-24 px-6 bg-slate-900/50">
+      <section className="py-16 md:py-24 px-4 md:px-6 bg-slate-900/50">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-4xl font-bold text-white mb-4">Start free. Scale when you are ready.</h2>
-          <p className="text-slate-400 text-xl mb-10">The free tier gives you 90 days and up to 3 trips with 15 participants each.</p>
-          <div className="flex items-center justify-center gap-3 flex-wrap mb-10">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 md:mb-4">Start free. Scale when you are ready.</h2>
+          <p className="text-slate-400 text-base md:text-xl mb-8 md:mb-10">The free tier gives you 90 days and up to 3 trips with 15 participants each.</p>
+          {/* FIX: 2-col grid on mobile instead of wrapping flex */}
+          <div className="grid grid-cols-2 md:flex md:flex-wrap md:justify-center gap-2 md:gap-3 mb-8 md:mb-10">
             {['Free — 90 day trial', 'Basic — $1.99/mo', 'Pro — $4.99/mo', 'Enterprise — $9.99/mo'].map(plan => (
-              <span key={plan} className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-full text-slate-300 text-sm">{plan}</span>
+              <span key={plan} className="px-3 py-2 md:px-4 bg-slate-800 border border-slate-700 rounded-full text-slate-300 text-xs md:text-sm text-center">{plan}</span>
             ))}
           </div>
           <a href="/pricing" className="text-blue-400 hover:text-blue-300 text-sm transition-colors">See full plan comparison</a>
@@ -503,36 +519,37 @@ export default function LandingPage() {
       </section>
 
       {/* Bottom CTA */}
-      <section className="py-32 px-6 relative overflow-hidden">
+      <section className="py-24 md:py-32 px-4 md:px-6 relative overflow-hidden">
         <div className="absolute inset-0">
           <img src="/covaled-hero.png" alt="" className="w-full h-full object-cover object-top opacity-20" />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/90 to-slate-950/80" />
         </div>
         <div className="relative z-10 max-w-3xl mx-auto text-center">
-          <h2 className="text-5xl font-bold text-white mb-6">
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-5 md:mb-6">
             Ready to lead
             <span className="text-blue-400"> a better trip?</span>
           </h2>
-          <p className="text-slate-300 text-xl mb-10">
+          <p className="text-slate-300 text-base md:text-xl mb-8 md:mb-10">
             Join the organizers who have stopped herding cats and started running coordinated, professional group travel.
           </p>
           <button
             onClick={() => router.push('/admin/signup')}
-            className="flex items-center gap-2 px-10 py-5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors text-xl mx-auto"
+            className="flex items-center gap-2 px-8 py-4 md:px-10 md:py-5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors text-lg md:text-xl mx-auto"
           >
             Get started free
-            <ArrowRight className="w-6 h-6" />
+            <ArrowRight className="w-5 h-5 md:w-6 md:h-6" />
           </button>
-          <p className="text-slate-600 text-sm mt-4">Free for 90 days · No credit card required · Cancel anytime</p>
+          <p className="text-slate-600 text-xs md:text-sm mt-4">Free for 90 days · No credit card required · Cancel anytime</p>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800 py-10 px-6">
-        <div className="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-4">
+      <footer className="border-t border-slate-800 py-8 md:py-10 px-4 md:px-6">
+        {/* FIX: column layout on mobile, row on md */}
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center md:justify-between gap-4 text-center md:text-left">
           <span className="text-white font-bold">Covaled</span>
           <p className="text-slate-600 text-sm italic">Group travel, coordinated.</p>
-          <div className="flex items-center gap-6 text-slate-500 text-sm">
+          <div className="flex items-center gap-4 md:gap-6 text-slate-500 text-sm">
             <a href="/pricing" className="hover:text-white transition-colors">Pricing</a>
             <a href="/admin/login" className="hover:text-white transition-colors">Sign in</a>
             <a href="/admin/signup" className="hover:text-white transition-colors">Sign up</a>

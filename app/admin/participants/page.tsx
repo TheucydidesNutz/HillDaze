@@ -302,8 +302,8 @@ export default function ParticipantsPage() {
           />
         )}
 
-        {/* Search + Add */}
-        <div className="flex items-center justify-between mb-4">
+        {/* FIX: added gap-3 for breathing room, shrunk button, responsive label */}
+        <div className="flex items-center gap-3 justify-between mb-4">
           <input
             type="text"
             placeholder="Search by name, company, or email..."
@@ -313,9 +313,10 @@ export default function ParticipantsPage() {
           />
           <button
             onClick={handleAdd}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
+            className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0"
           >
-            + Add Participant
+            <span className="sm:hidden">+ Add</span>
+            <span className="hidden sm:inline">+ Add Participant</span>
           </button>
         </div>
 
