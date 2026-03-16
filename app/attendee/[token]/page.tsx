@@ -68,7 +68,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [useEventTimezone, setUseEventTimezone] = useState(false)
 
-  // Fact sheet — now opens in new browser tab
+  // Fact sheet — opens in new browser tab
   const [loadingFactSheet, setLoadingFactSheet] = useState(false)
 
   const [installPrompt, setInstallPrompt] = useState<any>(null)
@@ -137,20 +137,24 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   }
 
   // Opens fact sheet PDF in a new browser tab
+  // Opens tab synchronously to avoid mobile popup blockers
   async function handleFactSheetOpen() {
     if (!data?.factSheet) return
+    const newTab = window.open('about:blank', '_blank')
     setLoadingFactSheet(true)
     const res = await fetch(`/api/admin/upload/pdf/signed-url?path=${encodeURIComponent(data.factSheet.file_url)}`)
     const { url } = await res.json()
     setLoadingFactSheet(false)
-    window.open(url, '_blank')
+    if (newTab) newTab.location.href = url
   }
 
   // Opens document PDFs in a new browser tab
+  // Opens tab synchronously to avoid mobile popup blockers
   async function handleDocOpen(doc: Document) {
+    const newTab = window.open('about:blank', '_blank')
     const res = await fetch(`/api/admin/upload/pdf/signed-url?path=${encodeURIComponent(doc.file_url)}`)
     const { url } = await res.json()
-    window.open(url, '_blank', 'noopener,noreferrer')
+    if (newTab) newTab.location.href = url
   }
 
   // Map still opens in overlay modal
