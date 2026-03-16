@@ -6,7 +6,7 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import listPlugin from '@fullcalendar/list'
 import { Event } from '@/lib/types'
 import { useState } from 'react'
-import { Clock, MapPin } from 'lucide-react'
+import { Clock, MapPin, X } from 'lucide-react'
 
 interface Props {
   events: Event[]
