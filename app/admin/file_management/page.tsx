@@ -118,7 +118,8 @@ export default function SettingsPage() {
     const data = await res.json()
     setDocUploading(false)
     if (res.ok) {
-      setDocuments(prev => [data, ...prev])
+      const group = groups.find(g => g.id === docGroupId) || null
+      setDocuments(prev => [{ ...data, group: group ? { id: group.id, name: group.name } : null }, ...prev])
       setDocLabel('')
       setDocFile(null)
       setDocGroupId('')
