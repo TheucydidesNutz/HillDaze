@@ -9,11 +9,12 @@ async function requireAdmin() {
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { id: groupId } = await params
   const body = await request.json()
 
   // Strip fields that should never be updated directly
@@ -22,7 +23,7 @@ export async function PATCH(
   const { data, error } = await supabaseAdmin
     .from('groups')
     .update(updates)
-    .eq('id', params.id)
+    .eq('id', groupId)
     .select()
     .single()
 
@@ -32,15 +33,17 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { id } = await params
+
   const { error } = await supabaseAdmin
     .from('groups')
     .delete()
-    .eq('id', params.id)
+    .eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return new NextResponse(null, { status: 204 })
