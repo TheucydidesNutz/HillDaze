@@ -48,3 +48,4 @@ export async function DELETE(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return new NextResponse(null, { status: 204 })
 }
+
