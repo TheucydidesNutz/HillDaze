@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin, createSupabaseServerClient, getTripId } from '@/lib/supabase'
+import { supabaseAdmin, createSupabaseServerClient, requireTripAccess } from '@/lib/supabase'
 
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient()
@@ -61,8 +61,9 @@ export async function POST(request: NextRequest) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const tripId = getTripId(request)
-  if (!tripId) return NextResponse.json({ error: 'No trip selected' }, { status: 400 })
+  // FIX: Verify trip access
+  const access = await requireTripAccess(request, user.id)
+  if (!access) return NextResponse.json({ error: 'Forbidden — no access to this trip' }, { status: 403 })
 
   const formData = await request.formData()
   const file = formData.get('file') as File
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ count: events.length, preview: events.slice(0, 5) })
   }
 
-  // Get participants in the selected group (or all if no group)
+  // Get participants in the selected group (or all if no group) — scoped to this trip
   let participantIds: string[] = []
 
   if (groupId) {
@@ -91,13 +92,13 @@ export async function POST(request: NextRequest) {
       .from('participants')
       .select('id')
       .eq('group_id', groupId)
-      .eq('trip_id', tripId)
+      .eq('trip_id', access.tripId)
     participantIds = (data || []).map((p: any) => p.id)
   } else {
     const { data } = await supabaseAdmin
       .from('participants')
       .select('id')
-      .eq('trip_id', tripId)
+      .eq('trip_id', access.tripId)
     participantIds = (data || []).map((p: any) => p.id)
   }
 
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
           start_time: event.start,
           end_time: event.end || event.start,
           type: eventType,
-          trip_id: tripId,  // ← add this
+          trip_id: access.tripId,
         }])
         .select()
         .single()

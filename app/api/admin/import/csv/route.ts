@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin, createSupabaseServerClient, getTripId } from '@/lib/supabase'
+import { supabaseAdmin, createSupabaseServerClient, requireTripAccess } from '@/lib/supabase'
 import { formatPhone } from '@/lib/utils'
 
 async function requireAdmin() {
@@ -73,10 +73,13 @@ export async function POST(request: NextRequest) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // FIX: Verify trip access
+  const access = await requireTripAccess(request, user.id)
+  if (!access) return NextResponse.json({ error: 'Forbidden — no access to this trip' }, { status: 403 })
+
   const formData = await request.formData()
   const file = formData.get('file') as File
   const preview = formData.get('preview') === 'true'
-  const tripId = getTripId(request)
 
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
@@ -107,10 +110,12 @@ export async function POST(request: NextRequest) {
       }
 
       if (participant.email) {
+        // FIX: Scope email lookup to THIS trip only, not global
         const { data: existing, error: findError } = await supabaseAdmin
           .from('participants')
           .select('id')
           .eq('email', participant.email)
+          .eq('trip_id', access.tripId)
           .maybeSingle()
 
         if (findError) {
@@ -123,6 +128,7 @@ export async function POST(request: NextRequest) {
             .from('participants')
             .update({ ...participant, updated_at: new Date().toISOString() })
             .eq('id', existing.id)
+            .eq('trip_id', access.tripId)
 
           if (updateError) {
             results.errors.push(`${participant.name}: Update failed — ${updateError.message}`)
@@ -132,7 +138,7 @@ export async function POST(request: NextRequest) {
         } else {
           const { error: insertError } = await supabaseAdmin
             .from('participants')
-            .insert([{ ...participant, trip_id: tripId }])
+            .insert([{ ...participant, trip_id: access.tripId }])
 
           if (insertError) {
             results.errors.push(`${participant.name}: Insert failed — ${insertError.message}`)
@@ -143,7 +149,7 @@ export async function POST(request: NextRequest) {
       } else {
         const { error: insertError } = await supabaseAdmin
           .from('participants')
-          .insert([{ ...participant, trip_id: tripId }])
+          .insert([{ ...participant, trip_id: access.tripId }])
 
         if (insertError) {
           results.errors.push(`${participant.name}: Insert failed — ${insertError.message}`)

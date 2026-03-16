@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin, createSupabaseServerClient } from '@/lib/supabase'
+import { supabaseAdmin, createSupabaseServerClient, requireTripAccess, verifyResourceOwnership } from '@/lib/supabase'
 
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient()
@@ -15,15 +15,29 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id: groupId } = await params
+
+  // FIX: Verify trip access and group ownership
+  const access = await requireTripAccess(request, user.id)
+  if (!access) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const owns = await verifyResourceOwnership('groups', groupId, access.tripId)
+  if (!owns) return NextResponse.json({ error: 'Group not found in this trip' }, { status: 404 })
+
   const body = await request.json()
 
-  // Strip fields that should never be updated directly
-  const { id, trip_id, ...updates } = body
-
+  // FIX: Explicitly pick allowed fields (strip id, trip_id)
   const { data, error } = await supabaseAdmin
     .from('groups')
-    .update(updates)
+    .update({
+      name: body.name,
+      description: body.description,
+      lead_name: body.lead_name,
+      lead_phone: body.lead_phone,
+      lead_email: body.lead_email,
+      lead_photo_url: body.lead_photo_url,
+    })
     .eq('id', groupId)
+    .eq('trip_id', access.tripId)
     .select()
     .single()
 
@@ -40,12 +54,16 @@ export async function DELETE(
 
   const { id } = await params
 
+  // FIX: Verify trip access and group ownership
+  const access = await requireTripAccess(request, user.id)
+  if (!access) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
   const { error } = await supabaseAdmin
     .from('groups')
     .delete()
     .eq('id', id)
+    .eq('trip_id', access.tripId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return new NextResponse(null, { status: 204 })
 }
-

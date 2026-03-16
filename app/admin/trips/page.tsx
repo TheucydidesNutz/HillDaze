@@ -5,7 +5,7 @@ import { Trip } from '@/lib/types'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import UsageBanner from '@/components/UsageBanner'
-import { Settings, LogOut, Plus } from 'lucide-react'
+import { Settings, LogOut, Plus, Star, User, Users, X, AlertTriangle } from 'lucide-react'
 
 interface TripAdmin {
   id: string
@@ -539,7 +539,7 @@ export default function TripsPage() {
                     )}
                     {deleteStep?.id === trip.id && deleteStep.step === 2 && (
                       <div className="absolute right-0 top-7 bg-slate-800 border border-red-500/30 rounded-xl p-3 z-10 w-52 shadow-xl">
-                        <p className="text-red-400 text-xs font-medium mb-2">⚠️ Are you absolutely sure?</p>
+                        <p className="text-red-400 text-xs font-medium mb-2 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> Are you absolutely sure?</p>
                         <p className="text-slate-400 text-xs mb-3">This cannot be undone.</p>
                         <div className="flex gap-2">
                           <button onClick={() => setDeleteStep(null)} className="flex-1 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors">Cancel</button>
@@ -549,9 +549,9 @@ export default function TripsPage() {
                     )}
                     <button
                       onClick={() => setDeleteStep(deleteStep?.id === trip.id ? null : { id: trip.id, step: 1 })}
-                      className="w-6 h-6 flex items-center justify-center text-slate-600 hover:text-red-400 transition-colors text-sm"
+                      className="w-6 h-6 flex items-center justify-center text-slate-600 hover:text-red-400 transition-colors"
                     >
-                      ✕
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 )}
@@ -572,7 +572,7 @@ export default function TripsPage() {
                       ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                       : 'bg-slate-700 text-slate-400 border-slate-600'
                       }`}>
-                      {trip.role === 'super' ? '⭐ Super Admin' : '👤 Admin'}
+                      {trip.role === 'super' ? <><Star className="w-3 h-3 inline" /> Super Admin</> : <><User className="w-3 h-3 inline" /> Admin</>}
                     </span>
                   </div>
                 </div>
@@ -603,7 +603,7 @@ export default function TripsPage() {
                 <h2 className="text-white font-semibold text-lg">
                   {createdTrip ? `✓ Trip Created — Add Details` : 'Create New Trip'}
                 </h2>
-                <button onClick={closeNewModal} className="text-slate-400 hover:text-white">✕</button>
+                <button onClick={closeNewModal} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
               </div>
 
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
@@ -618,12 +618,12 @@ export default function TripsPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-slate-400 mb-1">Start Date</label>
-                        <input type="date" value={newStart} onChange={e => setNewStart(e.target.value)}
+                        <input type="date" value={newStart || ''} onChange={e => setNewStart(e.target.value)}
                           className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-slate-400 mb-1">End Date</label>
-                        <input type="date" value={newEnd} onChange={e => setNewEnd(e.target.value)}
+                        <input type="date" value={newEnd || ''} onChange={e => setNewEnd(e.target.value)}
                           className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                       </div>
                     </div>
@@ -668,13 +668,13 @@ export default function TripsPage() {
                       </div>
                     </div>
                     <div className="border-t border-slate-800 pt-4">
-                      <h3 className="text-white font-medium mb-3 text-sm">👥 Trip Admins</h3>
+                      <h3 className="text-white font-medium mb-3 text-sm flex items-center gap-1.5"><Users className="w-4 h-4" /> Trip Admins</h3>
                       {newTripAdmins.length > 0 && (
                         <div className="space-y-2 mb-4">
                           {newTripAdmins.map(admin => (
                             <div key={admin.id} className="flex items-center gap-2 p-2.5 bg-slate-800/50 rounded-lg">
                               <span className={`px-2 py-0.5 rounded text-xs font-medium ${admin.role === 'super' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'}`}>
-                                {admin.role === 'super' ? '⭐ Super' : '👤 Admin'}
+                                {admin.role === 'super' ? <><Star className="w-3 h-3 inline" /> Super</> : <><User className="w-3 h-3 inline" /> Admin</>}
                               </span>
                               <span className="text-slate-300 text-sm">{admin.email}</span>
                             </div>
@@ -726,7 +726,7 @@ export default function TripsPage() {
             <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col">
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
                 <h2 className="text-white font-semibold text-lg">Edit Trip</h2>
-                <button onClick={() => setEditingTrip(null)} className="text-slate-400 hover:text-white">✕</button>
+                <button onClick={() => setEditingTrip(null)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
               </div>
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
                 <div>
@@ -781,14 +781,14 @@ export default function TripsPage() {
                   </div>
                 </div>
                 <div className="border-t border-slate-800 pt-4">
-                  <h3 className="text-white font-medium mb-3">👥 Trip Admins</h3>
+                  <h3 className="text-white font-medium mb-3 flex items-center gap-1.5"><Users className="w-4 h-4" /> Trip Admins</h3>
                   {tripAdmins.length > 0 && (
                     <div className="space-y-2 mb-4">
                       {tripAdmins.map(admin => (
                         <div key={admin.id} className="flex items-center justify-between p-2.5 bg-slate-800/50 rounded-lg">
                           <div className="flex items-center gap-2">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${admin.role === 'super' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'}`}>
-                              {admin.role === 'super' ? '⭐ Super' : '👤 Admin'}
+                              {admin.role === 'super' ? <><Star className="w-3 h-3 inline" /> Super</> : <><User className="w-3 h-3 inline" /> Admin</>}
                             </span>
                             <span className="text-slate-300 text-sm">{admin.email}</span>
                           </div>
@@ -844,7 +844,7 @@ export default function TripsPage() {
             <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col">
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
                 <h2 className="text-white font-semibold text-lg">Settings</h2>
-                <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white">✕</button>
+                <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
               </div>
 
               <div className="flex gap-1 px-6 pt-4 pb-2">
@@ -1031,7 +1031,7 @@ export default function TripsPage() {
                                         ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 disabled:cursor-default'
                                         : 'bg-slate-700 text-slate-400 hover:bg-slate-600 disabled:cursor-default'
                                         }`}>
-                                      {role === 'super' ? '⭐ Super' : '👤 Admin'}
+                                      {role === 'super' ? <><Star className="w-3 h-3 inline" /> Super</> : <><User className="w-3 h-3 inline" /> Admin</>}
                                     </button>
                                   </div>
                                 )

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin, createSupabaseServerClient, getTripId } from '@/lib/supabase'
+import { supabaseAdmin, createSupabaseServerClient, requireTripAccess } from '@/lib/supabase'
 
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient()
@@ -11,8 +11,9 @@ export async function POST(request: NextRequest) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const tripId = getTripId(request)
-  if (!tripId) return NextResponse.json({ error: 'No trip selected' }, { status: 400 })
+  // FIX: Verify trip access
+  const access = await requireTripAccess(request, user.id)
+  if (!access) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const formData = await request.formData()
   const file = formData.get('file') as File
@@ -39,15 +40,15 @@ export async function POST(request: NextRequest) {
 
   if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
 
-  // Set all existing fact sheets for this trip to inactive
+  // Set all existing fact sheets for this trip to inactive (using verified tripId)
   await supabaseAdmin
     .from('fact_sheets')
     .update({ is_active: false })
-    .eq('trip_id', tripId)
+    .eq('trip_id', access.tripId)
 
   const { data, error } = await supabaseAdmin
     .from('fact_sheets')
-    .insert([{ label, file_url: filePath, is_active: true, trip_id: tripId }])
+    .insert([{ label, file_url: filePath, is_active: true, trip_id: access.tripId }])
     .select()
     .single()
 

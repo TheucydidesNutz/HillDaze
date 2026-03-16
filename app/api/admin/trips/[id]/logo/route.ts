@@ -15,6 +15,17 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
+
+  // FIX: Verify user has access to this trip
+  const { data: access } = await supabaseAdmin
+    .from('trip_admins')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('trip_id', id)
+    .single()
+
+  if (!access) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
   const formData = await request.formData()
   const file = formData.get('file') as File
 

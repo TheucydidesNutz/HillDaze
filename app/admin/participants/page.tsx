@@ -6,6 +6,7 @@ import ParticipantModal from '@/components/ParticipantModal'
 import TripHeader from '@/components/TripHeader'
 import { apiFetch } from '@/lib/apiFetch'
 import { useRouter } from 'next/navigation'
+import { X } from 'lucide-react'
 
 function ViewParticipantModal({
   participant,
@@ -36,7 +37,7 @@ function ViewParticipantModal({
             <button onClick={onEdit} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors">
               Edit
             </button>
-            <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
+            <button onClick={onClose} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
           </div>
         </div>
         <div className="flex items-center gap-4 px-6 pt-4">
@@ -331,7 +332,7 @@ export default function ParticipantsPage() {
                 className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">— Assign to group —</option>
-                <option value="none">🚫 Remove from group</option>
+                <option value="none">Remove from group</option>
                 {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
               <button

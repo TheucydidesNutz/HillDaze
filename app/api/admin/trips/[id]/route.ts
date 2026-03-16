@@ -7,14 +7,15 @@ async function getAdminUser() {
   return user
 }
 
-async function isSuperAdmin(userId: string, tripId: string) {
+// FIX: Verify user has access to this specific trip and return their role
+async function verifyTripAccess(userId: string, tripId: string) {
   const { data } = await supabaseAdmin
     .from('trip_admins')
     .select('role')
     .eq('user_id', userId)
     .eq('trip_id', tripId)
     .single()
-  return data?.role === 'super'
+  return data
 }
 
 export async function PATCH(
@@ -25,11 +26,23 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
+
+  // FIX: Verify the user has access to this trip
+  const access = await verifyTripAccess(user.id, id)
+  if (!access) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
   const body = await request.json()
 
+  // FIX: Explicitly pick allowed fields instead of spreading raw body
   const { data, error } = await supabaseAdmin
     .from('trips')
-    .update(body)
+    .update({
+      title: body.title,
+      start_date: body.start_date,
+      end_date: body.end_date,
+      timezone: body.timezone,
+      logo_url: body.logo_url,
+    })
     .eq('id', id)
     .select()
     .single()
@@ -46,8 +59,12 @@ export async function DELETE(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-  const superAdmin = await isSuperAdmin(user.id, id)
-  if (!superAdmin) return NextResponse.json({ error: 'Only super admins can delete trips' }, { status: 403 })
+
+  // Verify user is super admin on this trip
+  const access = await verifyTripAccess(user.id, id)
+  if (access?.role !== 'super') {
+    return NextResponse.json({ error: 'Only super admins can delete trips' }, { status: 403 })
+  }
 
   const { error } = await supabaseAdmin.from('trips').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

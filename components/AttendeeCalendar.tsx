@@ -73,7 +73,7 @@ export default function AttendeeCalendar({ events, timezone }: Props) {
                   {selectedEvent.type === 'mandatory' ? 'Mandatory' : 'Optional'}
                 </span>
               </div>
-              <button onClick={() => setSelectedEvent(null)} className="text-slate-400 hover:text-white">✕</button>
+              <button onClick={() => setSelectedEvent(null)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
             </div>
             <h3 className="text-white font-semibold text-lg mb-2">{selectedEvent.title}</h3>
             <p className="text-slate-300 text-sm mb-1 flex items-center gap-1.5">

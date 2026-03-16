@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/apiFetch'
+import { Megaphone, Globe, Users, ChevronUp, ChevronDown } from 'lucide-react'
 
 interface Broadcast {
   id: string
@@ -72,7 +73,7 @@ export default function BroadcastComposer() {
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <span className="text-xl">📣</span>
+        <Megaphone className="w-5 h-5 text-amber-400" />
           <h2 className="text-white font-semibold">Broadcast Message</h2>
           {broadcasts.length > 0 && (
             <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs font-medium rounded-full border border-amber-500/30">
@@ -84,7 +85,7 @@ export default function BroadcastComposer() {
           onClick={() => setExpanded(!expanded)}
           className="text-slate-400 hover:text-white text-sm transition-colors"
         >
-          {expanded ? '▲ Collapse' : '▼ Expand'}
+          {expanded ? <><ChevronUp className="w-4 h-4 inline" /> Collapse</> : <><ChevronDown className="w-4 h-4 inline" /> Expand</>}
         </button>
       </div>
 
@@ -108,7 +109,7 @@ export default function BroadcastComposer() {
               onChange={e => setGroupId(e.target.value)}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm"
             >
-              <option value="">🌐 All Participants</option>
+              <option value="">All Participants</option>
               {groups.map(g => (
                 <option key={g.id} value={g.id}>👥 {g.name}</option>
               ))}

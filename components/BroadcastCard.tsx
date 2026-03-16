@@ -1,5 +1,7 @@
 'use client'
 
+import { Megaphone, Check } from 'lucide-react'
+
 interface Broadcast {
   id: string
   message: string
@@ -32,7 +34,7 @@ export default function BroadcastCard({ broadcast, onDismiss }: Props) {
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
 
       <div className="flex items-start gap-3">
-        <span className="text-xl flex-shrink-0 mt-0.5">📣</span>
+        <Megaphone className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <p className="text-amber-300 font-semibold text-sm mb-1">
             Note from {broadcast.sender_name}
@@ -50,7 +52,7 @@ export default function BroadcastCard({ broadcast, onDismiss }: Props) {
         onClick={() => onDismiss(broadcast.id)}
         className="mt-4 w-full py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 hover:border-amber-500/50 text-amber-300 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
       >
-        ✓ Got it
+        <Check className="w-4 h-4" /> Got it
       </button>
     </div>
   )

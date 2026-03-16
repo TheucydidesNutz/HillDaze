@@ -352,6 +352,9 @@ export default function ImportPage() {
                 >
                   {icsLoading ? 'Parsing...' : 'Preview Events'}
                 </button>
+                {!icsLoading && !icsPreview && (
+                  <span className="text-slate-400 text-sm">Click Preview Events to proceed</span>
+                )}
               </div>
             </div>
 

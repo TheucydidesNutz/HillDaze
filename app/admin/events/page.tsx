@@ -23,6 +23,25 @@ interface CalendarEvent {
   type: 'mandatory' | 'optional'
 }
 
+// Convert an IANA timezone (e.g. "America/New_York") to an offset string
+// at the moment of a given date, like "-04:00" or "-05:00"
+function getTimezoneOffset(dateStr: string, timezone: string): string {
+  try {
+    const date = new Date(dateStr)
+    // Get the offset by comparing UTC and localized representations
+    const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }))
+    const tzDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }))
+    const offsetMinutes = (tzDate.getTime() - utcDate.getTime()) / 60000
+    const sign = offsetMinutes >= 0 ? '+' : '-'
+    const absMinutes = Math.abs(offsetMinutes)
+    const hours = String(Math.floor(absMinutes / 60)).padStart(2, '0')
+    const mins = String(absMinutes % 60).padStart(2, '0')
+    return `${sign}${hours}:${mins}`
+  } catch {
+    return '+00:00'
+  }
+}
+
 export default function EventsPage() {
   const router = useRouter()
   const [trip, setTrip] = useState<Trip | null>(null)
@@ -31,12 +50,11 @@ export default function EventsPage() {
   const [groups, setGroups] = useState<Group[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
-  const [useEventTimezone, setUseEventTimezone] = useState(false)
+  const [useEventTimezone, setUseEventTimezone] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
 
-  const tripTimezone = (trip as any)?.timezone || null
+  const tripTimezone = (trip as any)?.timezone || 'America/New_York'
   const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
-  const activeTimezone = useEventTimezone && tripTimezone ? tripTimezone : undefined
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640)
@@ -93,15 +111,30 @@ export default function EventsPage() {
     setModalOpen(true)
   }
 
-  const calendarEvents = events.map(e => ({
-    id: e.id,
-    title: e.title,
-    start: e.start_time,
-    end: e.end_time,
-    backgroundColor: e.type === 'mandatory' ? '#EF4444' : '#3B82F6',
-    borderColor: e.type === 'mandatory' ? '#DC2626' : '#2563EB',
-    extendedProps: { location: e.location, description: e.description, type: e.type }
-  }))
+  // FIX: Append the trip timezone offset to naive timestamps so FullCalendar
+  // knows what timezone they belong to and can convert correctly
+  const calendarEvents = events.map(e => {
+    const startOffset = getTimezoneOffset(e.start_time, tripTimezone)
+    const endOffset = getTimezoneOffset(e.end_time || e.start_time, tripTimezone)
+
+    // Strip any existing timezone suffix, then append the trip's offset
+    const cleanStart = e.start_time?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
+    const cleanEnd = (e.end_time || e.start_time)?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
+
+    return {
+      id: e.id,
+      title: e.title,
+      start: `${cleanStart}${startOffset}`,
+      end: `${cleanEnd}${endOffset}`,
+      backgroundColor: e.type === 'mandatory' ? '#EF4444' : '#3B82F6',
+      borderColor: e.type === 'mandatory' ? '#DC2626' : '#2563EB',
+      extendedProps: { location: e.location, description: e.description, type: e.type }
+    }
+  })
+
+  // When "Event Time" is selected, show in trip timezone
+  // When "My Time" is selected, show in browser's local timezone
+  const displayTimezone = useEventTimezone ? tripTimezone : browserTimezone
 
   return (
     <div className="min-h-screen bg-slate-950 p-4 md:p-8">
@@ -140,7 +173,7 @@ export default function EventsPage() {
             </button>
           </div>
 
-          {/* Row 2: Timezone toggle (only if trip has timezone) */}
+          {/* Row 2: Timezone toggle */}
           {tripTimezone && (
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 text-xs">
@@ -168,7 +201,7 @@ export default function EventsPage() {
                 </button>
               </div>
               <p className="text-slate-600 text-xs">
-                {useEventTimezone && tripTimezone ? tripTimezone : browserTimezone}
+                {displayTimezone}
               </p>
             </div>
           )}
@@ -178,7 +211,6 @@ export default function EventsPage() {
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 md:p-6 calendar-container">
           <FullCalendar
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-            // FIX: list view on mobile, month grid on desktop
             initialView={isMobile ? 'listWeek' : 'dayGridMonth'}
             headerToolbar={isMobile ? {
               left: 'prev,next',
@@ -193,8 +225,7 @@ export default function EventsPage() {
             eventClick={handleEventClick}
             height="auto"
             eventDisplay="block"
-            timeZone={activeTimezone || 'local'}
-            // Make list view labels friendlier
+            timeZone={displayTimezone}
             views={{
               listWeek: { buttonText: 'Week' },
               listMonth: { buttonText: 'Month' },

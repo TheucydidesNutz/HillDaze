@@ -45,10 +45,11 @@ export default function SignupPage() {
     }
 
     // Create user_settings via server route (bypasses RLS)
+    // FIX: No longer sending userId — the server reads it from the auth session
     const settingsRes = await fetch('/api/admin/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: data.user.id, orgName }),
+      body: JSON.stringify({ orgName }),
     })
     const settingsData = await settingsRes.json()
 

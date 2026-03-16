@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin, createSupabaseServerClient } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
-  const { userId, orgName } = await request.json()
-  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 })
+  // FIX: Verify the caller is authenticated and can only set up their own account
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { orgName } = await request.json()
+
+  // FIX: Use the authenticated user's ID, not a client-supplied one
   const { error } = await supabaseAdmin
     .from('user_settings')
     .upsert({
-      user_id: userId,
+      user_id: user.id,
       org_name: orgName?.trim() || null,
       subscription_tier: 'free',
       subscription_expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),

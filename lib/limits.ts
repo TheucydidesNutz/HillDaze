@@ -23,7 +23,9 @@ export const TIER_PRICES = {
 
 export function isExpired(tier: SubscriptionTier, expiresAt: string | null): boolean {
   if (!TIER_LIMITS[tier].expires) return false
-  if (!expiresAt) return false
+  // FIX: If the tier is supposed to expire but has no date, treat as expired
+  // (prevents free-forever accounts from missing expiresAt)
+  if (!expiresAt) return true
   return new Date(expiresAt) < new Date()
 }
 

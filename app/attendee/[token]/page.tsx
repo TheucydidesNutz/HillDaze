@@ -22,6 +22,7 @@ import {
   Smartphone,
   X,
   ExternalLink,
+  Zap,
 } from 'lucide-react'
 
 interface FactSheet {
@@ -540,7 +541,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
-              <span className="text-slate-400">⚡ Recently updated</span>
+              <span className="text-slate-400 flex items-center gap-1"><Zap className="w-3 h-3 text-amber-400" /> Recently updated</span>
             </span>
           </div>
           <AttendeeCalendar events={events} timezone={activeTimezone} />
