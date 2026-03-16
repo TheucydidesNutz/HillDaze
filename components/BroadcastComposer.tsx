@@ -133,7 +133,7 @@ export default function BroadcastComposer() {
           disabled={sending || !message.trim() || !senderName.trim()}
           className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-900 font-semibold rounded-lg text-sm transition-colors"
         >
-          {sending ? 'Sending...' : '📣 Send Broadcast'}
+          {sending ? 'Sending...' : <><Megaphone className="w-4 h-4 inline" /> Send Broadcast</>}
         </button>
       </div>
 

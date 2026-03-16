@@ -47,7 +47,7 @@ export default function AttendeeCalendar({ events, timezone }: Props) {
     <>
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
-        initialView="dayGridMonth"
+        initialView="dayGridWeek"
         headerToolbar={{
           left: 'prev,next today',
           center: 'title',

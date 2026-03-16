@@ -68,9 +68,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [useEventTimezone, setUseEventTimezone] = useState(false)
 
-  // Fact sheet modal
-  const [factSheetUrl, setFactSheetUrl] = useState<string | null>(null)
-  const [showFactSheet, setShowFactSheet] = useState(false)
+  // Fact sheet — now opens in new browser tab
   const [loadingFactSheet, setLoadingFactSheet] = useState(false)
 
   const [installPrompt, setInstallPrompt] = useState<any>(null)
@@ -138,27 +136,24 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     }
   }
 
-  // FIX: Fact sheet now opens in a full-screen in-app modal (iframe)
-  // instead of window.open which breaks in PWA standalone mode
+  // Opens fact sheet PDF in a new browser tab
   async function handleFactSheetOpen() {
     if (!data?.factSheet) return
     setLoadingFactSheet(true)
     const res = await fetch(`/api/admin/upload/pdf/signed-url?path=${encodeURIComponent(data.factSheet.file_url)}`)
     const { url } = await res.json()
-    setFactSheetUrl(url)
     setLoadingFactSheet(false)
-    setShowFactSheet(true)
+    window.open(url, '_blank')
   }
 
-  // FIX: Documents open via window.location.href — the most reliable
-  // method in PWA standalone mode. iOS opens PDFs in its system viewer,
-  // user taps back to return. Works without a browser chrome.
+  // Opens document PDFs in a new browser tab
   async function handleDocOpen(doc: Document) {
     const res = await fetch(`/api/admin/upload/pdf/signed-url?path=${encodeURIComponent(doc.file_url)}`)
     const { url } = await res.json()
-    window.location.href = url
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
+  // Map still opens in overlay modal
   async function handleMapOpen() {
     if (!map) return
     const res = await fetch(`/api/admin/upload/pdf/signed-url?path=${encodeURIComponent(map.file_url)}`)
@@ -233,28 +228,6 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
           <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
           <meta name="apple-mobile-web-app-title" content={tripTitle} />
         </>
-      )}
-
-      {/* ── Fact Sheet Modal (full-screen iframe) ── */}
-      {showFactSheet && factSheetUrl && (
-        <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800 flex-shrink-0">
-            <p className="text-white font-medium text-sm truncate">
-              {factSheet?.label || 'Fact Sheet'}
-            </p>
-            <button
-              onClick={() => setShowFactSheet(false)}
-              className="ml-3 flex-shrink-0 p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <iframe
-            src={factSheetUrl}
-            className="flex-1 w-full border-0"
-            title={factSheet?.label || 'Fact Sheet'}
-          />
-        </div>
       )}
 
       {/* iOS install banner */}
@@ -335,7 +308,6 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               </button>
             )}
             {factSheet && (
-              // FIX: was handlePdfDownload (window.open) → now handleFactSheetOpen (iframe modal)
               <button
                 onClick={handleFactSheetOpen}
                 disabled={loadingFactSheet}
@@ -559,10 +531,9 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               <FolderOpen className="w-4 h-4 text-orange-400" />
               Your Documents
             </h2>
-            {/* FIX: inform user these open externally */}
             <p className="text-slate-500 text-xs mb-4 flex items-center gap-1">
               <ExternalLink className="w-3 h-3" />
-              Opens in your device's document viewer — tap back to return
+              Opens in a new tab
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {documents.map(doc => (
