@@ -2,29 +2,23 @@
 
 import { useState, useRef } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import { useRouter } from 'next/navigation'
-import { Camera, CheckCircle } from 'lucide-react'
+import { Camera, Mail } from 'lucide-react'
 
 export default function SignupPage() {
-  // Required fields
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
-
-  // Optional fields
   const [company, setCompany] = useState('')
   const [title, setTitle] = useState('')
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
-
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [done, setDone] = useState(false)
+  const [checkEmail, setCheckEmail] = useState(false)
 
-  const router = useRouter()
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -48,73 +42,59 @@ export default function SignupPage() {
 
     setLoading(true)
 
-    // 1. Create auth account
-    const { data, error: signupError } = await supabase.auth.signUp({ email, password })
+    // 1. Create auth account, store profile in metadata
+    const { data, error: signupError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          display_name: name.trim(),
+          phone: phone.trim(),
+          company: company.trim() || null,
+          role: title.trim() || null,
+        }
+      }
+    })
+
     if (signupError || !data.user) {
       setError(signupError?.message || 'Signup failed')
       setLoading(false)
       return
     }
 
-    // 2. Upload photo if provided
-    let photoUrl: string | null = null
-    if (photoFile) {
+    // 2. Upload photo if provided — storage is public so no session needed
+    if (photoFile && data.user) {
       const ext = photoFile.name.split('.').pop()
       const path = `${data.user.id}/admin-photo.${ext}`
-      const { error: uploadError } = await supabase.storage
+      await supabase.storage
         .from('admin-photos')
         .upload(path, photoFile, { upsert: true })
-      if (!uploadError) {
-        const { data: { publicUrl } } = supabase.storage.from('admin-photos').getPublicUrl(path)
-        photoUrl = publicUrl
-      }
-    }
-
-    // 3. Save user settings
-    const settingsRes = await fetch('/api/admin/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        orgName: '',
-        displayName: name.trim(),
-        phone: phone.trim(),
-        company: company.trim() || null,
-        role: title.trim() || null,
-        photoUrl,
-      }),
-    })
-    const settingsData = await settingsRes.json()
-
-    if (!settingsRes.ok) {
-      setError(settingsData.error || 'Account created but profile failed to save.')
-      setLoading(false)
-      return
+      // Photo URL will be wired to user_settings on first login
     }
 
     setLoading(false)
-    setDone(true)
+    setCheckEmail(true)
   }
 
-  // Welcome screen
-  if (done) {
+  // Check email screen
+  if (checkEmail) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
         <div className="w-full max-w-md text-center">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10">
             <div className="flex justify-center mb-5">
-              <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
-                <CheckCircle className="w-8 h-8 text-green-400" />
+              <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center">
+                <Mail className="w-8 h-8 text-blue-400" />
               </div>
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">You're all set, {name.split(' ')[0]}!</h2>
-            <p className="text-slate-400 mb-8">Your Covaled account has been created. You can now sign in and start coordinating your group travel.</p>
-            <button
-              onClick={() => router.push('/admin/trips')}
-              className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
-            >
-              Go to my dashboard →
-            </button>
-            <p className="text-slate-600 text-xs mt-4">You're signed in as {email}</p>
+            <h2 className="text-2xl font-bold text-white mb-2">Check your email</h2>
+            <p className="text-slate-400 mb-2">We sent a confirmation link to</p>
+            <p className="text-white font-medium mb-6">{email}</p>
+            <p className="text-slate-500 text-sm mb-8">Click the link in the email to activate your account. Once confirmed you'll be taken to your dashboard.</p>
+            <a href="/admin/login" className="block w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-lg transition-colors text-sm">
+              Back to sign in
+            </a>
+            <p className="text-slate-600 text-xs mt-4">Didn't get it? Check your spam folder.</p>
           </div>
         </div>
       </div>
