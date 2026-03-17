@@ -475,9 +475,9 @@ export default function TripsPage() {
         <div className="flex flex-col items-center text-center mb-6">
           {userSettings.logo_url && (
             <img
-              src={userSettings.logo_url}
+              src={`${userSettings.logo_url}?t=${userSettings.logo_url ? Date.now() : ''}`}
               alt="org logo"
-              className="w-28 h-44 md:w-50 md:h-50 object-contain rounded-3xl mb-4"
+              className="w-full h-44 md:h-56 object-cover rounded-3xl mb-4 self-stretch"
             />
           )}
           <h1 className="text-3xl md:text-4xl font-bold text-white">{displayName}</h1>
@@ -886,7 +886,7 @@ export default function TripsPage() {
                       <label className="block text-xs font-medium text-slate-400 mb-2">Organization Logo</label>
                       <div className="flex items-center gap-3">
                         {userSettings.logo_url ? (
-                          <img src={userSettings.logo_url} alt="org logo"
+                          <img src={`${userSettings.logo_url}?t=${Date.now()}`} alt="org logo"
                             className="w-12 h-12 rounded-xl object-contain bg-slate-800 p-1 flex-shrink-0" />
                         ) : (
                           <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center flex-shrink-0">
