@@ -55,7 +55,7 @@ export default function AttendeeCalendar({ events, timezone }: Props) {
         }}
         events={calendarEvents}
         eventClick={handleEventClick}
-        height="auto"
+        height={200}
         eventDisplay="block"
         timeZone={timezone || 'local'}
       />

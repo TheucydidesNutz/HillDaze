@@ -16,41 +16,49 @@ async function upsertAdminAsParticipant(tripId: string, userId: string) {
 
   const { data: settings } = await supabaseAdmin
     .from('user_settings')
-    .select('display_name, phone, photo_url')
+    .select('display_name, phone, photo_url, company, role')
     .eq('user_id', userId)
     .single()
 
   const name = settings?.display_name || authUser.email || ''
   const email = authUser.email || ''
+  const phone = settings?.phone || '(123) 555-6789'
 
   // Upsert into participants — match on email + trip_id
   const { data: existing } = await supabaseAdmin
     .from('participants')
-    .select('id')
+    .select('id, admin_overridden_fields')
     .eq('email', email)
     .eq('trip_id', tripId)
     .maybeSingle()
 
   if (existing) {
-    // Update existing participant with latest info
+    const overridden: Record<string, boolean> = (existing.admin_overridden_fields as any) || {}
+    // Only sync fields that haven't been manually overridden
+    const updates: Record<string, any> = {
+      name,
+      updated_at: new Date().toISOString(),
+    }
+    if (!overridden.phone) updates.phone = phone
+    if (!overridden.photo_url) updates.photo_url = settings?.photo_url || null
+    if (!overridden.company) updates.company = settings?.company || null
+    if (!overridden.title) updates.title = settings?.role || null
+
     await supabaseAdmin
       .from('participants')
-      .update({
-        name,
-        phone: settings?.phone || null,
-        photo_url: settings?.photo_url || null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq('id', existing.id)
   } else {
-    // Insert new participant
+    // Insert new participant — no overrides yet
     await supabaseAdmin
       .from('participants')
       .insert([{
         name,
         email,
-        phone: settings?.phone || null,
+        phone,
         photo_url: settings?.photo_url || null,
+        company: settings?.company || null,
+        title: settings?.role || null,
         trip_id: tripId,
       }])
   }

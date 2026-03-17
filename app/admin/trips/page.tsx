@@ -22,6 +22,8 @@ interface UserSettings {
   phone: string | null
   timezone: string | null
   photo_url: string | null
+  company: string | null
+  role: string | null
 }
 
 interface OrgUser {
@@ -78,7 +80,7 @@ export default function TripsPage() {
   // Settings state
   const [showSettings, setShowSettings] = useState(false)
   const [settingsTab, setSettingsTab] = useState<'general' | 'account' | 'users'>('general')
-  const [userSettings, setUserSettings] = useState<UserSettings>({ org_name: null, logo_url: null, display_name: null, timezone: null, photo_url: null, phone: null })
+  const [userSettings, setUserSettings] = useState<UserSettings>({ org_name: null, logo_url: null, display_name: null, timezone: null, photo_url: null, phone: null, company: null, role: null })
   const [settingsOrgName, setSettingsOrgName] = useState('')
   const [settingsDisplayName, setSettingsDisplayName] = useState('')
   const [settingsTimezone, setSettingsTimezone] = useState('America/New_York')
@@ -87,6 +89,8 @@ export default function TripsPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null)
   const [settingsPhone, setSettingsPhone] = useState('')
+  const [settingsCompany, setSettingsCompany] = useState('')
+  const [settingsRole, setSettingsRole] = useState('')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -116,7 +120,7 @@ export default function TripsPage() {
 
     const { data } = await supabase
       .from('user_settings')
-      .select('org_name, logo_url, display_name, timezone, photo_url, phone')
+      .select('org_name, logo_url, display_name, timezone, photo_url, phone, company, role')
       .eq('user_id', user.id)
       .single()
 
@@ -125,6 +129,8 @@ export default function TripsPage() {
       setSettingsOrgName(data.org_name || '')
       setSettingsDisplayName(data.display_name || '')
       setSettingsPhone(data.phone || '')
+      setSettingsCompany(data.company || '')
+      setSettingsRole(data.role || '')
       setSettingsTimezone(data.timezone || 'America/New_York')
       setNewTimezone(data.timezone || 'America/New_York')
     }
@@ -295,6 +301,8 @@ export default function TripsPage() {
         org_name: settingsOrgName.trim() || null,
         display_name: settingsDisplayName.trim() || null,
         phone: settingsPhone.trim() || null,
+        company: settingsCompany.trim() || null,
+        role: settingsRole.trim() || null,
         timezone: settingsTimezone,
         updated_at: new Date().toISOString(),
       })
@@ -308,11 +316,15 @@ export default function TripsPage() {
         org_name: settingsOrgName.trim() || null,
         display_name: settingsDisplayName.trim() || null,
         phone: settingsPhone.trim() || null,
+        company: settingsCompany.trim() || null,
+        role: settingsRole.trim() || null,
         timezone: settingsTimezone,
       }))
       setSettingsMessage('✓ Settings saved')
       setShowSettings(false)
       setTimeout(() => setSettingsMessage(''), 3000)
+      // Silently sync changes to linked participant records (respects overrides)
+      fetch('/api/admin/users/sync-participants', { method: 'POST' }).catch(() => null)
     }
   }
 
@@ -465,7 +477,7 @@ export default function TripsPage() {
             <img
               src={userSettings.logo_url}
               alt="org logo"
-              className="w-28 h-28 md:w-36 md:h-36 object-contain rounded-2xl mb-4"
+              className="w-28 h-44 md:w-50 md:h-50 object-contain rounded-2xl mb-4"
             />
           )}
           <h1 className="text-3xl md:text-4xl font-bold text-white">{displayName}</h1>
@@ -940,6 +952,18 @@ export default function TripsPage() {
                       <label className="block text-xs font-medium text-slate-400 mb-1">Your Phone</label>
                       <input type="tel" value={settingsPhone} onChange={e => setSettingsPhone(e.target.value)}
                         placeholder="e.g. (555) 555-1234"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Your Company</label>
+                      <input type="text" value={settingsCompany} onChange={e => setSettingsCompany(e.target.value)}
+                        placeholder="e.g. Acme Corp"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Your Role / Title</label>
+                      <input type="text" value={settingsRole} onChange={e => setSettingsRole(e.target.value)}
+                        placeholder="e.g. VP of Sales"
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                     </div>
                     <div className="border-t border-slate-800 pt-4 space-y-3">

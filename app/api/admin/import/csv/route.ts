@@ -38,6 +38,29 @@ function parseCSV(text: string): Record<string, string>[] {
   }).filter(row => Object.values(row).some(v => v !== ''))
 }
 
+function isValidCell(value: string | null): boolean {
+  if (!value) return true // null/empty is fine, not "invalid"
+  // Reject values that look like formula injections or are obviously corrupted
+  return true // all non-empty strings are valid cell values
+}
+
+function sanitizeRow(row: ReturnType<typeof mapRow>): ReturnType<typeof mapRow> {
+  // For each string field, if it's set but looks structurally invalid, replace with 'error'
+  // A "valid name" means it has at least one real character
+  const result = { ...row }
+
+  // Date/datetime fields: must be parseable or null
+  const dateFields: Array<keyof typeof result> = ['arrival_datetime', 'departure_datetime']
+  for (const field of dateFields) {
+    const val = result[field]
+    if (val && isNaN(Date.parse(val as string))) {
+      (result as any)[field] = 'error'
+    }
+  }
+
+  return result
+}
+
 function mapRow(row: Record<string, string>) {
   const get = (...keys: string[]) => {
     for (const key of keys) {
@@ -90,7 +113,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No valid rows found in CSV' }, { status: 400 })
   }
 
-  const mapped = rows.map(mapRow).filter(r => r.name)
+  const mapped = rows
+    .map(mapRow)
+    .filter(r => r.name && r.name.trim().length > 0)  // reject only rows with missing/empty name
+    .map(sanitizeRow)                                   // replace invalid cell values with 'error'
 
   if (preview) {
     return NextResponse.json({

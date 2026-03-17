@@ -105,5 +105,14 @@ export async function POST(request: NextRequest) {
       }])
   }
 
+  // Insert default welcome broadcast for the trip
+  await supabaseAdmin
+    .from('broadcasts')
+    .insert([{
+      trip_id: trip.id,
+      message: "This is where you'll see new broadcasts. Once you've read them, tap 'Got it' to delete the message.",
+      sender_name: settings?.display_name || user.email || 'Your organizer',
+    }])
+
   return NextResponse.json({ ...trip, role: 'super' }, { status: 201 })
 }
