@@ -477,7 +477,7 @@ export default function TripsPage() {
             <img
               src={userSettings.logo_url}
               alt="org logo"
-              className="w-28 h-44 md:w-50 md:h-50 object-contain rounded-2xl mb-4"
+              className="w-28 h-44 md:w-50 md:h-50 object-contain rounded-3xl mb-4"
             />
           )}
           <h1 className="text-3xl md:text-4xl font-bold text-white">{displayName}</h1>
