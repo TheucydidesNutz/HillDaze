@@ -133,6 +133,23 @@ export default function TripsPage() {
       setSettingsRole(data.role || '')
       setSettingsTimezone(data.timezone || 'America/New_York')
       setNewTimezone(data.timezone || 'America/New_York')
+    } else {
+      // No user_settings row yet — new signup. Create it from auth metadata.
+      const meta = user.user_metadata
+      await fetch('/api/admin/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgName: '',
+          displayName: meta?.display_name || '',
+          phone: meta?.phone || '',
+          company: meta?.company || null,
+          role: meta?.role || null,
+          photoUrl: null,
+        }),
+      })
+      // Re-fetch now that the row exists
+      fetchUserInfo()
     }
   }
 
