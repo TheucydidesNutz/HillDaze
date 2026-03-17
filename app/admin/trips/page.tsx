@@ -134,8 +134,16 @@ export default function TripsPage() {
       setSettingsTimezone(data.timezone || 'America/New_York')
       setNewTimezone(data.timezone || 'America/New_York')
     } else {
-      // No user_settings row yet — new signup. Create it from auth metadata.
       const meta = user.user_metadata
+      const photoExists = await supabase.storage
+        .from('admin-photos')
+        .list(user.id)
+      const hasPhoto = photoExists.data?.some(f => f.name.startsWith('admin-photo'))
+      const actualFile = photoExists.data?.find(f => f.name.startsWith('admin-photo'))
+      const { data: { publicUrl } } = supabase.storage
+        .from('admin-photos')
+        .getPublicUrl(`${user.id}/${actualFile?.name || 'admin-photo.jpg'}`)
+
       await fetch('/api/admin/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -145,9 +153,11 @@ export default function TripsPage() {
           phone: meta?.phone || '',
           company: meta?.company || null,
           role: meta?.role || null,
-          photoUrl: null,
+          photoUrl: hasPhoto ? publicUrl : null,
         }),
       })
+      // Sync profile to any existing participant records
+      await fetch('/api/admin/users/sync-participants', { method: 'POST' })
       // Re-fetch now that the row exists
       fetchUserInfo()
     }

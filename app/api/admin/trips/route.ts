@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   // Fetch user's subscription tier and expiry
   const { data: settings } = await supabaseAdmin
     .from('user_settings')
-    .select('subscription_tier, subscription_expires_at, display_name, phone, photo_url')
+    .select('subscription_tier, subscription_expires_at, display_name, phone, photo_url, company, role')
     .eq('user_id', user.id)
     .single()
 
@@ -101,6 +101,8 @@ export async function POST(request: NextRequest) {
         email: user.email,
         phone: settings?.phone || null,
         photo_url: settings?.photo_url || null,
+        company: settings?.company || null,
+        title: settings?.role || null,
         trip_id: trip.id,
       }])
   }
