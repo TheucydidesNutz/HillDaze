@@ -13,7 +13,7 @@ async function verifyToken(token: string) {
     return null
   }
 }
-
+ 
 async function getParticipantData(participantId: string) {
   const { data: participant, error } = await supabaseAdmin
     .from('participants')
