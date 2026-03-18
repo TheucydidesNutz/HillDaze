@@ -135,7 +135,7 @@ export default function SignupPage() {
                 )}
               </div>
               <p className="text-slate-500 text-xs">Profile photo <span className="text-slate-600">(optional)</span></p>
-              <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoChange} className="hidden" />
+              <input ref={photoInputRef} type="file" accept="image/png,image/svg+xml,image/jpeg,image/jpg" onChange={handlePhotoChange} className="hidden" />
             </div>
 
             {/* Required fields */}

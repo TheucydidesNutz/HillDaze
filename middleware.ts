@@ -22,6 +22,7 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Admin routes
   if (
     request.nextUrl.pathname.startsWith('/admin') &&
     !request.nextUrl.pathname.startsWith('/admin/login') &&
@@ -39,9 +40,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Intel routes — protect everything except /intel (landing) and /intel/login
+  if (
+    request.nextUrl.pathname.startsWith('/intel/') &&
+    request.nextUrl.pathname !== '/intel' &&
+    !request.nextUrl.pathname.startsWith('/intel/login') &&
+    !user
+  ) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/intel/login'
+    return NextResponse.redirect(url)
+  }
+
+  // Don't redirect Intel login — the page handles post-login routing
+
   return supabaseResponse
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/intel/:path*', '/api/intel/:path*'],
 }
