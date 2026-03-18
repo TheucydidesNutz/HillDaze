@@ -5,16 +5,28 @@ import { apiFetch } from '@/lib/apiFetch'
 import { useRouter } from 'next/navigation'
 import { Trip } from '@/lib/types'
 import TripHeader from '@/components/TripHeader'
+import { ChevronDown, ChevronUp, CalendarDays, MapPin, Clock, Tag } from 'lucide-react'
 
 interface Group {
   id: string
   name: string
 }
 
+interface EventMetadata {
+  event_id?: string
+  event_title?: string
+  start_time?: string
+  end_time?: string
+  location?: string
+  type?: string
+  description?: string
+}
+
 interface Note {
   id: string
   content: string
   created_at: string
+  event_metadata?: EventMetadata | null
   participant: {
     id: string
     name: string
@@ -35,6 +47,7 @@ export default function NotesFeedPage() {
   const [filterGroup, setFilterGroup] = useState('')
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [expandedMetadata, setExpandedMetadata] = useState<Set<string>>(new Set())
 
   const participants = Array.from(
     new Map(notes.map(n => [n.participant.id, n.participant])).values()
@@ -66,6 +79,27 @@ export default function NotesFeedPage() {
     setDeletingId(null)
   }
 
+  function toggleMetadata(noteId: string) {
+    setExpandedMetadata(prev => {
+      const next = new Set(prev)
+      if (next.has(noteId)) next.delete(noteId)
+      else next.add(noteId)
+      return next
+    })
+  }
+
+  function formatEventTime(startTime?: string, endTime?: string) {
+    if (!startTime) return ''
+    const start = new Date(startTime).toLocaleString('en-US', {
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+    })
+    if (!endTime) return start
+    const end = new Date(endTime).toLocaleString('en-US', {
+      hour: 'numeric', minute: '2-digit',
+    })
+    return `${start} – ${end}`
+  }
+
   function exportCSV(notesToExport: Note[], filename: string) {
     const rows = notesToExport.map(n => ({
       participant: n.participant.name,
@@ -74,13 +108,20 @@ export default function NotesFeedPage() {
       group: groups.find(g => g.id === n.participant.group_id)?.name || '',
       note: n.content.replace(/"/g, '""'),
       submitted_at: new Date(n.created_at).toLocaleString(),
+      event_title: n.event_metadata?.event_title || '',
+      event_time: n.event_metadata?.start_time
+        ? formatEventTime(n.event_metadata.start_time, n.event_metadata.end_time)
+        : '',
+      event_location: n.event_metadata?.location || '',
+      event_type: n.event_metadata?.type || '',
+      event_description: (n.event_metadata?.description || '').replace(/"/g, '""'),
     }))
 
-    const header = 'Participant,Company,Title,Group,Note,Submitted At'
+    const header = 'Participant,Company,Title,Group,Note,Submitted At,Event Title,Event Time,Event Location,Event Type,Event Description'
     const csv = [
       header,
       ...rows.map(r =>
-        `"${r.participant}","${r.company}","${r.title}","${r.group}","${r.note}","${r.submitted_at}"`
+        `"${r.participant}","${r.company}","${r.title}","${r.group}","${r.note}","${r.submitted_at}","${r.event_title}","${r.event_time}","${r.event_location}","${r.event_type}","${r.event_description}"`
       ),
     ].join('\n')
 
@@ -123,20 +164,20 @@ export default function NotesFeedPage() {
             disabled={filteredNotes.length === 0}
             className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-slate-300 text-sm font-medium rounded-lg transition-colors"
           >
-            ↓ DownloadVisible Notes
+            Download Visible Notes
           </button>
           <button
             onClick={() => exportCSV(notes, 'notes-all')}
             disabled={notes.length === 0}
             className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-slate-300 text-sm font-medium rounded-lg transition-colors"
           >
-            ↓ Download All Notes
+            Download All Notes
           </button>
           <button
             onClick={fetchNotes}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors"
           >
-            ↻ Refresh
+            Refresh
           </button>
         </div>
 
@@ -178,7 +219,7 @@ export default function NotesFeedPage() {
               onClick={() => { setFilterGroup(''); setFilterParticipant('') }}
               className="px-4 py-2.5 text-slate-400 hover:text-white text-sm transition-colors"
             >
-              ✕ Clear filters
+              Clear filters
             </button>
           )}
         </div>
@@ -199,6 +240,8 @@ export default function NotesFeedPage() {
           <div className="space-y-4">
             {filteredNotes.map(note => {
               const groupName = groups.find(g => g.id === note.participant.group_id)?.name
+              const hasEventMeta = note.event_metadata && note.event_metadata.event_title
+              const isExpanded = expandedMetadata.has(note.id)
               return (
                 <div key={note.id} className="bg-slate-900 border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-colors">
                   <div className="flex items-center gap-3 mb-4">
@@ -229,7 +272,7 @@ export default function NotesFeedPage() {
                         className="text-slate-600 hover:text-red-400 text-xs transition-colors disabled:opacity-50"
                         title="Hide note"
                       >
-                        {deletingId === note.id ? '...' : '✕'}
+                        {deletingId === note.id ? '...' : 'Hide'}
                       </button>
                     </div>
                   </div>
@@ -238,6 +281,53 @@ export default function NotesFeedPage() {
                       {note.content}
                     </p>
                   </div>
+
+                  {/* Event metadata block */}
+                  {hasEventMeta && (
+                    <div className="mt-3">
+                      <button
+                        onClick={() => toggleMetadata(note.id)}
+                        className="flex items-center gap-1.5 text-slate-500 hover:text-slate-300 text-xs transition-colors"
+                      >
+                        <CalendarDays className="w-3.5 h-3.5" />
+                        <span>Linked event: {note.event_metadata!.event_title}</span>
+                        {isExpanded ? (
+                          <ChevronUp className="w-3 h-3" />
+                        ) : (
+                          <ChevronDown className="w-3 h-3" />
+                        )}
+                      </button>
+                      {isExpanded && (
+                        <div className="mt-2 bg-slate-800/30 border border-slate-700/50 rounded-lg p-3 space-y-1.5 text-xs">
+                          <p className="text-slate-300 flex items-center gap-1.5">
+                            <CalendarDays className="w-3 h-3 text-slate-500" />
+                            {note.event_metadata!.event_title}
+                          </p>
+                          {(note.event_metadata!.start_time || note.event_metadata!.end_time) && (
+                            <p className="text-slate-400 flex items-center gap-1.5">
+                              <Clock className="w-3 h-3 text-slate-500" />
+                              {formatEventTime(note.event_metadata!.start_time, note.event_metadata!.end_time)}
+                            </p>
+                          )}
+                          {note.event_metadata!.location && (
+                            <p className="text-slate-400 flex items-center gap-1.5">
+                              <MapPin className="w-3 h-3 text-slate-500" />
+                              {note.event_metadata!.location}
+                            </p>
+                          )}
+                          {note.event_metadata!.type && (
+                            <p className="text-slate-400 flex items-center gap-1.5">
+                              <Tag className="w-3 h-3 text-slate-500" />
+                              {note.event_metadata!.type === 'mandatory' ? 'Mandatory' : 'Optional'}
+                            </p>
+                          )}
+                          {note.event_metadata!.description && (
+                            <p className="text-slate-500 mt-1">{note.event_metadata!.description}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}

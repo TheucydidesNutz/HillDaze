@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Wifi, WifiOff, Check, Clock } from 'lucide-react'
+import { Wifi, WifiOff, Check, Clock, MapPin, X } from 'lucide-react'
 
 interface Note {
   id: string
@@ -10,8 +10,20 @@ interface Note {
   status: 'synced' | 'pending'
 }
 
+interface EventContext {
+  id: string
+  title: string
+  start_time: string
+  end_time: string
+  location: string | null
+  type: string
+  description: string | null
+}
+
 interface Props {
   token: string
+  eventContext?: EventContext | null
+  onNoteSubmitted?: () => void
 }
 
 const STORAGE_KEY = (token: string) => `covaled_notes_${token}`
@@ -31,7 +43,7 @@ function saveLocalNotes(token: string, notes: Note[]) {
   } catch {}
 }
 
-export default function JournalSection({ token }: Props) {
+export default function JournalSection({ token, eventContext, onNoteSubmitted }: Props) {
   const [notes, setNotes] = useState<Note[]>([])
   const [content, setContent] = useState('')
   const [saving, setSaving] = useState(false)
@@ -120,10 +132,28 @@ export default function JournalSection({ token }: Props) {
     if (!content.trim()) return
     setSaving(true)
 
+    // Build the final content — prepend event title if context is set
+    const finalContent = eventContext
+      ? `Note about ${eventContext.title}: ${content.trim()}`
+      : content.trim()
+
+    // Build event_metadata if context is set
+    const eventMetadata = eventContext
+      ? {
+          event_id: eventContext.id,
+          event_title: eventContext.title,
+          start_time: eventContext.start_time,
+          end_time: eventContext.end_time,
+          location: eventContext.location || '',
+          type: eventContext.type,
+          description: eventContext.description || '',
+        }
+      : undefined
+
     const tempId = `pending_${Date.now()}_${Math.random().toString(36).slice(2)}`
     const pendingNote: Note = {
       id: tempId,
-      content: content.trim(),
+      content: finalContent,
       created_at: new Date().toISOString(),
       status: 'pending',
     }
@@ -137,13 +167,20 @@ export default function JournalSection({ token }: Props) {
     setContent('')
     setSaving(false)
 
+    // Clear event context after submission
+    onNoteSubmitted?.()
+
     // Attempt server sync
     if (navigator.onLine) {
       try {
         const res = await fetch('/api/attendee/notes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, content: pendingNote.content }),
+          body: JSON.stringify({
+            token,
+            content: finalContent,
+            ...(eventMetadata ? { event_metadata: eventMetadata } : {}),
+          }),
         })
         if (res.ok) {
           const saved = await res.json()
@@ -186,12 +223,32 @@ export default function JournalSection({ token }: Props) {
         )}
       </div>
 
+      {/* Event context label */}
+      {eventContext && (
+        <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-2">
+          <MapPin className="w-4 h-4 text-blue-400 flex-shrink-0" />
+          <span className="text-blue-300 text-sm font-medium flex-1">
+            Note about: {eventContext.title}
+          </span>
+          <button
+            onClick={() => onNoteSubmitted?.()}
+            className="text-slate-400 hover:text-white flex-shrink-0"
+            title="Clear event context"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Input */}
       <div>
         <textarea
           value={content}
           onChange={e => setContent(e.target.value)}
-          placeholder="Write your thoughts, notes, or reflections here..."
+          placeholder={eventContext
+            ? `Write your note about ${eventContext.title}...`
+            : 'Write your thoughts, notes, or reflections here...'
+          }
           rows={4}
           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
         />

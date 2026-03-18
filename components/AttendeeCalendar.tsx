@@ -6,14 +6,25 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import listPlugin from '@fullcalendar/list'
 import { Event } from '@/lib/types'
 import { useState } from 'react'
-import { Clock, MapPin, X } from 'lucide-react'
+import { Clock, MapPin, X, NotebookPen } from 'lucide-react'
+
+interface EventContext {
+  id: string
+  title: string
+  start_time: string
+  end_time: string
+  location: string | null
+  type: string
+  description: string | null
+}
 
 interface Props {
   events: Event[]
   timezone?: string
+  onNoteAboutEvent?: (eventContext: EventContext) => void
 }
 
-export default function AttendeeCalendar({ events, timezone }: Props) {
+export default function AttendeeCalendar({ events, timezone, onNoteAboutEvent }: Props) {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
 
   const ONE_HOUR_AGO = new Date(Date.now() - 60 * 60 * 1000)
@@ -36,6 +47,21 @@ export default function AttendeeCalendar({ events, timezone }: Props) {
     if (event) setSelectedEvent(event)
   }
 
+  function handleNoteAboutEvent() {
+    if (!selectedEvent || !onNoteAboutEvent) return
+    const context: EventContext = {
+      id: selectedEvent.id,
+      title: selectedEvent.title,
+      start_time: selectedEvent.start_time,
+      end_time: selectedEvent.end_time,
+      location: selectedEvent.location || null,
+      type: selectedEvent.type || 'optional',
+      description: selectedEvent.description || null,
+    }
+    setSelectedEvent(null)
+    onNoteAboutEvent(context)
+  }
+
   function formatTime(utcStr: string, opts: Intl.DateTimeFormatOptions) {
     return new Date(utcStr).toLocaleString('en-US', {
       ...opts,
@@ -47,7 +73,7 @@ export default function AttendeeCalendar({ events, timezone }: Props) {
     <>
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
-        initialView="dayGridWeek"
+        initialView="dayGridDay"
         headerToolbar={{
           left: 'prev,next today',
           center: 'title',
@@ -55,7 +81,7 @@ export default function AttendeeCalendar({ events, timezone }: Props) {
         }}
         events={calendarEvents}
         eventClick={handleEventClick}
-        height={200}
+        height={events.length === 0 ? 300 : 'auto'}
         eventDisplay="block"
         timeZone={timezone || 'local'}
       />
@@ -93,6 +119,17 @@ export default function AttendeeCalendar({ events, timezone }: Props) {
             )}
             {selectedEvent.description && (
               <p className="text-slate-400 text-sm mt-3">{selectedEvent.description}</p>
+            )}
+
+            {/* Make a note about this event */}
+            {onNoteAboutEvent && (
+              <button
+                onClick={handleNoteAboutEvent}
+                className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 hover:text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <NotebookPen className="w-4 h-4" />
+                Make a note about this event
+              </button>
             )}
           </div>
         </div>

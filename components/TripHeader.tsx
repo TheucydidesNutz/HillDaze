@@ -15,9 +15,9 @@ export default function TripHeader({ trip, pageTitle, pageSubtitle }: TripHeader
 
   function formatDateRange() {
     if (!trip.start_date) return null
-    const start = new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const start = new Date(trip.start_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     if (!trip.end_date) return start
-    const end = new Date(trip.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    const end = new Date(trip.end_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     return `${start} – ${end}`
   }
 

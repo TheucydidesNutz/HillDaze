@@ -54,6 +54,16 @@ interface PageData {
   trip: Trip | null
 }
 
+interface EventContext {
+  id: string
+  title: string
+  start_time: string
+  end_time: string
+  location: string | null
+  type: string
+  description: string | null
+}
+
 export default function AttendeePage({ params }: { params: Promise<{ token: string }> }) {
   const [token, setToken] = useState<string>('')
   const [data, setData] = useState<PageData | null>(null)
@@ -66,7 +76,19 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
-  const [useEventTimezone, setUseEventTimezone] = useState(false)
+  const [useEventTimezone, setUseEventTimezone] = useState(true)
+
+  // Change 1: Event-linked notes state
+  const [eventContext, setEventContext] = useState<EventContext | null>(null)
+  const journalRef = useRef<HTMLDivElement>(null)
+
+  // Change 2: Trip photo album state
+  const [uploadingAlbumPhoto, setUploadingAlbumPhoto] = useState(false)
+  const [albumPhotoSuccess, setAlbumPhotoSuccess] = useState(false)
+  const albumPhotoInputRef = useRef<HTMLInputElement>(null)
+
+  // Change 3: Calendar download state
+  const [downloadingCalendar, setDownloadingCalendar] = useState(false)
 
   // Fact sheet — opens in new browser tab
   const [loadingFactSheet, setLoadingFactSheet] = useState(false)
@@ -136,8 +158,6 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     }
   }
 
-  // Opens fact sheet PDF in a new browser tab
-  // Opens tab synchronously to avoid mobile popup blockers
   async function handleFactSheetOpen() {
     if (!data?.factSheet) return
     const newTab = window.open('about:blank', '_blank')
@@ -148,8 +168,6 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     if (newTab) newTab.location.href = url
   }
 
-  // Opens document PDFs in a new browser tab
-  // Opens tab synchronously to avoid mobile popup blockers
   async function handleDocOpen(doc: Document) {
     const newTab = window.open('about:blank', '_blank')
     const res = await fetch(`/api/admin/upload/pdf/signed-url?path=${encodeURIComponent(doc.file_url)}`)
@@ -157,7 +175,6 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     if (newTab) newTab.location.href = url
   }
 
-  // Map still opens in overlay modal
   async function handleMapOpen() {
     if (!map) return
     const res = await fetch(`/api/admin/upload/pdf/signed-url?path=${encodeURIComponent(map.file_url)}`)
@@ -189,11 +206,71 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     }
   }
 
+  // Change 1: Handle event note link from calendar popup
+  function handleNoteAboutEvent(ctx: EventContext) {
+    setEventContext(ctx)
+    // Smooth scroll to journal section
+    setTimeout(() => {
+      journalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+  }
+
+  // Change 2: Handle trip album photo upload
+  async function handleAlbumPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !token) return
+    setUploadingAlbumPhoto(true)
+    setAlbumPhotoSuccess(false)
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('token', token)
+    try {
+      const res = await fetch('/api/attendee/upload-photo-album', { method: 'POST', body: formData })
+      if (res.ok) {
+        setAlbumPhotoSuccess(true)
+        setTimeout(() => setAlbumPhotoSuccess(false), 4000)
+      } else {
+        const result = await res.json()
+        alert(result.error || 'Photo upload failed')
+      }
+    } catch {
+      alert('Photo upload failed. Please try again.')
+    }
+    setUploadingAlbumPhoto(false)
+    // Reset file input so the same file can be re-selected
+    if (albumPhotoInputRef.current) albumPhotoInputRef.current.value = ''
+  }
+
+  // Change 3: Handle ICS calendar download
+  async function handleCalendarDownload() {
+    if (!token) return
+    setDownloadingCalendar(true)
+    try {
+      const res = await fetch(`/api/attendee/calendar?token=${token}`)
+      if (!res.ok) throw new Error('Download failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      // Extract filename from Content-Disposition header, or use default
+      const disposition = res.headers.get('Content-Disposition')
+      const match = disposition?.match(/filename="?([^"]+)"?/)
+      a.download = match ? match[1] : 'schedule.ics'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Failed to download calendar. Please try again.')
+    }
+    setDownloadingCalendar(false)
+  }
+
   function formatDateRange(trip: Trip) {
     if (!trip.start_date) return null
-    const start = new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const start = new Date(trip.start_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     if (!trip.end_date) return start
-    const end = new Date(trip.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    const end = new Date(trip.end_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     return `${start} – ${end}`
   }
 
@@ -248,7 +325,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             <div className="flex-1">
               <p className="text-white text-sm font-medium">Add to Home Screen</p>
               <p className="text-slate-400 text-xs mt-0.5">
-                Tap <span className="text-blue-400">Share ↑</span> then{' '}
+                Tap <span className="text-blue-400">Share</span> then{' '}
                 <span className="text-blue-400">Add to Home Screen</span> to install {tripTitle}
               </p>
             </div>
@@ -520,11 +597,27 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               <span className="text-slate-400 flex items-center gap-1"><Zap className="w-3 h-3 text-amber-400" /> Recently updated</span>
             </span>
           </div>
-          <AttendeeCalendar events={events} timezone={activeTimezone} />
+          <AttendeeCalendar
+            events={events}
+            timezone={activeTimezone}
+            onNoteAboutEvent={handleNoteAboutEvent}
+          />
           {tripTimezone && (
             <p className="text-slate-600 text-xs mt-2 text-right">
               {useEventTimezone ? tripTimezone : browserTimezone}
             </p>
+          )}
+
+          {/* Change 3: Download calendar button */}
+          {events.length > 0 && (
+            <button
+              onClick={handleCalendarDownload}
+              disabled={downloadingCalendar}
+              className="mt-4 flex items-center gap-2 text-slate-400 hover:text-white text-sm transition-colors disabled:opacity-50"
+            >
+              <CalendarDays className="w-4 h-4" />
+              {downloadingCalendar ? 'Downloading...' : 'Add to Calendar (Google, Apple, Outlook)'}
+            </button>
           )}
         </div>
 
@@ -564,12 +657,61 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         )}
 
         {/* Journal */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div ref={journalRef} className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
             <NotebookPen className="w-4 h-4 text-yellow-400" />
             Notes & Journal
           </h2>
-          <JournalSection token={token} />
+          <JournalSection
+            token={token}
+            eventContext={eventContext}
+            onNoteSubmitted={() => setEventContext(null)}
+          />
+        </div>
+
+        {/* Change 2: Trip Photos */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+          <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+            <Camera className="w-4 h-4 text-pink-400" />
+            Trip Photos
+          </h2>
+          <div className="space-y-3">
+            <button
+              onClick={() => albumPhotoInputRef.current?.click()}
+              disabled={uploadingAlbumPhoto}
+              className="flex items-center gap-3 w-full p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-xl text-left transition-colors disabled:opacity-50"
+            >
+              <div className="w-10 h-10 rounded-lg bg-pink-500/10 flex items-center justify-center flex-shrink-0">
+                {uploadingAlbumPhoto ? (
+                  <Camera className="w-5 h-5 text-pink-400 animate-pulse" />
+                ) : albumPhotoSuccess ? (
+                  <Camera className="w-5 h-5 text-green-400" />
+                ) : (
+                  <Camera className="w-5 h-5 text-pink-400" />
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="text-white text-sm font-medium">
+                  {uploadingAlbumPhoto
+                    ? 'Uploading...'
+                    : albumPhotoSuccess
+                      ? 'Photo uploaded to trip album'
+                      : 'Add a photo to the trip album'
+                  }
+                </p>
+                {!uploadingAlbumPhoto && !albumPhotoSuccess && (
+                  <p className="text-slate-500 text-xs mt-0.5">Photos are shared with your group organizer</p>
+                )}
+              </div>
+            </button>
+            <input
+              ref={albumPhotoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleAlbumPhotoUpload}
+              className="hidden"
+            />
+          </div>
         </div>
 
         {showInstallBanner && !isInstalled && <div className="h-20" />}

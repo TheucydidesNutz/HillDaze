@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
-  const { token, content } = await request.json()
+  const body = await request.json()
+  const { token, content } = body
 
   if (!token || !content) {
     return NextResponse.json({ error: 'Token and content required' }, { status: 400 })
@@ -19,12 +20,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
   }
 
+  // Explicitly pick event_metadata if provided (never spread raw body)
+  const eventMetadata = body.event_metadata
+    ? {
+        event_id: body.event_metadata.event_id || null,
+        event_title: body.event_metadata.event_title || null,
+        start_time: body.event_metadata.start_time || null,
+        end_time: body.event_metadata.end_time || null,
+        location: body.event_metadata.location || null,
+        type: body.event_metadata.type || null,
+        description: body.event_metadata.description || null,
+      }
+    : null
+
   const { data, error } = await supabaseAdmin
     .from('notes')
-    .insert([{ 
-      participant_id: participant.id, 
-      trip_id: participant.trip_id,  // ← add this
-      content 
+    .insert([{
+      participant_id: participant.id,
+      trip_id: participant.trip_id,
+      content,
+      event_metadata: eventMetadata,
     }])
     .select()
     .single()

@@ -57,11 +57,17 @@ export default function SettingsPage() {
   const [docGroupId, setDocGroupId] = useState('')
   const [docType, setDocType] = useState<'document' | 'map'>('document')
 
+  // Trip Photos state
+  const [photoCount, setPhotoCount] = useState<number | null>(null)
+  const [photosLoading, setPhotosLoading] = useState(true)
+  const [downloadingZip, setDownloadingZip] = useState(false)
+
   useEffect(() => {
     const tripStr = localStorage.getItem('current_trip')
     if (!tripStr) { router.push('/admin/trips'); return }
     setTrip(JSON.parse(tripStr))
     fetchAll()
+    fetchPhotoCount()
   }, [])
 
   async function fetchAll() {
@@ -77,6 +83,49 @@ export default function SettingsPage() {
     setDocuments(docsData)
     setGroups(gData)
     setLoading(false)
+  }
+
+  async function fetchPhotoCount() {
+    setPhotosLoading(true)
+    try {
+      const res = await apiFetch('/api/admin/photos')
+      if (res.ok) {
+        const data = await res.json()
+        setPhotoCount(data.count || 0)
+      } else {
+        setPhotoCount(0)
+      }
+    } catch {
+      setPhotoCount(0)
+    }
+    setPhotosLoading(false)
+  }
+
+  async function handleDownloadZip() {
+    setDownloadingZip(true)
+    try {
+      const res = await apiFetch('/api/admin/photos/zip')
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        alert(errorData.error || 'Download failed')
+        setDownloadingZip(false)
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = res.headers.get('Content-Disposition')
+      const match = disposition?.match(/filename="?([^"]+)"?/)
+      a.download = match ? match[1] : 'trip-photos.zip'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Download failed. Please try again.')
+    }
+    setDownloadingZip(false)
   }
 
   async function handleFsUpload() {
@@ -320,6 +369,60 @@ export default function SettingsPage() {
                     className="text-slate-500 hover:text-red-400 text-xs transition-colors">Delete</button>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── TRIP PHOTOS ──────────────────────────────── */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+          <h2 className="text-white font-semibold text-lg mb-1 flex items-center gap-2">
+            <Image className="w-4 h-4 text-pink-400" />
+            Trip Photos
+          </h2>
+          <p className="text-slate-400 text-sm mb-5">Photos uploaded by participants from their microsites.</p>
+
+          {photosLoading ? (
+            <div className="text-slate-500 text-sm">Loading photo count...</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-4 bg-slate-800/50 rounded-lg">
+                <div className="w-10 h-10 rounded-lg bg-pink-500/10 flex items-center justify-center flex-shrink-0">
+                  <Image className="w-5 h-5 text-pink-400" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-white text-sm font-medium">
+                    {photoCount === 0
+                      ? 'No photos uploaded yet'
+                      : `${photoCount} photo${photoCount !== 1 ? 's' : ''} uploaded`
+                    }
+                  </p>
+                  <p className="text-slate-500 text-xs">
+                    {photoCount === 0
+                      ? 'Photos will appear here when participants upload them'
+                      : 'Uploaded by participants from their microsites'
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {photoCount !== null && photoCount > 0 && (
+                <button
+                  onClick={handleDownloadZip}
+                  disabled={downloadingZip}
+                  className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-medium rounded-lg text-sm transition-colors"
+                >
+                  {downloadingZip ? (
+                    <>
+                      Preparing download...
+                    </>
+                  ) : (
+                    <>
+                      <FolderOpen className="w-4 h-4" />
+                      Download All Photos (zip)
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>

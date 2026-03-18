@@ -35,20 +35,20 @@ interface OrgUser {
 }
 
 const TIMEZONES = [
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'America/Anchorage',
-  'Pacific/Honolulu',
-  'Europe/London',
-  'Europe/Paris',
-  'Europe/Berlin',
-  'Asia/Tokyo',
-  'Asia/Shanghai',
-  'Asia/Dubai',
-  'Australia/Sydney',
-  'Pacific/Auckland',
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
+  { value: 'Europe/London', label: 'London (GMT/BST)' },
+  { value: 'Europe/Paris', label: 'Central European (CET)' },
+  { value: 'Europe/Berlin', label: 'Berlin (CET)' },
+  { value: 'Asia/Tokyo', label: 'Japan (JST)' },
+  { value: 'Asia/Shanghai', label: 'China (CST)' },
+  { value: 'Asia/Dubai', label: 'Gulf (GST)' },
+  { value: 'Australia/Sydney', label: 'Sydney (AEDT)' },
+  { value: 'Pacific/Auckland', label: 'New Zealand (NZST)' },
 ]
 
 export default function TripsPage() {
@@ -486,9 +486,9 @@ export default function TripsPage() {
 
   function formatDateRange(trip: Trip) {
     if (!trip.start_date) return null
-    const start = new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const start = new Date(trip.start_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     if (!trip.end_date) return start
-    const end = new Date(trip.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    const end = new Date(trip.end_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     return `${start} – ${end}`
   }
 
@@ -671,7 +671,7 @@ export default function TripsPage() {
                       <select value={newTimezone} onChange={e => setNewTimezone(e.target.value)}
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
                         {TIMEZONES.map(tz => (
-                          <option key={tz} value={tz}>{tz}</option>
+                          <option key={tz.value} value={tz.value}>{tz.label}</option>
                         ))}
                       </select>
                     </div>
@@ -790,7 +790,7 @@ export default function TripsPage() {
                   <select value={editTimezone} onChange={e => setEditTimezone(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
                     {TIMEZONES.map(tz => (
-                      <option key={tz} value={tz}>{tz}</option>
+                      <option key={tz.value} value={tz.value}>{tz.label}</option>
                     ))}
                   </select>
                 </div>
@@ -931,7 +931,7 @@ export default function TripsPage() {
                       <select value={settingsTimezone} onChange={e => setSettingsTimezone(e.target.value)}
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
                         {TIMEZONES.map(tz => (
-                          <option key={tz} value={tz}>{tz}</option>
+                          <option key={tz.value} value={tz.value}>{tz.label}</option>
                         ))}
                       </select>
                       <p className="text-slate-500 text-xs mt-1.5">Applied as default when creating new trips.</p>

@@ -37,10 +37,10 @@ async function getParticipantData(participantId: string) {
     .eq('trip_id', participant.trip_id)
     .maybeSingle()
 
-  // Get trip branding
+  // Get trip branding + timezone
   const { data: trip } = await supabaseAdmin
     .from('trips')
-    .select('id, title, start_date, end_date, logo_url')
+    .select('id, title, start_date, end_date, logo_url, timezone')
     .eq('id', participant.trip_id)
     .single()
 
@@ -86,10 +86,10 @@ export async function GET(
     .eq('trip_id', participant.trip_id)
     .maybeSingle()
 
-  // Get trip branding
+  // Get trip branding + timezone
   const { data: trip } = await supabaseAdmin
     .from('trips')
-    .select('id, title, start_date, end_date, logo_url')
+    .select('id, title, start_date, end_date, logo_url, timezone')
     .eq('id', participant.trip_id)
     .single()
 

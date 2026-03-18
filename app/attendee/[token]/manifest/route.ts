@@ -15,18 +15,16 @@ export async function GET(
     .single()
 
   let tripTitle = 'HillDayTracker'
-  let tripLogo = null
 
   if (participant?.trip_id) {
     const { data: trip } = await supabaseAdmin
       .from('trips')
-      .select('title, logo_url')
+      .select('title')
       .eq('id', participant.trip_id)
       .single()
 
     if (trip) {
       tripTitle = trip.title
-      tripLogo = trip.logo_url
     }
   }
 
@@ -39,35 +37,23 @@ export async function GET(
     background_color: '#020617',
     theme_color: '#020617',
     orientation: 'portrait',
-    icons: tripLogo
-      ? [
-          {
-            src: tripLogo,
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any maskable',
-          },
-          {
-            src: tripLogo,
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable',
-          },
-        ]
-      : [
-          {
-            src: '/icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any maskable',
-          },
-          {
-            src: '/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable',
-          },
-        ],
+    // Always use static same-origin icons for PWA install compatibility
+    // (cross-origin Supabase URLs cause Android Chrome to silently reject the install prompt)
+    // Trip logos and profile photos are displayed in <img> tags and work fine from Supabase URLs
+    icons: [
+      {
+        src: '/icon-192.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any maskable',
+      },
+      {
+        src: '/icon-512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any maskable',
+      },
+    ],
   }
 
   return new NextResponse(JSON.stringify(manifest), {

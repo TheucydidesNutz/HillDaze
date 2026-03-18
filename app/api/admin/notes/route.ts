@@ -11,7 +11,6 @@ export async function GET(request: NextRequest) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // FIX: Require and verify trip access
   const access = await requireTripAccess(request, user.id)
   if (!access) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -22,7 +21,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabaseAdmin
     .from('notes')
-    .select('*, participant:participants(id, name, photo_url, company, title, trip_id, group_id)')
+    .select('*, event_metadata, participant:participants(id, name, photo_url, company, title, trip_id, group_id)')
     .is('deleted_at', null)
     .eq('trip_id', access.tripId)
     .order('created_at', { ascending: false })
@@ -39,7 +38,6 @@ export async function DELETE(request: NextRequest) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // FIX: Require and verify trip access
   const access = await requireTripAccess(request, user.id)
   if (!access) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -47,7 +45,6 @@ export async function DELETE(request: NextRequest) {
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
-  // FIX: Only delete notes that belong to this trip
   const { error } = await supabaseAdmin
     .from('notes')
     .update({ deleted_at: new Date().toISOString() })
