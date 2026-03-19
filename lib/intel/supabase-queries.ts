@@ -243,6 +243,7 @@ export async function createDocument(input: {
   uploaded_by: string;
   summary_metadata?: DocumentSummaryMetadata;
   folder_id?: string;
+  file_hash?: string;
 }): Promise<IntelDocument | null> {
   const row: Record<string, unknown> = {
     org_id: input.org_id,
@@ -255,6 +256,9 @@ export async function createDocument(input: {
   };
   if (input.folder_id) {
     row.folder_id = input.folder_id;
+  }
+  if (input.file_hash) {
+    row.file_hash = input.file_hash;
   }
   const { data, error } = await supabaseAdmin
     .from('intel_documents')
@@ -327,6 +331,52 @@ export async function deleteDocument(docId: string): Promise<boolean> {
     .delete()
     .eq('id', docId);
   return !error;
+}
+
+// ── Duplicate Detection Queries ──────────────────────────────────────
+
+export async function checkExactDuplicate(
+  orgId: string,
+  fileHash: string
+): Promise<{ id: string; filename: string; folder_id: string | null; uploaded_at: string } | null> {
+  const { data } = await supabaseAdmin
+    .from('intel_documents')
+    .select('id, filename, folder_id, uploaded_at')
+    .eq('org_id', orgId)
+    .eq('file_hash', fileHash)
+    .limit(1)
+    .single();
+  return data as { id: string; filename: string; folder_id: string | null; uploaded_at: string } | null;
+}
+
+export async function checkNearDuplicates(
+  orgId: string,
+  textPrefix: string
+): Promise<{ id: string; filename: string; folder_id: string | null; similarity: number }[]> {
+  // Uses pg_trgm similarity on first 500 chars of full_text
+  const { data, error } = await supabaseAdmin.rpc('check_document_similarity', {
+    p_org_id: orgId,
+    p_text_prefix: textPrefix.substring(0, 500),
+    p_threshold: 0.7,
+  });
+  if (error) {
+    console.error('[checkNearDuplicates] rpc error:', error.message);
+    return [];
+  }
+  return (data || []) as { id: string; filename: string; folder_id: string | null; similarity: number }[];
+}
+
+// TODO: Layer 3 — Embedding similarity (activates when Ollama is running)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function checkEmbeddingSimilarity(
+  _orgId: string,
+  _embedding: number[]
+): Promise<{ id: string; filename: string; similarity: number }[]> {
+  // TODO: Once embeddings are being generated via the Mac Mini + Ollama pipeline,
+  // query intel_documents for cosine similarity > 0.95 on the embedding column.
+  // This runs asynchronously after the embedding is generated, not at upload time.
+  // If near-duplicates are found, update summary_metadata.possible_duplicates.
+  return [];
 }
 
 // ── Conversation Queries ────────────────────────────────────────────

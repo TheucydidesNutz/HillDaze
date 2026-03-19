@@ -64,6 +64,14 @@ export default function DocumentSummaryCard({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {meta?.possible_duplicates && meta.possible_duplicates.length > 0 && (
+            <span className="text-[10px] text-yellow-400 flex items-center gap-1" title={`Similar to: ${meta.possible_duplicates.map(d => d.filename).join(', ')}`}>
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Possible duplicate
+            </span>
+          )}
           {hasSummary ? (
             <span className="text-[10px] text-green-400 flex items-center gap-1">
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -159,6 +167,25 @@ export default function DocumentSummaryCard({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Possible duplicates */}
+          {meta?.possible_duplicates && meta.possible_duplicates.length > 0 && (
+            <div className="p-3 rounded-lg bg-yellow-500/[0.06] border border-yellow-500/20">
+              <h4 className="text-xs font-semibold uppercase tracking-wider mb-1.5 text-yellow-400/80">
+                Possible Duplicates
+              </h4>
+              <div className="space-y-1">
+                {meta.possible_duplicates.map((dup) => (
+                  <p key={dup.id} className="text-xs" style={{ color: 'var(--intel-text)' }}>
+                    <span className="opacity-70">{dup.filename}</span>
+                    <span className="ml-2 text-yellow-400/60">
+                      {Math.round(dup.similarity * 100)}% match
+                    </span>
+                  </p>
+                ))}
+              </div>
             </div>
           )}
 

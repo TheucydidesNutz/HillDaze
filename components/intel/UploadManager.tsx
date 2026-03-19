@@ -5,7 +5,20 @@ import { Check, X, Clock, Loader2, ChevronDown, ChevronUp, RotateCcw, Upload } f
 
 // ── Types ──────────────────────────────────────────────────────
 
-export type UploadItemStatus = 'pending' | 'uploading' | 'complete' | 'failed';
+export type UploadItemStatus = 'pending' | 'uploading' | 'complete' | 'failed' | 'duplicate_blocked';
+
+export interface DuplicateInfo {
+  id: string;
+  filename: string;
+  folder_name?: string;
+  uploaded_at?: string;
+}
+
+export interface NearDuplicateInfo {
+  id: string;
+  filename: string;
+  similarity: number; // percentage, e.g. 93
+}
 
 export interface UploadItem {
   id: string;
@@ -17,6 +30,10 @@ export interface UploadItem {
   researchTargetId?: string;
   status: UploadItemStatus;
   error?: string;
+  // Duplicate detection
+  duplicate?: DuplicateInfo;
+  nearDuplicates?: NearDuplicateInfo[];
+  force?: boolean;
 }
 
 interface UploadContextValue {
@@ -24,6 +41,7 @@ interface UploadContextValue {
   isProcessing: boolean;
   enqueue: (items: Omit<UploadItem, 'id' | 'status'>[]) => void;
   retry: (id: string) => void;
+  forceUpload: (id: string) => void;
   dismiss: () => void;
   /** Listeners that fire when any upload completes (for auto-refresh) */
   onUploadComplete: (callback: () => void) => () => void;
@@ -88,6 +106,7 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
         formData.append('folder', next.folder);
         formData.append('org_id', next.orgId);
         if (next.folderId) formData.append('folder_id', next.folderId);
+        if (next.force) formData.append('force', 'true');
 
         const res = await fetch('/api/intel/documents/upload', { method: 'POST', body: formData });
 
@@ -103,8 +122,23 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
             });
           }
 
-          setQueue(prev => prev.map(i => i.id === next.id ? { ...i, status: 'complete' as const } : i));
+          // Check for near-duplicates in the response
+          const nearDups = doc.near_duplicates as NearDuplicateInfo[] | undefined;
+          setQueue(prev => prev.map(i => i.id === next.id ? {
+            ...i,
+            status: 'complete' as const,
+            nearDuplicates: nearDups && nearDups.length > 0 ? nearDups : undefined,
+          } : i));
           notifyListeners();
+        } else if (res.status === 409) {
+          // Exact duplicate detected
+          const data = await res.json().catch(() => ({ error: 'Duplicate detected' }));
+          setQueue(prev => prev.map(i => i.id === next.id ? {
+            ...i,
+            status: 'duplicate_blocked' as const,
+            error: data.message,
+            duplicate: data.duplicate,
+          } : i));
         } else {
           const data = await res.json().catch(() => ({ error: 'Upload failed' }));
           setQueue(prev => prev.map(i => i.id === next.id ? { ...i, status: 'failed' as const, error: data.error } : i));
@@ -134,12 +168,17 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
     setTimeout(() => processQueue(), 0);
   }, [processQueue]);
 
+  const forceUpload = useCallback((id: string) => {
+    setQueue(prev => prev.map(i => i.id === id ? { ...i, status: 'pending' as const, error: undefined, duplicate: undefined, force: true } : i));
+    setTimeout(() => processQueue(), 0);
+  }, [processQueue]);
+
   const dismiss = useCallback(() => {
-    setQueue(prev => prev.filter(i => i.status === 'pending' || i.status === 'uploading'));
+    setQueue(prev => prev.filter(i => i.status === 'pending' || i.status === 'uploading' || i.status === 'duplicate_blocked'));
   }, []);
 
   return (
-    <UploadContext.Provider value={{ queue, isProcessing, enqueue, retry, dismiss, onUploadComplete }}>
+    <UploadContext.Provider value={{ queue, isProcessing, enqueue, retry, forceUpload, dismiss, onUploadComplete }}>
       {children}
       {queue.length > 0 && <UploadIndicator />}
     </UploadContext.Provider>
@@ -149,28 +188,30 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
 // ── Floating indicator ─────────────────────────────────────────
 
 function UploadIndicator() {
-  const { queue, isProcessing, retry, dismiss } = useUploadManager();
+  const { queue, isProcessing, retry, forceUpload, dismiss } = useUploadManager();
   const [expanded, setExpanded] = useState(false);
   const [visible, setVisible] = useState(true);
 
   const completed = queue.filter(i => i.status === 'complete').length;
   const failed = queue.filter(i => i.status === 'failed').length;
+  const duplicateBlocked = queue.filter(i => i.status === 'duplicate_blocked').length;
   const pending = queue.filter(i => i.status === 'pending').length;
   const uploading = queue.find(i => i.status === 'uploading');
   const total = queue.length;
-  const doneCount = completed + failed;
+  const doneCount = completed + failed + duplicateBlocked;
   const allDone = !isProcessing && pending === 0 && !uploading;
 
-  // Auto-dismiss after 10 seconds when all done with no failures
+  // Auto-dismiss after 10 seconds when all done with no failures/duplicates
   useEffect(() => {
-    if (allDone && failed === 0) {
+    if (allDone && failed === 0 && duplicateBlocked === 0) {
+      const hasNearDuplicates = queue.some(i => i.nearDuplicates && i.nearDuplicates.length > 0);
       const timer = setTimeout(() => {
         setVisible(false);
         setTimeout(() => dismiss(), 300);
-      }, 10000);
+      }, hasNearDuplicates ? 15000 : 10000);
       return () => clearTimeout(timer);
     }
-  }, [allDone, failed, dismiss]);
+  }, [allDone, failed, duplicateBlocked, queue, dismiss]);
 
   if (!visible && allDone) return null;
 
@@ -188,6 +229,10 @@ function UploadIndicator() {
           {allDone ? (
             failed > 0 ? (
               <X size={16} className="text-red-400" />
+            ) : duplicateBlocked > 0 ? (
+              <svg className="w-4 h-4 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.13 0 1.85-1.22 1.29-2.19L13.29 4.62a1.5 1.5 0 00-2.58 0L3.78 16.81c-.56.97.16 2.19 1.29 2.19z" />
+              </svg>
             ) : (
               <Check size={16} className="text-green-400" />
             )
@@ -196,7 +241,7 @@ function UploadIndicator() {
           )}
           <span className="text-sm" style={{ color: 'var(--intel-text, #e0e0e0)' }}>
             {allDone
-              ? `${completed} file${completed !== 1 ? 's' : ''} processed${failed > 0 ? `, ${failed} failed` : ''}`
+              ? `${completed} file${completed !== 1 ? 's' : ''} processed${failed > 0 ? `, ${failed} failed` : ''}${duplicateBlocked > 0 ? `, ${duplicateBlocked} duplicate${duplicateBlocked !== 1 ? 's' : ''}` : ''}`
               : `Processing ${doneCount + 1} of ${total} files...`
             }
           </span>
@@ -243,28 +288,58 @@ function UploadIndicator() {
           {queue.map(item => (
             <div
               key={item.id}
-              className="px-4 py-2 flex items-center gap-2.5 border-b border-white/5 last:border-b-0"
+              className="border-b border-white/5 last:border-b-0"
             >
-              <StatusIcon status={item.status} />
-              <span
-                className={`text-xs truncate flex-1 ${item.status === 'complete' ? 'opacity-40' : ''}`}
-                style={{ color: 'var(--intel-text, #e0e0e0)' }}
-              >
-                {item.file.name}
-              </span>
-              {item.status === 'failed' && (
-                <button
-                  onClick={() => retry(item.id)}
-                  className="shrink-0 p-1 rounded hover:bg-white/[0.06]"
-                  title="Retry"
+              <div className="px-4 py-2 flex items-center gap-2.5">
+                <StatusIcon status={item.status} />
+                <span
+                  className={`text-xs truncate flex-1 ${item.status === 'complete' && !item.nearDuplicates?.length ? 'opacity-40' : ''}`}
+                  style={{ color: 'var(--intel-text, #e0e0e0)' }}
                 >
-                  <RotateCcw size={12} className="text-red-400" />
-                </button>
-              )}
-              {item.error && (
-                <span className="text-[10px] text-red-400/70 shrink-0 max-w-[120px] truncate" title={item.error}>
-                  {item.error}
+                  {item.file.name}
                 </span>
+                {item.status === 'failed' && (
+                  <button
+                    onClick={() => retry(item.id)}
+                    className="shrink-0 p-1 rounded hover:bg-white/[0.06]"
+                    title="Retry"
+                  >
+                    <RotateCcw size={12} className="text-red-400" />
+                  </button>
+                )}
+                {item.status === 'duplicate_blocked' && (
+                  <button
+                    onClick={() => forceUpload(item.id)}
+                    className="shrink-0 px-2 py-0.5 text-[10px] font-medium rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30"
+                  >
+                    Upload Anyway
+                  </button>
+                )}
+                {item.status === 'failed' && item.error && (
+                  <span className="text-[10px] text-red-400/70 shrink-0 max-w-[120px] truncate" title={item.error}>
+                    {item.error}
+                  </span>
+                )}
+              </div>
+              {/* Exact duplicate warning */}
+              {item.status === 'duplicate_blocked' && item.duplicate && (
+                <div className="px-4 pb-2 ml-6">
+                  <p className="text-[10px] text-yellow-400/80 leading-tight">
+                    Exact duplicate of &ldquo;{item.duplicate.filename}&rdquo;
+                    {item.duplicate.folder_name ? ` in ${item.duplicate.folder_name}` : ''}
+                    {item.duplicate.uploaded_at ? ` (${new Date(item.duplicate.uploaded_at).toLocaleDateString()})` : ''}
+                  </p>
+                </div>
+              )}
+              {/* Near-duplicate info */}
+              {item.status === 'complete' && item.nearDuplicates && item.nearDuplicates.length > 0 && (
+                <div className="px-4 pb-2 ml-6">
+                  {item.nearDuplicates.map(nd => (
+                    <p key={nd.id} className="text-[10px] leading-tight" style={{ color: 'var(--intel-primary, #3b82f6)' }}>
+                      Similar to &ldquo;{nd.filename}&rdquo; ({nd.similarity}% match)
+                    </p>
+                  ))}
+                </div>
               )}
             </div>
           ))}
@@ -280,6 +355,12 @@ function StatusIcon({ status }: { status: UploadItemStatus }) {
       return <Check size={14} className="text-green-400 shrink-0" />;
     case 'failed':
       return <X size={14} className="text-red-400 shrink-0" />;
+    case 'duplicate_blocked':
+      return (
+        <svg className="w-3.5 h-3.5 text-yellow-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.13 0 1.85-1.22 1.29-2.19L13.29 4.62a1.5 1.5 0 00-2.58 0L3.78 16.81c-.56.97.16 2.19 1.29 2.19z" />
+        </svg>
+      );
     case 'uploading':
       return <Loader2 size={14} className="animate-spin shrink-0" style={{ color: 'var(--intel-primary, #3b82f6)' }} />;
     case 'pending':

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 import { createSupabaseServerClient, supabaseAdmin } from '@/lib/supabase';
 import {
   getUserOrgMembership,
@@ -7,6 +8,8 @@ import {
   createDocument,
   updateDocumentSummary,
   logActivity,
+  checkExactDuplicate,
+  checkNearDuplicates,
 } from '@/lib/intel/supabase-queries';
 import { summarizeDocument } from '@/lib/intel/agent/summarize';
 import { extractText, getDocumentProxy } from 'unpdf';
@@ -97,8 +100,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'File must be under 50MB' }, { status: 400 });
   }
 
+  // Check for force-upload flag (bypasses exact duplicate blocking)
+  const forceUpload = formData.get('force') === 'true';
+
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
+
+  // Layer 1: Generate SHA-256 hash for exact duplicate detection
+  const fileHash = createHash('sha256').update(buffer).digest('hex');
+
+  if (!forceUpload) {
+    const existingDoc = await checkExactDuplicate(orgId, fileHash);
+    if (existingDoc) {
+      // Look up folder name for the existing duplicate
+      let folderName = '';
+      if (existingDoc.folder_id) {
+        const { data: folder } = await supabaseAdmin
+          .from('intel_document_folders')
+          .select('name')
+          .eq('id', existingDoc.folder_id)
+          .single();
+        folderName = folder?.name || '';
+      }
+
+      return NextResponse.json({
+        error: 'exact_duplicate',
+        message: `This exact file has already been uploaded as "${existingDoc.filename}"${folderName ? ` in the ${folderName} folder` : ''} on ${new Date(existingDoc.uploaded_at).toLocaleDateString()}.`,
+        duplicate: {
+          id: existingDoc.id,
+          filename: existingDoc.filename,
+          folder_name: folderName,
+          uploaded_at: existingDoc.uploaded_at,
+        },
+      }, { status: 409 });
+    }
+  }
 
   // Extract text based on file type
   let extractedText = '';
@@ -175,6 +211,7 @@ export async function POST(request: NextRequest) {
     uploaded_by: user.id,
     summary_metadata: { page_count: pageCount, file_type: fileExtension },
     folder_id: folderId || undefined,
+    file_hash: fileHash,
   });
 
   if (!doc) {
@@ -188,6 +225,17 @@ export async function POST(request: NextRequest) {
     action_type: 'document_upload',
     action_detail: { document_id: doc.id, filename: file.name, folder },
   });
+
+  // Layer 2: Near-duplicate detection using pg_trgm on extracted text
+  let nearDuplicates: { id: string; filename: string; folder_id: string | null; similarity: number }[] = [];
+  if (extractedText && extractedText.length > 50) {
+    try {
+      nearDuplicates = (await checkNearDuplicates(orgId, extractedText))
+        .filter(d => d.id !== doc.id); // exclude self
+    } catch (err) {
+      console.error('[upload] near-duplicate check failed (non-blocking):', err);
+    }
+  }
 
   // Summarize with Claude (sync — may take 10-30s)
   try {
@@ -218,9 +266,34 @@ export async function POST(request: NextRequest) {
         upsert: true,
       });
 
-    return NextResponse.json({ ...doc, summary: summaryText, summary_metadata: { ...summaryJson, page_count: pageCount, file_type: fileExtension } }, { status: 201 });
+    // If near-duplicates found, store them in summary_metadata
+    const finalMetadata = { ...summaryJson, page_count: pageCount, file_type: fileExtension,
+      ...(nearDuplicates.length > 0 ? { possible_duplicates: nearDuplicates.map(d => ({ id: d.id, filename: d.filename, similarity: Math.round(d.similarity * 100) / 100 })) } : {}),
+    };
+
+    if (nearDuplicates.length > 0) {
+      await updateDocumentSummary(doc.id, summaryText, finalMetadata);
+    }
+
+    return NextResponse.json({
+      ...doc,
+      summary: summaryText,
+      summary_metadata: finalMetadata,
+      near_duplicates: nearDuplicates.map(d => ({
+        id: d.id,
+        filename: d.filename,
+        similarity: Math.round(d.similarity * 100),
+      })),
+    }, { status: 201 });
   } catch (err) {
     // Return the doc even if summarization fails
-    return NextResponse.json(doc, { status: 201 });
+    return NextResponse.json({
+      ...doc,
+      near_duplicates: nearDuplicates.map(d => ({
+        id: d.id,
+        filename: d.filename,
+        similarity: Math.round(d.similarity * 100),
+      })),
+    }, { status: 201 });
   }
 }

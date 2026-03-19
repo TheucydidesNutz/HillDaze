@@ -65,6 +65,7 @@ export interface DocumentSummaryMetadata {
   page_count?: number;
   file_type?: string;
   parse_error?: boolean;
+  possible_duplicates?: { id: string; filename: string; similarity: number }[];
 }
 
 export interface IntelDocument {
@@ -79,6 +80,8 @@ export interface IntelDocument {
   uploaded_by: string;
   uploaded_at: string;
   uploader_name?: string;
+  file_hash?: string;
+  folder_id?: string;
 }
 
 export interface IntelConversation {
