@@ -52,11 +52,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Don't redirect Intel login — the page handles post-login routing
+  // Analysis routes — protect everything except /analysis (landing) and /analysis/login
+  if (
+    request.nextUrl.pathname.startsWith('/analysis/') &&
+    request.nextUrl.pathname !== '/analysis' &&
+    !request.nextUrl.pathname.startsWith('/analysis/login') &&
+    !user
+  ) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/analysis/login'
+    return NextResponse.redirect(url)
+  }
 
   return supabaseResponse
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/intel/:path*', '/api/intel/:path*'],
+  matcher: ['/admin/:path*', '/intel/:path*', '/api/intel/:path*', '/analysis/:path*', '/api/analysis/:path*', '/api/shared/:path*'],
 }
