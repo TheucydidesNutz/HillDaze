@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, supabaseAdmin } from '@/lib/supabase';
 import { getUserOrgMembership } from '@/lib/intel/supabase-queries';
-import { getProfile, updateProfile } from '@/lib/analysis/supabase-queries';
-import { runResearchPipeline } from '@/lib/analysis/research/pipeline';
+import { getProfile } from '@/lib/analysis/supabase-queries';
 
 export async function POST(
   request: NextRequest,
@@ -27,55 +26,47 @@ export async function POST(
     return NextResponse.json({ status: 'already_running' });
   }
 
+  // Check for an existing pending/running job
+  const { data: existingJob } = await supabaseAdmin
+    .from('analysis_jobs')
+    .select('id, status')
+    .eq('profile_id', profileId)
+    .in('job_type', ['research_quick_update', 'research_full_rerun'])
+    .in('status', ['pending', 'running'])
+    .limit(1)
+    .maybeSingle();
+
+  if (existingJob) {
+    return NextResponse.json({ status: 'already_running', job_id: existingJob.id });
+  }
+
   const body = await request.json().catch(() => ({}));
   const mode: 'quick_update' | 'full_rerun' = body.mode === 'full_rerun' ? 'full_rerun' : 'quick_update';
+  const jobType = mode === 'full_rerun' ? 'research_full_rerun' : 'research_quick_update';
 
-  // Mark as in_progress immediately
-  await updateProfile(profileId, { research_status: 'in_progress' });
+  // Mark profile as in_progress immediately
+  await supabaseAdmin
+    .from('analysis_profiles')
+    .update({ research_status: 'in_progress' })
+    .eq('id', profileId);
 
-  // Determine options based on mode
-  let since: string | null = null;
-  if (mode === 'quick_update') {
-    // Fetch last_research_at from profile (may need direct query since getProfile may not include it)
-    const { data: profileData } = await supabaseAdmin
-      .from('analysis_profiles')
-      .select('last_research_at')
-      .eq('id', profileId)
-      .single();
-    since = profileData?.last_research_at || null;
-    // If never researched, since stays null → behaves like full_rerun
-  }
-
-  // For full_rerun: check if profile name changed since last bioguide resolution
-  let clearBioguideCache = false;
-  if (mode === 'full_rerun') {
-    try {
-      const { data: profileData } = await supabaseAdmin
-        .from('analysis_profiles')
-        .select('external_ids, full_name')
-        .eq('id', profileId)
-        .single();
-      const externalIds = (profileData?.external_ids || {}) as Record<string, string>;
-      if (externalIds.bioguide_resolved_for && externalIds.bioguide_resolved_for !== profileData?.full_name) {
-        clearBioguideCache = true;
-      }
-    } catch { /* column may not exist yet */ }
-  }
-
-  // Fire the pipeline asynchronously
-  runResearchPipeline(profileId, {
-    since,
-    clearBioguideCache,
-    mode,
-  }).catch(async (err) => {
-    console.error(`[research] Pipeline error for ${profileId}:`, err);
-    await updateProfile(profileId, { research_status: 'error' });
-  });
+  // Enqueue job for the Mac Mini worker
+  const { data: job } = await supabaseAdmin
+    .from('analysis_jobs')
+    .insert({
+      profile_id: profileId,
+      org_id: profile.org_id,
+      job_type: jobType,
+      status: 'pending',
+      params: { mode },
+    })
+    .select('id')
+    .single();
 
   return NextResponse.json({
-    status: 'started',
+    status: 'queued',
+    job_id: job?.id,
     mode,
-    since,
   });
 }
 

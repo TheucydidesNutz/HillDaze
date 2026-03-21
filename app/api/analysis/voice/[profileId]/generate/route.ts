@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase';
+import { createSupabaseServerClient, supabaseAdmin } from '@/lib/supabase';
 import { getUserOrgMembership } from '@/lib/intel/supabase-queries';
 import { getProfile } from '@/lib/analysis/supabase-queries';
-import { generateSoulDocument } from '@/lib/analysis/agent/generate-soul-document';
 
 export async function POST(
   request: NextRequest,
@@ -21,10 +20,31 @@ export async function POST(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Fire and forget the generation
-  generateSoulDocument(profile, profile.org_id).catch(err => {
-    console.error('[voice/generate] error:', err);
-  });
+  // Check for existing pending/running job
+  const { data: existingJob } = await supabaseAdmin
+    .from('analysis_jobs')
+    .select('id')
+    .eq('profile_id', profileId)
+    .eq('job_type', 'generate_voice')
+    .in('status', ['pending', 'running'])
+    .limit(1)
+    .maybeSingle();
 
-  return NextResponse.json({ message: 'Soul document generation started' });
+  if (existingJob) {
+    return NextResponse.json({ status: 'already_queued', job_id: existingJob.id });
+  }
+
+  // Enqueue for Mac Mini worker
+  const { data: job } = await supabaseAdmin
+    .from('analysis_jobs')
+    .insert({
+      profile_id: profileId,
+      org_id: profile.org_id,
+      job_type: 'generate_voice',
+      status: 'pending',
+    })
+    .select('id')
+    .single();
+
+  return NextResponse.json({ status: 'queued', job_id: job?.id });
 }

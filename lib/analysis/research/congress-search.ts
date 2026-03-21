@@ -285,7 +285,8 @@ async function fetchPaginatedLegislation(
           const billType = String(bill.type || '').toLowerCase(); // e.g., "s", "hr", "sres"
           const billNumber = String(bill.number || '');
           const billCongress = String(bill.congress || '');
-          const billTitle = String(bill.title || '');
+          // Congress.gov list endpoints may use `title` or `latestTitle`
+          const billTitle = String(bill.title || bill.latestTitle || '');
 
           // Map API type codes to congress.gov web URL path segments
           const typeMap: Record<string, string> = {
@@ -550,7 +551,7 @@ async function searchBillsByKeyword(
       const billType = String(bill.type || '').toLowerCase();
       const billNumber = String(bill.number || '');
       const billCongress = String(bill.congress || '');
-      const billTitle = String(bill.title || '');
+      const billTitle = String(bill.title || bill.latestTitle || '');
 
       const typeMap: Record<string, string> = {
         s: 'senate-bill', hr: 'house-bill', sres: 'senate-resolution',
