@@ -39,16 +39,24 @@ const SEARCH_QUERIES = [
   { template: '"{name}" position on economy OR jobs OR taxes', targetCategory: 'position' },
 ];
 
+export interface WebSearchOptions {
+  since?: string | null;
+}
+
 export async function searchWeb(
   profile: AnalysisProfile,
-  orgId: string
+  orgId: string,
+  options: WebSearchOptions = {}
 ): Promise<ResearchResult> {
   const result: ResearchResult = { items_created: 0, errors: [] };
   const client = getAnthropicClient();
   const model = 'claude-sonnet-4-20250514';
 
+  // For quick_update, append current year to bias toward recent results
+  const yearSuffix = options.since ? ` ${new Date().getFullYear()}` : '';
+
   for (const searchConfig of SEARCH_QUERIES) {
-    const query = searchConfig.template.replace('{name}', profile.full_name);
+    const query = searchConfig.template.replace('{name}', profile.full_name) + yearSuffix;
 
     try {
       const response = await client.messages.create({

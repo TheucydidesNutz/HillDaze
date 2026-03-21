@@ -17,10 +17,15 @@ const MAX_PER_PAGE = 250;
 
 // ── Main entry point ────────────────────────────────────────────────
 
+export interface CongressSearchOptions {
+  since?: string | null; // ISO timestamp — only fetch items newer than this
+}
+
 export async function searchCongress(
   profile: AnalysisProfile,
   orgId: string,
-  apiKey: string
+  apiKey: string,
+  options: CongressSearchOptions = {}
 ): Promise<ResearchResult> {
   if (profile.position_type !== 'congress_member') {
     return { items_created: 0, errors: [] };
@@ -50,7 +55,7 @@ export async function searchCongress(
   // Step 2: Sponsored legislation (paginated)
   try {
     const count = await fetchPaginatedLegislation(
-      profile, orgId, apiKey, bioguideId, 'sponsored-legislation', 'sponsoredLegislation', 'sponsored'
+      profile, orgId, apiKey, bioguideId, 'sponsored-legislation', 'sponsoredLegislation', 'sponsored', options.since
     );
     result.items_created += count;
     console.log(`[analysis/congress] Sponsored: ${count} items ingested`);
@@ -63,7 +68,7 @@ export async function searchCongress(
   // Step 3: Co-sponsored legislation (paginated)
   try {
     const count = await fetchPaginatedLegislation(
-      profile, orgId, apiKey, bioguideId, 'cosponsored-legislation', 'cosponsoredLegislation', 'cosponsored'
+      profile, orgId, apiKey, bioguideId, 'cosponsored-legislation', 'cosponsoredLegislation', 'cosponsored', options.since
     );
     result.items_created += count;
     console.log(`[analysis/congress] Cosponsored: ${count} items ingested`);
@@ -210,17 +215,22 @@ function findBestMemberMatch(
 
 async function cacheBioguideId(profileId: string, bioguideId: string) {
   try {
-    // Merge into external_ids without overwriting other keys
     const { data: current } = await supabaseAdmin
       .from('analysis_profiles')
-      .select('external_ids')
+      .select('external_ids, full_name')
       .eq('id', profileId)
       .single();
 
     const existing = (current?.external_ids || {}) as Record<string, unknown>;
     await supabaseAdmin
       .from('analysis_profiles')
-      .update({ external_ids: { ...existing, bioguide: bioguideId } })
+      .update({
+        external_ids: {
+          ...existing,
+          bioguide: bioguideId,
+          bioguide_resolved_for: current?.full_name || '',
+        },
+      })
       .eq('id', profileId);
 
     console.log(`[analysis/congress] Cached bioguide ID ${bioguideId} for profile ${profileId}`);
@@ -238,7 +248,8 @@ async function fetchPaginatedLegislation(
   bioguideId: string,
   endpoint: string,
   responseKey: string,
-  subcategory: string
+  subcategory: string,
+  since?: string | null
 ): Promise<number> {
   let offset = 0;
   let created = 0;
@@ -246,7 +257,10 @@ async function fetchPaginatedLegislation(
   let hasMore = true;
 
   while (hasMore) {
-    const url = `${CONGRESS_BASE}/member/${bioguideId}/${endpoint}?api_key=${apiKey}&format=json&limit=${MAX_PER_PAGE}&offset=${offset}`;
+    let url = `${CONGRESS_BASE}/member/${bioguideId}/${endpoint}?api_key=${apiKey}&format=json&limit=${MAX_PER_PAGE}&offset=${offset}`;
+    if (since) {
+      url += `&fromDateTime=${encodeURIComponent(since)}`;
+    }
     const resp = await fetchWithRetry(url);
 
     if (!resp || !resp[responseKey]) {

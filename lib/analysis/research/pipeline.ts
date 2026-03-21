@@ -30,7 +30,13 @@ async function logWorker(
   });
 }
 
-export async function runResearchPipeline(profileId: string): Promise<PipelineResult> {
+export interface ResearchOptions {
+  since?: string | null;        // ISO timestamp — only fetch items newer than this
+  clearBioguideCache?: boolean;  // If true, clear bioguide cache before resolving
+  mode?: 'quick_update' | 'full_rerun';
+}
+
+export async function runResearchPipeline(profileId: string, options: ResearchOptions = {}): Promise<PipelineResult> {
   const profile = await getProfile(profileId);
   if (!profile) {
     throw new Error(`Profile ${profileId} not found`);
@@ -76,15 +82,27 @@ export async function runResearchPipeline(profileId: string): Promise<PipelineRe
     await supabaseAdmin.rpc('seed_analysis_org_sources', { p_org_id: orgId });
   }
 
+  // Handle bioguide cache clearing for full_rerun
+  if (options.clearBioguideCache) {
+    try {
+      await supabaseAdmin
+        .from('analysis_profiles')
+        .update({ external_ids: {} })
+        .eq('id', profileId);
+    } catch { /* column may not exist */ }
+  }
+
+  const since = options.since || null;
+
   // Run all research in parallel
   const researchPromises: [string, Promise<{ items_created: number; errors: string[] }>][] = [
-    ['web_search', searchWeb(profile, orgId)],
+    ['web_search', searchWeb(profile, orgId, { since })],
     ['wayback', searchWaybackMachine(profile, orgId)],
   ];
 
   // Conditional searches based on profile type and API key availability
   if (congressApiKey && profile.position_type === 'congress_member') {
-    researchPromises.push(['congress', searchCongress(profile, orgId, congressApiKey)]);
+    researchPromises.push(['congress', searchCongress(profile, orgId, congressApiKey, { since })]);
   }
 
   if (openSecretsApiKey) {

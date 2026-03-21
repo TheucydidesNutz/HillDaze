@@ -21,6 +21,8 @@ import {
   Paperclip,
   Filter,
   Telescope,
+  RefreshCw,
+  Database,
 } from 'lucide-react';
 import DeepResearchModal from '@/components/analysis/DeepResearchModal';
 
@@ -120,11 +122,19 @@ export default function DataLakeBrowserPage() {
   // Deep research modal
   const [showDeepResearch, setShowDeepResearch] = useState(false);
 
-  // Additional research
+  // Additional research (ad-hoc search)
   const [showResearchForm, setShowResearchForm] = useState(false);
   const [researchQuery, setResearchQuery] = useState('');
   const [researchLoading, setResearchLoading] = useState(false);
   const [researchResult, setResearchResult] = useState<string | null>(null);
+
+  // Pipeline research (Quick Update / Full Re-run)
+  const [researchStatus, setResearchStatus] = useState<'idle' | 'running' | 'complete' | 'error'>('idle');
+  const [researchMode, setResearchMode] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [researchReport, setResearchReport] = useState<Record<string, any> | null>(null);
+  const [profileResearchStatus, setProfileResearchStatus] = useState<string | null>(null);
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -143,6 +153,75 @@ export default function DataLakeBrowserPage() {
   }, [orgSlug]);
 
   useEffect(() => { fetchOrg(); }, [fetchOrg]);
+
+  // ── Fetch research status on mount ────────────────────────────
+
+  const fetchResearchStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/analysis/profiles/${profileId}/research`);
+      if (res.ok) {
+        const data = await res.json();
+        setProfileResearchStatus(data.research_status);
+        if (data.research_report) setResearchReport(data.research_report);
+        return data.research_status;
+      }
+    } catch { /* ignore */ }
+    return null;
+  }, [profileId]);
+
+  useEffect(() => { fetchResearchStatus(); }, [fetchResearchStatus]);
+
+  // ── Pipeline research trigger ─────────────────────────────────
+
+  async function triggerResearch(mode: 'quick_update' | 'full_rerun') {
+    setResearchStatus('running');
+    setResearchMode(mode);
+
+    try {
+      const res = await fetch(`/api/analysis/profiles/${profileId}/research`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      const data = await res.json();
+
+      if (data.status === 'already_running' || data.status === 'started') {
+        // Start polling for completion
+        if (pollRef.current) clearInterval(pollRef.current);
+        pollRef.current = setInterval(async () => {
+          const status = await fetchResearchStatus();
+          if (status && status !== 'in_progress') {
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
+            setResearchStatus(status === 'error' ? 'error' : 'complete');
+            setResearchMode(null);
+            // Refresh data items
+            fetchItems(false);
+            // Clear the "complete" status after a few seconds
+            setTimeout(() => setResearchStatus('idle'), 5000);
+          }
+        }, 3000);
+
+        // Safety timeout
+        setTimeout(() => {
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+          setResearchStatus(s => s === 'running' ? 'idle' : s);
+          setResearchMode(null);
+        }, 300000);
+      }
+    } catch {
+      setResearchStatus('error');
+      setResearchMode(null);
+    }
+  }
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
 
   // ── Debounced search ───────────────────────────────────────────
 
@@ -328,86 +407,173 @@ export default function DataLakeBrowserPage() {
   return (
     <div className="max-w-5xl mx-auto">
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--analysis-text)' }}>
-            Data Lake
-          </h1>
-          <p className="text-sm opacity-50" style={{ color: 'var(--analysis-text)' }}>
-            {totalItemCount} items across {Object.keys(categoryCounts).length} categories
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowDeepResearch(true)}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2 border border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"
-              style={{ color: 'var(--analysis-text)' }}
-            >
-              <Telescope className="w-4 h-4" />
-              Deep Research
-            </button>
-            <button
-              onClick={() => { setShowResearchForm(v => !v); setResearchResult(null); }}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2"
-              style={{
-                backgroundColor: 'var(--analysis-primary)',
-                color: '#fff',
-              }}
-            >
-              <Search className="w-4 h-4" />
-              Run Additional Research
-            </button>
+      <div className="mb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--analysis-text)' }}>
+              Data Lake
+            </h1>
+            <p className="text-sm opacity-50" style={{ color: 'var(--analysis-text)' }}>
+              {totalItemCount} items across {Object.keys(categoryCounts).length} categories
+            </p>
           </div>
-          {showResearchForm && (
-            <div className="flex flex-col gap-2 p-3 rounded-lg border border-white/10 bg-white/[0.04]" style={{ minWidth: 320 }}>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={researchQuery}
-                  onChange={e => setResearchQuery(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleResearchSearch(); }}
-                  placeholder="e.g. floor speeches, op-eds..."
-                  className="flex-1 px-3 py-1.5 rounded-md bg-white/[0.06] border border-white/10 text-sm placeholder:opacity-40 focus:outline-none focus:ring-1 focus:border-transparent"
-                  style={{
-                    color: 'var(--analysis-text)',
-                    // @ts-expect-error CSS custom property
-                    '--tw-ring-color': 'var(--analysis-primary)',
-                  }}
-                />
-                <button
-                  onClick={handleResearchSearch}
-                  disabled={researchLoading || !researchQuery.trim()}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
-                  style={{
-                    backgroundColor: 'var(--analysis-primary)',
-                    color: '#fff',
-                  }}
-                >
-                  {researchLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                  Search
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {['floor speeches', 'committee testimony', 'podcast transcripts', 'op-eds'].map(suggestion => (
-                  <button
-                    key={suggestion}
-                    onClick={() => setResearchQuery(suggestion)}
-                    className="px-2 py-0.5 rounded text-[10px] bg-white/[0.08] hover:bg-white/[0.14] transition-colors"
-                    style={{ color: 'var(--analysis-text)' }}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-              {researchResult && (
-                <p className="text-xs font-medium" style={{ color: 'var(--analysis-primary)' }}>
-                  {researchResult}
-                </p>
-              )}
-            </div>
-          )}
         </div>
+
+        {/* ── Research buttons ─────────────────────────────────── */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {/* Quick Update */}
+          <button
+            onClick={() => triggerResearch('quick_update')}
+            disabled={researchStatus === 'running' || profileResearchStatus === 'in_progress'}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-white/10 bg-white/[0.06] hover:bg-white/[0.12] disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ color: 'var(--analysis-text)' }}
+            title="Fetch new items since last research run"
+          >
+            {researchStatus === 'running' && researchMode === 'quick_update' ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            Quick Update
+          </button>
+
+          {/* Full Re-run */}
+          <button
+            onClick={() => {
+              if (window.confirm('This will re-run all research sources from scratch. Existing items won\'t be duplicated, but this may take 1-2 minutes for profiles with extensive records.\n\nContinue?')) {
+                triggerResearch('full_rerun');
+              }
+            }}
+            disabled={researchStatus === 'running' || profileResearchStatus === 'in_progress'}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-white/10 hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ color: 'var(--analysis-text)' }}
+            title="Re-run all research sources from scratch (deduplicates automatically)"
+          >
+            {researchStatus === 'running' && researchMode === 'full_rerun' ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Database className="w-4 h-4" />
+            )}
+            Full Re-run
+          </button>
+
+          {/* Deep Research */}
+          <button
+            onClick={() => setShowDeepResearch(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"
+            style={{ color: 'var(--analysis-text)' }}
+          >
+            <Telescope className="w-4 h-4" />
+            Deep Research
+          </button>
+
+          {/* Ad-hoc search toggle */}
+          <button
+            onClick={() => { setShowResearchForm(v => !v); setResearchResult(null); }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            style={{ backgroundColor: 'var(--analysis-primary)', color: '#fff' }}
+          >
+            <Search className="w-4 h-4" />
+            Ad-hoc Search
+          </button>
+        </div>
+
+        {/* ── Running indicator ────────────────────────────────── */}
+        {(researchStatus === 'running' || profileResearchStatus === 'in_progress') && (
+          <div className="mt-3 flex items-center gap-2 text-sm" style={{ color: 'var(--analysis-primary)' }}>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Research in progress — this page will refresh automatically when complete...
+          </div>
+        )}
+
+        {/* ── Complete indicator ───────────────────────────────── */}
+        {researchStatus === 'complete' && (
+          <div className="mt-3 flex items-center gap-2 text-sm text-green-400">
+            <span>&#10003;</span> Research complete — data refreshed.
+          </div>
+        )}
+
+        {researchStatus === 'error' && (
+          <div className="mt-3 flex items-center gap-2 text-sm text-red-400">
+            <AlertCircle className="w-4 h-4" /> Research encountered errors. Check the report below.
+          </div>
+        )}
+
+        {/* ── Research depth report ────────────────────────────── */}
+        {researchReport && researchStatus !== 'running' && (
+          <div className="mt-3 text-xs flex flex-wrap items-center gap-x-4 gap-y-1" style={{ color: 'var(--analysis-text)' }}>
+            <span className="opacity-40">
+              Last researched: {new Date(researchReport.timestamp as string).toLocaleString()}
+            </span>
+            {(researchReport.sources as Array<{ name: string; status: string; items_ingested: number }> | undefined)?.map((source) => (
+              <span key={source.name} className="flex items-center gap-1 opacity-60">
+                {source.status === 'success' ? '✅' : source.status === 'skipped' ? '⏭️' : source.status === 'partial' ? '⚠️' : '❌'}
+                {source.name}: {source.items_ingested}
+              </span>
+            ))}
+            {researchReport.total_items_ingested != null && (
+              <span className="font-medium opacity-80">
+                Total: {researchReport.total_items_ingested as number}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* ── Recommendations ─────────────────────────────────── */}
+        {researchReport?.recommendations && (researchReport.recommendations as string[]).length > 0 && researchStatus !== 'running' && (
+          <div className="mt-2 text-xs text-amber-400/80">
+            {(researchReport.recommendations as string[]).map((rec, i) => (
+              <div key={i}>💡 {rec}</div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Ad-hoc search form ──────────────────────────────── */}
+        {showResearchForm && (
+          <div className="mt-3 flex flex-col gap-2 p-3 rounded-lg border border-white/10 bg-white/[0.04]" style={{ maxWidth: 400 }}>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={researchQuery}
+                onChange={e => setResearchQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleResearchSearch(); }}
+                placeholder="e.g. floor speeches, op-eds..."
+                className="flex-1 px-3 py-1.5 rounded-md bg-white/[0.06] border border-white/10 text-sm placeholder:opacity-40 focus:outline-none focus:ring-1 focus:border-transparent"
+                style={{
+                  color: 'var(--analysis-text)',
+                  // @ts-expect-error CSS custom property
+                  '--tw-ring-color': 'var(--analysis-primary)',
+                }}
+              />
+              <button
+                onClick={handleResearchSearch}
+                disabled={researchLoading || !researchQuery.trim()}
+                className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+                style={{ backgroundColor: 'var(--analysis-primary)', color: '#fff' }}
+              >
+                {researchLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                Search
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {['floor speeches', 'committee testimony', 'podcast transcripts', 'op-eds'].map(suggestion => (
+                <button
+                  key={suggestion}
+                  onClick={() => setResearchQuery(suggestion)}
+                  className="px-2 py-0.5 rounded text-[10px] bg-white/[0.08] hover:bg-white/[0.14] transition-colors"
+                  style={{ color: 'var(--analysis-text)' }}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+            {researchResult && (
+              <p className="text-xs font-medium" style={{ color: 'var(--analysis-primary)' }}>
+                {researchResult}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Category pills ─────────────────────────────────────── */}
