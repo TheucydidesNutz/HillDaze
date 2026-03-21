@@ -55,7 +55,7 @@ export async function searchWeb(
         model,
         max_tokens: 4096,
         tools: [{
-          type: 'web_search_20250305',
+          type: 'web_search_20260209',
           name: 'web_search',
           max_uses: 10,
         }],

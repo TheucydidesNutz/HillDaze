@@ -1,13 +1,24 @@
 import Parser from 'rss-parser';
 import { supabaseAdmin } from '@/lib/supabase';
+import { delay } from '@/lib/shared/api-utils';
+import type { IngestSourceReport } from './congress-gov';
 
 const parser = new Parser({
   timeout: 10000,
   maxRedirects: 3,
 });
 
-export async function ingestRssForOrg(orgId: string): Promise<number> {
-  let itemsAdded = 0;
+const FEED_DELAY_MS = 1000;
+
+export async function ingestRssForOrg(orgId: string): Promise<IngestSourceReport> {
+  const report: IngestSourceReport = {
+    source: 'rss_feeds',
+    status: 'success',
+    items_found: 0,
+    items_ingested: 0,
+    errors: 0,
+    details: '',
+  };
 
   // Fetch active RSS feeds
   const { data: feeds } = await supabaseAdmin
@@ -40,24 +51,28 @@ export async function ingestRssForOrg(orgId: string): Promise<number> {
     })),
   ];
 
+  let feedsProcessed = 0;
+  let feedsFailed = 0;
+
+  // Process feeds SEQUENTIALLY with delays (polite to feed servers)
   for (const feed of allFeeds) {
     try {
       const parsed = await parser.parseURL(feed.url);
+      const items = (parsed.items || []).slice(0, 50);
+      report.items_found += items.length;
 
-      for (const item of (parsed.items || []).slice(0, 50)) {
+      for (const item of items) {
         const sourceUrl = item.link || item.guid || '';
         if (!sourceUrl) continue;
 
         // Dedup
-        const { data: existing } = await supabaseAdmin
+        const { count } = await supabaseAdmin
           .from('intel_news_items')
-          .select('id')
+          .select('id', { count: 'exact', head: true })
           .eq('org_id', orgId)
-          .eq('source_url', sourceUrl)
-          .limit(1)
-          .single();
+          .eq('source_url', sourceUrl);
 
-        if (existing) continue;
+        if (count && count > 0) continue;
 
         await supabaseAdmin.from('intel_news_items').insert({
           org_id: orgId,
@@ -68,7 +83,7 @@ export async function ingestRssForOrg(orgId: string): Promise<number> {
           summary: null,
           relevance_score: null,
         });
-        itemsAdded++;
+        report.items_ingested++;
       }
 
       // Update last_fetched_at
@@ -76,12 +91,26 @@ export async function ingestRssForOrg(orgId: string): Promise<number> {
         .from(feed.table)
         .update({ last_fetched_at: new Date().toISOString() })
         .eq('id', feed.id);
+
+      feedsProcessed++;
     } catch (err) {
-      console.error(`RSS fetch error for ${feed.name}:`, err);
+      console.error(`[intel/rss] Feed error for ${feed.name} (${feed.url}):`, err instanceof Error ? err.message : err);
+      report.errors++;
+      feedsFailed++;
+      // Error isolation: one broken feed doesn't stop the others
+    }
+
+    // Polite delay between feeds
+    if (allFeeds.indexOf(feed) < allFeeds.length - 1) {
+      await delay(FEED_DELAY_MS);
     }
   }
 
-  return itemsAdded;
+  report.details = `${feedsProcessed}/${allFeeds.length} feeds processed, ${feedsFailed} failed, ${report.items_ingested} new items`;
+  if (feedsFailed > 0 && feedsProcessed > 0) report.status = 'partial';
+  if (feedsFailed > 0 && feedsProcessed === 0) report.status = 'failed';
+
+  return report;
 }
 
 export async function testFeedUrl(url: string): Promise<{ title: string; date: string | null } | { error: string }> {

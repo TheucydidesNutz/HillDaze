@@ -376,16 +376,19 @@ export function UploadFilePicker({
   folderId,
   researchTargetId,
   onClose,
+  existingFilenames,
 }: {
   orgId: string;
   folder: 'deep_dive' | 'reference';
   folderId?: string;
   researchTargetId?: string;
   onClose: () => void;
+  existingFilenames?: string[];
 }) {
   const { enqueue } = useUploadManager();
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState('');
+  const [dupeWarning, setDupeWarning] = useState<string[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -421,6 +424,21 @@ export function UploadFilePicker({
 
   function handleSubmit() {
     if (files.length === 0) return;
+
+    // Check for client-side duplicates by filename
+    if (existingFilenames && existingFilenames.length > 0 && !dupeWarning) {
+      const existingSet = new Set(existingFilenames.map(n => n.toLowerCase()));
+      const dupes = files.filter(f => existingSet.has(f.name.toLowerCase())).map(f => f.name);
+      if (dupes.length > 0) {
+        setDupeWarning([...new Set(dupes)]);
+        return;
+      }
+    }
+
+    doEnqueue();
+  }
+
+  function doEnqueue() {
     enqueue(files.map(file => ({
       file,
       orgId,
@@ -428,6 +446,7 @@ export function UploadFilePicker({
       folderId,
       researchTargetId,
     })));
+    setDupeWarning(null);
     onClose();
   }
 
@@ -505,6 +524,37 @@ export function UploadFilePicker({
 
         {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
 
+        {/* Duplicate warning */}
+        {dupeWarning && (
+          <div className="mt-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+            <p className="text-sm text-yellow-400 font-medium mb-2">
+              {dupeWarning.length === 1 ? 'This file appears to already be uploaded:' : 'These files appear to already be uploaded:'}
+            </p>
+            <ul className="space-y-0.5 mb-3">
+              {dupeWarning.map(name => (
+                <li key={name} className="text-xs text-yellow-300/80">&bull; {name}</li>
+              ))}
+            </ul>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={doEnqueue}
+                className="px-3 py-1.5 text-xs font-medium text-white rounded-lg transition-colors"
+                style={{ backgroundColor: 'var(--intel-primary)' }}
+              >
+                Yes, Upload Anyway
+              </button>
+              <button
+                onClick={() => setDupeWarning(null)}
+                className="px-3 py-1.5 text-xs rounded-lg border border-white/10 hover:bg-white/[0.05]"
+                style={{ color: 'var(--intel-text)' }}
+              >
+                No, Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!dupeWarning && (
         <div className="mt-6 flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-white/10 hover:bg-white/[0.05]" style={{ color: 'var(--intel-text)' }}>
             Cancel
@@ -518,6 +568,7 @@ export function UploadFilePicker({
             Upload {files.length > 0 ? `${files.length} file${files.length !== 1 ? 's' : ''}` : ''}
           </button>
         </div>
+        )}
       </div>
     </div>
   );

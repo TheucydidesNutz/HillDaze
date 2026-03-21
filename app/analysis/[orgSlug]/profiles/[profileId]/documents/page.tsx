@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { Upload, FileText, Folder, ChevronDown, ChevronRight, Loader2, Check, X, AlertCircle } from 'lucide-react';
+import { Upload, FileText, Folder, ChevronDown, ChevronRight, Loader2, Check, X, AlertCircle, Trash2 } from 'lucide-react';
 
 type StorageTier = 'deep_dive' | 'reference';
 type UploadStatus = 'pending' | 'uploading' | 'extracting' | 'summarizing' | 'complete' | 'error';
@@ -59,6 +59,9 @@ export default function DocumentsPage() {
   const [folderAnalyses, setFolderAnalyses] = useState<FolderAnalysis[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [dragOver, setDragOver] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [duplicatePrompt, setDuplicatePrompt] = useState<{ dupes: string[]; all: { file: File; folderPath: string }[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
@@ -220,13 +223,13 @@ export default function DocumentsPage() {
   // File handling
   function addFiles(files: File[], basePath: string = '') {
     const accepted = ['pdf', 'doc', 'docx', 'txt', 'csv'];
-    const newUploads: UploadFile[] = [];
+    const candidates: { file: File; folderPath: string }[] = [];
+
     for (const file of files) {
       const ext = file.name.toLowerCase().split('.').pop() || '';
       if (!accepted.includes(ext)) continue;
       if (file.size > 50 * 1024 * 1024) continue;
 
-      // Extract folder path from webkitRelativePath or basePath
       let folderPath = basePath;
       if (file.webkitRelativePath) {
         const parts = file.webkitRelativePath.split('/');
@@ -234,14 +237,31 @@ export default function DocumentsPage() {
           folderPath = parts.slice(0, -1).join('/');
         }
       }
-
-      newUploads.push({
-        id: crypto.randomUUID(),
-        file,
-        folderPath,
-        status: 'pending',
-      });
+      candidates.push({ file, folderPath });
     }
+
+    if (candidates.length === 0) return;
+
+    // Check for duplicates against already-uploaded documents
+    const dupeNames = candidates
+      .filter(c => documents.some(d => d.original_filename === c.file.name && d.file_size_bytes === c.file.size))
+      .map(c => c.file.name);
+
+    if (dupeNames.length > 0) {
+      setDuplicatePrompt({ dupes: [...new Set(dupeNames)], all: candidates });
+      return;
+    }
+
+    enqueueFiles(candidates);
+  }
+
+  function enqueueFiles(candidates: { file: File; folderPath: string }[]) {
+    const newUploads: UploadFile[] = candidates.map(c => ({
+      id: crypto.randomUUID(),
+      file: c.file,
+      folderPath: c.folderPath,
+      status: 'pending' as const,
+    }));
     if (newUploads.length > 0) {
       setUploads(prev => [...prev, ...newUploads]);
     }
@@ -266,6 +286,62 @@ export default function DocumentsPage() {
       else next.add(path);
       return next;
     });
+  }
+
+  // ── Delete handlers ──────────────────────────────────────────────
+  async function handleDeleteItem(id: string) {
+    try {
+      const res = await fetch(`/api/analysis/data-items/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setDocuments(prev => prev.filter(d => d.id !== id));
+        setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Failed to delete');
+      }
+    } catch {
+      alert('Network error deleting item');
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Delete ${selectedIds.size} document${selectedIds.size !== 1 ? 's' : ''}? This will remove them from the data lake.`)) return;
+
+    setBulkDeleting(true);
+    const ids = Array.from(selectedIds);
+    const results = await Promise.allSettled(
+      ids.map(id => fetch(`/api/analysis/data-items/${id}`, { method: 'DELETE' }))
+    );
+
+    const deleted = new Set<string>();
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled' && r.value.ok) deleted.add(ids[i]);
+    });
+
+    setDocuments(prev => prev.filter(d => !deleted.has(d.id)));
+    setSelectedIds(new Set());
+    setBulkDeleting(false);
+
+    const failCount = ids.length - deleted.size;
+    if (failCount > 0) alert(`${failCount} item${failCount !== 1 ? 's' : ''} failed to delete`);
+  }
+
+  function toggleSelectItem(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === documents.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(documents.map(d => d.id)));
+    }
   }
 
   // Group documents by folder
@@ -520,9 +596,43 @@ export default function DocumentsPage() {
 
       {/* Document list */}
       <div>
-        <h2 className="text-sm font-semibold mb-3 opacity-70" style={{ color: 'var(--analysis-text)' }}>
-          Uploaded Documents ({documents.length})
-        </h2>
+        <div className="flex items-center gap-3 mb-3">
+          {documents.length > 0 && (
+            <input
+              type="checkbox"
+              checked={documents.length > 0 && selectedIds.size === documents.length}
+              onChange={toggleSelectAll}
+              className="w-3.5 h-3.5 rounded border-white/20 accent-[var(--analysis-primary)]"
+            />
+          )}
+          <h2 className="text-sm font-semibold opacity-70" style={{ color: 'var(--analysis-text)' }}>
+            Uploaded Documents ({documents.length})
+          </h2>
+        </div>
+
+        {/* Bulk actions toolbar */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 mb-3 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10">
+            <span className="text-xs font-medium" style={{ color: 'var(--analysis-text)' }}>
+              {selectedIds.size} selected
+            </span>
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-40"
+            >
+              <Trash2 size={12} />
+              {bulkDeleting ? 'Deleting...' : 'Delete Selected'}
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-xs opacity-40 hover:opacity-70 transition-opacity"
+              style={{ color: 'var(--analysis-text)' }}
+            >
+              Clear
+            </button>
+          </div>
+        )}
 
         {documents.length === 0 && uploads.length === 0 ? (
           <div className="text-center py-12 border border-white/5 rounded-xl">
@@ -545,17 +655,69 @@ export default function DocumentsPage() {
                   <span className="text-[10px] opacity-50" style={{ color: 'var(--analysis-text)' }}>({docs.length})</span>
                 </div>
                 {docs.map(doc => (
-                  <DocumentRow key={doc.id} doc={doc} />
+                  <DocumentRow key={doc.id} doc={doc} selected={selectedIds.has(doc.id)} onToggleSelect={toggleSelectItem} onDelete={handleDeleteItem} />
                 ))}
               </div>
             ))}
             {/* Root docs */}
             {rootDocs.map(doc => (
-              <DocumentRow key={doc.id} doc={doc} />
+              <DocumentRow key={doc.id} doc={doc} selected={selectedIds.has(doc.id)} onToggleSelect={toggleSelectItem} onDelete={handleDeleteItem} />
             ))}
           </div>
         )}
       </div>
+
+      {/* Duplicate Warning Modal */}
+      {duplicatePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setDuplicatePrompt(null)} />
+          <div className="relative w-full max-w-md rounded-2xl border border-white/10 shadow-2xl overflow-hidden"
+            style={{ backgroundColor: 'var(--analysis-bg, #0f0f23)' }}>
+            <div className="px-6 py-4 border-b border-white/10">
+              <h2 className="text-lg font-bold" style={{ color: 'var(--analysis-text)' }}>
+                Duplicate Files Detected
+              </h2>
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-sm opacity-70 mb-3" style={{ color: 'var(--analysis-text)' }}>
+                {duplicatePrompt.dupes.length === 1
+                  ? 'This file appears to already be uploaded:'
+                  : 'These files appear to already be uploaded:'}
+              </p>
+              <ul className="space-y-1 mb-4">
+                {duplicatePrompt.dupes.map(name => (
+                  <li key={name} className="flex items-center gap-2 text-sm" style={{ color: 'var(--analysis-text)' }}>
+                    <AlertCircle size={12} className="text-yellow-400 shrink-0" />
+                    <span className="opacity-80 truncate">{name}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs opacity-50" style={{ color: 'var(--analysis-text)' }}>
+                Upload anyway?
+              </p>
+            </div>
+            <div className="px-6 py-4 border-t border-white/10 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setDuplicatePrompt(null)}
+                className="px-4 py-2 text-sm rounded-lg border border-white/10 hover:bg-white/[0.05] transition-colors"
+                style={{ color: 'var(--analysis-text)' }}
+              >
+                No, Cancel
+              </button>
+              <button
+                onClick={() => {
+                  enqueueFiles(duplicatePrompt.all);
+                  setDuplicatePrompt(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+                style={{ backgroundColor: 'var(--analysis-primary, #6366f1)' }}
+              >
+                Yes, Upload Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CSV Preview Modal */}
       {csvPreview && (
@@ -668,53 +830,89 @@ export default function DocumentsPage() {
   );
 }
 
-function DocumentRow({ doc }: { doc: DataItem }) {
+function DocumentRow({ doc, selected, onToggleSelect, onDelete }: {
+  doc: DataItem;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!window.confirm(`Delete "${doc.title || doc.original_filename}"? This will remove it from the data lake.`)) return;
+    setDeleting(true);
+    await onDelete(doc.id);
+    setDeleting(false);
+  }
 
   return (
-    <div className="border border-white/5 rounded-lg overflow-hidden hover:border-white/10 transition-colors">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full px-4 py-3 flex items-center gap-3 text-left"
-      >
-        <FileText size={14} className="opacity-40 shrink-0" style={{ color: 'var(--analysis-text)' }} />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm truncate" style={{ color: 'var(--analysis-text)' }}>
-            {doc.title || doc.original_filename}
-          </p>
-          <div className="flex items-center gap-2 mt-0.5">
-            {doc.item_date && (
-              <span className="text-[10px] opacity-40" style={{ color: 'var(--analysis-text)' }}>
-                {new Date(doc.item_date).toLocaleDateString()}
+    <div className={`group border rounded-lg overflow-hidden transition-colors ${selected ? 'border-[var(--analysis-primary)]/40 bg-white/[0.02]' : 'border-white/5 hover:border-white/10'}`}>
+      <div className="flex items-center">
+        <label
+          className="flex items-center pl-3 py-3 cursor-pointer"
+          onClick={e => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect(doc.id)}
+            className="w-3.5 h-3.5 rounded border-white/20 accent-[var(--analysis-primary)]"
+          />
+        </label>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex-1 px-3 py-3 flex items-center gap-3 text-left min-w-0"
+        >
+          <FileText size={14} className="opacity-40 shrink-0" style={{ color: 'var(--analysis-text)' }} />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm truncate" style={{ color: 'var(--analysis-text)' }}>
+              {doc.title || doc.original_filename}
+            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              {doc.item_date && (
+                <span className="text-[10px] opacity-40" style={{ color: 'var(--analysis-text)' }}>
+                  {new Date(doc.item_date).toLocaleDateString()}
+                </span>
+              )}
+              <span className="text-[10px] opacity-30" style={{ color: 'var(--analysis-text)' }}>
+                {formatFileSize(doc.file_size_bytes)}
               </span>
-            )}
-            <span className="text-[10px] opacity-30" style={{ color: 'var(--analysis-text)' }}>
-              {formatFileSize(doc.file_size_bytes)}
-            </span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-              doc.storage_tier === 'deep_dive' ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-500/10 text-slate-400'
-            }`}>
-              {doc.storage_tier === 'deep_dive' ? 'Deep Dive' : 'Reference'}
-            </span>
-          </div>
-        </div>
-        {doc.key_topics.length > 0 && (
-          <div className="hidden lg:flex items-center gap-1 shrink-0">
-            {doc.key_topics.slice(0, 3).map((t, i) => (
-              <span key={i} className="px-1.5 py-0.5 rounded text-[9px] bg-white/[0.06] border border-white/10"
-                style={{ color: 'var(--analysis-text)' }}>
-                {t}
+              <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                doc.storage_tier === 'deep_dive' ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-500/10 text-slate-400'
+              }`}>
+                {doc.storage_tier === 'deep_dive' ? 'Deep Dive' : 'Reference'}
               </span>
-            ))}
+            </div>
           </div>
-        )}
-        {doc.verification_status === 'unverified' && (
-          <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-yellow-500/10 text-yellow-400 shrink-0">
-            <AlertCircle size={10} /> Unverified
-          </span>
-        )}
-        {expanded ? <ChevronDown size={14} className="opacity-30 shrink-0" /> : <ChevronRight size={14} className="opacity-30 shrink-0" />}
-      </button>
+          {doc.key_topics.length > 0 && (
+            <div className="hidden lg:flex items-center gap-1 shrink-0">
+              {doc.key_topics.slice(0, 3).map((t, i) => (
+                <span key={i} className="px-1.5 py-0.5 rounded text-[9px] bg-white/[0.06] border border-white/10"
+                  style={{ color: 'var(--analysis-text)' }}>
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+          {doc.verification_status === 'unverified' && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-yellow-500/10 text-yellow-400 shrink-0">
+              <AlertCircle size={10} /> Unverified
+            </span>
+          )}
+          {expanded ? <ChevronDown size={14} className="opacity-30 shrink-0" /> : <ChevronRight size={14} className="opacity-30 shrink-0" />}
+        </button>
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="px-3 py-3 opacity-0 group-hover:opacity-100 hover:!opacity-100 focus:!opacity-100 text-red-400/60 hover:text-red-400 transition-all disabled:opacity-30 shrink-0"
+          title="Delete document"
+          style={{ opacity: deleting ? 0.3 : undefined }}
+        >
+          {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+        </button>
+      </div>
       {expanded && doc.summary && (
         <div className="px-4 pb-4 border-t border-white/5">
           <p className="text-sm mt-3 leading-relaxed opacity-70" style={{ color: 'var(--analysis-text)' }}>

@@ -32,7 +32,7 @@ export async function POST(
     const response = await client.messages.create({
       model,
       max_tokens: 4096,
-      tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 5 }],
+      tools: [{ type: 'web_search_20260209' as const, name: 'web_search', max_uses: 5 }],
       messages: [{
         role: 'user',
         content: `Search for: "${profile.full_name}" ${query}

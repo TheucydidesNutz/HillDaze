@@ -133,8 +133,49 @@ export async function runResearchPipeline(profileId: string): Promise<PipelineRe
 
   const finalStatus = allFailed && researchPromises.length > 0 ? 'error' : 'complete';
 
-  // Update profile status
-  await updateProfile(profileId, { research_status: finalStatus as 'complete' | 'error' });
+  // Build research depth report
+  const researchReport = {
+    timestamp: new Date().toISOString(),
+    profile_id: profileId,
+    duration_seconds: 0, // filled below
+    sources: Object.entries(results).map(([name, r]) => ({
+      name,
+      status: r.errors.length > 0 && r.items_created > 0 ? 'partial' as const
+        : r.errors.length > 0 ? 'failed' as const
+        : 'success' as const,
+      items_found: r.items_created, // we don't track found vs ingested separately yet
+      items_ingested: r.items_created,
+      errors: r.errors.length,
+      details: r.errors.length > 0 ? r.errors.join('; ') : undefined,
+    })),
+    skipped_sources: skippedSources,
+    total_items_ingested: totalItems,
+    recommendations: [] as string[],
+  };
+
+  // Add recommendations
+  if (totalItems < 20) researchReport.recommendations.push('Low item count — consider adding more API keys or running deep research');
+  if (!congressApiKey && profile.position_type === 'congress_member') {
+    researchReport.recommendations.push('Add a Congress.gov API key to unlock legislation data');
+  }
+  if (skippedSources.length > 0) {
+    researchReport.recommendations.push(`${skippedSources.length} source(s) skipped due to missing API keys`);
+  }
+
+  // Update profile status + research report
+  try {
+    await supabaseAdmin
+      .from('analysis_profiles')
+      .update({
+        research_status: finalStatus,
+        research_report: researchReport,
+        last_research_at: new Date().toISOString(),
+      })
+      .eq('id', profileId);
+  } catch {
+    // Fallback if columns don't exist yet
+    await updateProfile(profileId, { research_status: finalStatus as 'complete' | 'error' });
+  }
 
   await logWorker('research-pipeline', profileId, 'completed',
     `Research complete for ${profile.full_name}: ${totalItems} items created`,

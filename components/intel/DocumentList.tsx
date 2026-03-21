@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { BookOpen, Palette, Folder, ChevronRight, ChevronDown, FolderPlus, MoreHorizontal, ArrowRight, Lock } from 'lucide-react';
+import { BookOpen, Palette, Folder, ChevronRight, ChevronDown, FolderPlus, MoreHorizontal, ArrowRight, Lock, Trash2 } from 'lucide-react';
 import DocumentSummaryCard from './DocumentSummaryCard';
 import { UploadFilePicker, useUploadManager } from './UploadManager';
 import type { IntelDocument, IntelMemberRole } from '@/lib/intel/types';
@@ -75,6 +75,8 @@ export default function DocumentList({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [movingDocId, setMovingDocId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const canUpload = userRole !== 'viewer';
   const isAdmin = userRole === 'super_admin' || userRole === 'admin';
@@ -126,7 +128,7 @@ export default function DocumentList({
   }, [orgId, selectedFolderId]);
 
   useEffect(() => { fetchFolders(); }, [fetchFolders]);
-  useEffect(() => { fetchDocs(); }, [fetchDocs]);
+  useEffect(() => { fetchDocs(); setSelectedIds(new Set()); }, [fetchDocs]);
 
   const selectedFolder = folders.find(f => f.id === selectedFolderId);
   const breadcrumb = selectedFolderId ? getBreadcrumb(folders, selectedFolderId) : [];
@@ -215,6 +217,48 @@ export default function DocumentList({
       fetchFolders(); // Refresh counts
     }
     setMovingDocId(null);
+  }
+
+  // ── Bulk selection handlers ─────────────────────────────────
+  function toggleSelectItem(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === documents.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(documents.map(d => d.id)));
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Delete ${selectedIds.size} document${selectedIds.size !== 1 ? 's' : ''}? This will remove them from the data lake.`)) return;
+
+    setBulkDeleting(true);
+    const ids = Array.from(selectedIds);
+    const results = await Promise.allSettled(
+      ids.map(id => fetch(`/api/intel/documents/${id}`, { method: 'DELETE' }))
+    );
+
+    const deleted = new Set<string>();
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled' && r.value.ok) deleted.add(ids[i]);
+    });
+
+    setDocuments(prev => prev.filter(d => !deleted.has(d.id)));
+    setSelectedIds(new Set());
+    setBulkDeleting(false);
+    fetchFolders(); // Refresh counts
+
+    const failCount = ids.length - deleted.size;
+    if (failCount > 0) alert(`${failCount} item${failCount !== 1 ? 's' : ''} failed to delete`);
   }
 
   // Determine the effective folder type for uploads
@@ -317,6 +361,45 @@ export default function DocumentList({
               </div>
             ) : (
               <div className="space-y-3">
+                {/* Select all + bulk toolbar */}
+                {isAdmin && (
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={documents.length > 0 && selectedIds.size === documents.length}
+                        onChange={toggleSelectAll}
+                        className="w-3.5 h-3.5 rounded border-white/20 accent-[var(--intel-primary)]"
+                      />
+                      <span className="text-xs opacity-50" style={{ color: 'var(--intel-text)' }}>
+                        Select all ({documents.length})
+                      </span>
+                    </label>
+                    {selectedIds.size > 0 && (
+                      <>
+                        <span className="text-xs font-medium" style={{ color: 'var(--intel-text)' }}>
+                          {selectedIds.size} selected
+                        </span>
+                        <button
+                          onClick={handleBulkDelete}
+                          disabled={bulkDeleting}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-40"
+                        >
+                          <Trash2 size={12} />
+                          {bulkDeleting ? 'Deleting...' : 'Delete Selected'}
+                        </button>
+                        <button
+                          onClick={() => setSelectedIds(new Set())}
+                          className="text-xs opacity-40 hover:opacity-70 transition-opacity"
+                          style={{ color: 'var(--intel-text)' }}
+                        >
+                          Clear
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+
                 {documents.map(doc => (
                   <div key={doc.id} className="relative">
                     <DocumentSummaryCard
@@ -325,6 +408,8 @@ export default function DocumentList({
                       onDelete={handleDeleteDoc}
                       expanded={expandedId === doc.id}
                       onToggle={() => setExpandedId(expandedId === doc.id ? null : doc.id)}
+                      selected={selectedIds.has(doc.id)}
+                      onToggleSelect={isAdmin ? toggleSelectItem : undefined}
                     />
                     {/* Move button */}
                     {canUpload && (
@@ -356,6 +441,7 @@ export default function DocumentList({
           folder={uploadFolderType}
           folderId={selectedFolderId}
           onClose={() => setShowUploader(false)}
+          existingFilenames={documents.map(d => d.filename)}
         />
       )}
 

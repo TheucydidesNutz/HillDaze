@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase';
 import { callClaude } from '@/lib/intel/agent/client';
 import { logApiUsage } from '@/lib/intel/agent/usage';
+import { delay, fetchWithRetry, extractLastName, getStateAbbreviation } from '@/lib/shared/api-utils';
 import type { AnalysisProfile } from '../types';
 import { checkForAnomalies } from './anomaly-detection';
 
@@ -9,7 +10,10 @@ interface ResearchResult {
   errors: string[];
 }
 
-const CONGRESS_API_BASE = 'https://api.congress.gov/v3';
+const CONGRESS_BASE = 'https://api.congress.gov/v3';
+const PAGE_DELAY_MS = 1000;
+const OPERATION_DELAY_MS = 2000;
+const MAX_PER_PAGE = 250;
 
 // ── Main entry point ────────────────────────────────────────────────
 
@@ -24,7 +28,7 @@ export async function searchCongress(
 
   const result: ResearchResult = { items_created: 0, errors: [] };
 
-  // Step 1: Resolve bioguideId
+  // Step 1: Resolve bioguideId (check cache first)
   let bioguideId: string | null = null;
   try {
     bioguideId = await resolveBioguideId(profile, apiKey);
@@ -34,7 +38,6 @@ export async function searchCongress(
 
   if (!bioguideId) {
     result.errors.push('Could not find member in Congress.gov');
-    // Fall back to keyword search
     try {
       const count = await searchBillsByKeyword(profile, orgId, apiKey);
       result.items_created += count;
@@ -44,21 +47,31 @@ export async function searchCongress(
     return result;
   }
 
-  // Step 2: Sponsored legislation
+  // Step 2: Sponsored legislation (paginated)
   try {
-    const count = await searchSponsoredLegislation(profile, orgId, apiKey, bioguideId);
+    const count = await fetchPaginatedLegislation(
+      profile, orgId, apiKey, bioguideId, 'sponsored-legislation', 'sponsoredLegislation', 'sponsored'
+    );
     result.items_created += count;
+    console.log(`[analysis/congress] Sponsored: ${count} items ingested`);
   } catch (err) {
     result.errors.push(`Sponsored bills failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // Step 3: Co-sponsored legislation
+  await delay(OPERATION_DELAY_MS);
+
+  // Step 3: Co-sponsored legislation (paginated)
   try {
-    const count = await searchCosponsoredLegislation(profile, orgId, apiKey, bioguideId);
+    const count = await fetchPaginatedLegislation(
+      profile, orgId, apiKey, bioguideId, 'cosponsored-legislation', 'cosponsoredLegislation', 'cosponsored'
+    );
     result.items_created += count;
+    console.log(`[analysis/congress] Cosponsored: ${count} items ingested`);
   } catch (err) {
     result.errors.push(`Cosponsored bills failed: ${err instanceof Error ? err.message : String(err)}`);
   }
+
+  await delay(OPERATION_DELAY_MS);
 
   // Step 4: Voting pattern summary (Claude analysis of sponsored/cosponsored bills)
   try {
@@ -67,6 +80,8 @@ export async function searchCongress(
   } catch (err) {
     result.errors.push(`Voting summary failed: ${err instanceof Error ? err.message : String(err)}`);
   }
+
+  await delay(OPERATION_DELAY_MS);
 
   // Step 5: Congressional Record (floor speeches)
   try {
@@ -77,22 +92,6 @@ export async function searchCongress(
   }
 
   return result;
-}
-
-// ── Helper: safe Congress.gov fetch with retry on 429 ───────────────
-
-async function congressFetch(url: string): Promise<Response> {
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json' },
-  });
-
-  // Congress.gov rate-limits aggressively — back off once on 429
-  if (res.status === 429) {
-    await new Promise((r) => setTimeout(r, 2000));
-    return fetch(url, { headers: { Accept: 'application/json' } });
-  }
-
-  return res;
 }
 
 // ── Helper: check duplicate source_url for a profile ────────────────
@@ -114,59 +113,93 @@ async function resolveBioguideId(
   profile: AnalysisProfile,
   apiKey: string
 ): Promise<string | null> {
-  // If profile metadata already has it, use that
+  // Check external_ids cache first
+  const externalIds = (profile as unknown as Record<string, unknown>).external_ids as Record<string, string> | undefined;
+  if (externalIds?.bioguide) {
+    console.log(`[analysis/congress] Using cached bioguide: ${externalIds.bioguide}`);
+    return externalIds.bioguide;
+  }
+
+  // Legacy: check baseline_attributes
   const metaBioguide = (profile.baseline_attributes as Record<string, unknown>)?.bioguideId;
   if (typeof metaBioguide === 'string' && metaBioguide.length > 0) {
+    // Migrate to external_ids
+    await cacheBioguideId(profile.id, metaBioguide);
     return metaBioguide;
   }
 
-  // Search the member endpoint by full name
-  const params = new URLSearchParams({
-    query: profile.full_name,
-    limit: '10',
-    api_key: apiKey,
-  });
+  const lastName = extractLastName(profile.full_name).toLowerCase();
+  const firstName = (profile.full_name.replace(/^(Sen\.|Rep\.|Senator|Representative)\s*/i, '').split(/\s+/)[0] || '').toLowerCase();
 
-  const res = await congressFetch(`${CONGRESS_API_BASE}/member?${params}`);
-  if (!res.ok) {
-    throw new Error(`Congress.gov member API returned ${res.status}`);
+  // Strategy 1: Search by state on current congress
+  if (profile.state) {
+    const stateAbbrev = getStateAbbreviation(profile.state);
+    if (stateAbbrev) {
+      const url = `${CONGRESS_BASE}/member/congress/119/${stateAbbrev}?api_key=${apiKey}&format=json&limit=50&currentMember=true`;
+      const resp = await fetchWithRetry(url);
+      if (resp?.members) {
+        const match = findBestMemberMatch(resp.members as Record<string, unknown>[], lastName, firstName, profile);
+        if (match) {
+          await cacheBioguideId(profile.id, match);
+          return match;
+        }
+      }
+    }
   }
 
-  const data = await res.json();
-  const members = data.members || [];
+  // Strategy 2: Search member endpoint by name
+  const url = `${CONGRESS_BASE}/member?query=${encodeURIComponent(profile.full_name)}&limit=20&api_key=${apiKey}&format=json`;
+  const resp = await fetchWithRetry(url);
+  if (resp?.members) {
+    const match = findBestMemberMatch(resp.members as Record<string, unknown>[], lastName, firstName, profile);
+    if (match) {
+      await cacheBioguideId(profile.id, match);
+      return match;
+    }
+  }
 
-  if (members.length === 0) return null;
+  await delay(PAGE_DELAY_MS);
 
-  const lastName = (profile.full_name.split(' ').pop() || '').toLowerCase();
-  const firstName = (profile.full_name.split(' ')[0] || '').toLowerCase();
+  // Strategy 3: Broader search across recent congresses
+  for (const congress of [118, 117, 116, 115]) {
+    await delay(PAGE_DELAY_MS);
+    const searchUrl = `${CONGRESS_BASE}/member/congress/${congress}?api_key=${apiKey}&format=json&limit=${MAX_PER_PAGE}`;
+    const cResp = await fetchWithRetry(searchUrl);
+    if (cResp?.members) {
+      const match = findBestMemberMatch(cResp.members as Record<string, unknown>[], lastName, firstName, profile);
+      if (match) {
+        await cacheBioguideId(profile.id, match);
+        return match;
+      }
+    }
+  }
 
-  // Score each member candidate and pick the best match
+  return null;
+}
+
+function findBestMemberMatch(
+  members: Record<string, unknown>[],
+  lastName: string,
+  firstName: string,
+  profile: AnalysisProfile
+): string | null {
   let bestMatch: { bioguideId: string; score: number } | null = null;
 
   for (const m of members) {
     let score = 0;
-    const mName = (m.name || '').toLowerCase();
+    const mName = (String(m.name || '')).toLowerCase();
 
-    // Last name match (required)
     if (!mName.includes(lastName)) continue;
     score += 3;
-
-    // First name match
     if (mName.includes(firstName)) score += 2;
-
-    // State match
     if (profile.state && m.state === profile.state) score += 3;
-
-    // Party match
     if (profile.party) {
       const partyLetter = profile.party.charAt(0).toUpperCase();
-      if (m.partyName?.charAt(0).toUpperCase() === partyLetter) score += 1;
+      if (String(m.partyName || '').charAt(0).toUpperCase() === partyLetter) score += 1;
     }
-
-    // District match (for House members)
     if (profile.district && m.district === profile.district) score += 2;
 
-    const bioId = m.bioguideId || null;
+    const bioId = m.bioguideId as string | undefined;
     if (bioId && (!bestMatch || score > bestMatch.score)) {
       bestMatch = { bioguideId: bioId, score };
     }
@@ -175,131 +208,110 @@ async function resolveBioguideId(
   return bestMatch?.bioguideId || null;
 }
 
-// ── 2. Sponsored Legislation ────────────────────────────────────────
+async function cacheBioguideId(profileId: string, bioguideId: string) {
+  try {
+    // Merge into external_ids without overwriting other keys
+    const { data: current } = await supabaseAdmin
+      .from('analysis_profiles')
+      .select('external_ids')
+      .eq('id', profileId)
+      .single();
 
-async function searchSponsoredLegislation(
-  profile: AnalysisProfile,
-  orgId: string,
-  apiKey: string,
-  bioguideId: string
-): Promise<number> {
-  const url = `${CONGRESS_API_BASE}/member/${bioguideId}/sponsored-legislation?api_key=${apiKey}&limit=250`;
-  const res = await congressFetch(url);
+    const existing = (current?.external_ids || {}) as Record<string, unknown>;
+    await supabaseAdmin
+      .from('analysis_profiles')
+      .update({ external_ids: { ...existing, bioguide: bioguideId } })
+      .eq('id', profileId);
 
-  if (!res.ok) {
-    throw new Error(`Sponsored legislation API returned ${res.status}`);
+    console.log(`[analysis/congress] Cached bioguide ID ${bioguideId} for profile ${profileId}`);
+  } catch {
+    // Non-fatal — column may not exist yet
   }
-
-  const data = await res.json();
-  const bills = data.sponsoredLegislation || [];
-  let created = 0;
-
-  for (const bill of bills) {
-    const sourceUrl =
-      bill.url ||
-      `https://www.congress.gov/bill/${bill.congress}/${(bill.type || '').toLowerCase()}/${bill.number}`;
-
-    if (await isDuplicate(profile.id, sourceUrl)) continue;
-
-    const title = `${bill.type || ''}${bill.number || ''}: ${bill.title || 'Untitled'}`;
-    const summary = [
-      bill.title,
-      `Sponsor: ${profile.full_name} (primary)`,
-      bill.latestAction?.text
-        ? `Latest Action: ${bill.latestAction.text} (${bill.latestAction.actionDate})`
-        : '',
-      bill.policyArea?.name ? `Policy Area: ${bill.policyArea.name}` : '',
-      bill.introducedDate ? `Introduced: ${bill.introducedDate}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
-
-    const keyTopics: string[] = [];
-    if (bill.policyArea?.name) keyTopics.push(bill.policyArea.name);
-
-    const anomaly = checkForAnomalies(profile, { title, summary });
-
-    await supabaseAdmin.from('analysis_data_items').insert({
-      profile_id: profile.id,
-      org_id: orgId,
-      category: 'bill',
-      subcategory: 'sponsored',
-      title,
-      summary,
-      key_topics: keyTopics,
-      source_url: sourceUrl,
-      source_name: 'congress.gov',
-      source_trust_level: 'trusted',
-      item_date: bill.latestAction?.actionDate || bill.introducedDate || null,
-      verification_status: anomaly.isAnomaly ? 'unverified' : 'verified',
-      anomaly_flags: anomaly.isAnomaly ? { flags: anomaly.flags } : {},
-    });
-    created++;
-  }
-
-  return created;
 }
 
-// ── 3. Co-sponsored Legislation ─────────────────────────────────────
+// ── 2/3. Paginated Legislation Fetch ──────────────────────────────
 
-async function searchCosponsoredLegislation(
+async function fetchPaginatedLegislation(
   profile: AnalysisProfile,
   orgId: string,
   apiKey: string,
-  bioguideId: string
+  bioguideId: string,
+  endpoint: string,
+  responseKey: string,
+  subcategory: string
 ): Promise<number> {
-  const url = `${CONGRESS_API_BASE}/member/${bioguideId}/cosponsored-legislation?api_key=${apiKey}&limit=250`;
-  const res = await congressFetch(url);
-
-  if (!res.ok) {
-    throw new Error(`Cosponsored legislation API returned ${res.status}`);
-  }
-
-  const data = await res.json();
-  const bills = data.cosponsoredLegislation || [];
+  let offset = 0;
   let created = 0;
+  let totalAvailable = 0;
+  let hasMore = true;
 
-  for (const bill of bills) {
-    const sourceUrl =
-      bill.url ||
-      `https://www.congress.gov/bill/${bill.congress}/${(bill.type || '').toLowerCase()}/${bill.number}`;
+  while (hasMore) {
+    const url = `${CONGRESS_BASE}/member/${bioguideId}/${endpoint}?api_key=${apiKey}&format=json&limit=${MAX_PER_PAGE}&offset=${offset}`;
+    const resp = await fetchWithRetry(url);
 
-    if (await isDuplicate(profile.id, sourceUrl)) continue;
+    if (!resp || !resp[responseKey]) {
+      console.error(`[analysis/congress] Failed to fetch ${endpoint} at offset ${offset}`);
+      break;
+    }
 
-    const title = `${bill.type || ''}${bill.number || ''}: ${bill.title || 'Untitled'}`;
-    const summary = [
-      bill.title,
-      `Cosponsor: ${profile.full_name}`,
-      bill.latestAction?.text
-        ? `Latest Action: ${bill.latestAction.text} (${bill.latestAction.actionDate})`
-        : '',
-      bill.policyArea?.name ? `Policy Area: ${bill.policyArea.name}` : '',
-      bill.introducedDate ? `Introduced: ${bill.introducedDate}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
+    if (offset === 0) {
+      const pagination = resp.pagination as Record<string, number> | undefined;
+      totalAvailable = pagination?.count || 0;
+      console.log(`[analysis/congress] ${totalAvailable} ${endpoint} items for ${bioguideId}`);
+    }
 
-    const keyTopics: string[] = [];
-    if (bill.policyArea?.name) keyTopics.push(bill.policyArea.name);
+    const bills = (resp[responseKey] || []) as Record<string, unknown>[];
+    if (bills.length === 0) { hasMore = false; break; }
 
-    const anomaly = checkForAnomalies(profile, { title, summary });
+    for (const bill of bills) {
+      const sourceUrl =
+        (bill.url as string) ||
+        `https://www.congress.gov/bill/${bill.congress}/${(String(bill.type || '')).toLowerCase()}/${bill.number}`;
 
-    await supabaseAdmin.from('analysis_data_items').insert({
-      profile_id: profile.id,
-      org_id: orgId,
-      category: 'bill',
-      subcategory: 'cosponsored',
-      title,
-      summary,
-      key_topics: keyTopics,
-      source_url: sourceUrl,
-      source_name: 'congress.gov',
-      source_trust_level: 'trusted',
-      item_date: bill.latestAction?.actionDate || bill.introducedDate || null,
-      verification_status: anomaly.isAnomaly ? 'unverified' : 'verified',
-      anomaly_flags: anomaly.isAnomaly ? { flags: anomaly.flags } : {},
-    });
-    created++;
+      if (await isDuplicate(profile.id, sourceUrl)) continue;
+
+      const title = `${bill.type || ''}${bill.number || ''}: ${bill.title || 'Untitled'}`;
+      const latestAction = bill.latestAction as Record<string, string> | undefined;
+      const policyArea = bill.policyArea as Record<string, string> | undefined;
+
+      const summary = [
+        bill.title as string,
+        subcategory === 'sponsored' ? `Sponsor: ${profile.full_name} (primary)` : `Cosponsor: ${profile.full_name}`,
+        latestAction?.text ? `Latest Action: ${latestAction.text} (${latestAction.actionDate})` : '',
+        policyArea?.name ? `Policy Area: ${policyArea.name}` : '',
+        bill.introducedDate ? `Introduced: ${bill.introducedDate}` : '',
+      ].filter(Boolean).join('\n');
+
+      const keyTopics: string[] = [];
+      if (policyArea?.name) keyTopics.push(policyArea.name);
+
+      const anomaly = checkForAnomalies(profile, { title, summary });
+
+      await supabaseAdmin.from('analysis_data_items').insert({
+        profile_id: profile.id,
+        org_id: orgId,
+        category: 'bill',
+        subcategory,
+        title,
+        summary,
+        key_topics: keyTopics,
+        source_url: sourceUrl,
+        source_name: 'congress.gov',
+        source_trust_level: 'trusted',
+        item_date: latestAction?.actionDate || (bill.introducedDate as string) || null,
+        verification_status: anomaly.isAnomaly ? 'unverified' : 'verified',
+        anomaly_flags: anomaly.isAnomaly ? { flags: anomaly.flags } : {},
+      });
+      created++;
+    }
+
+    offset += bills.length;
+    hasMore = offset < totalAvailable && bills.length === MAX_PER_PAGE;
+
+    if (hasMore) {
+      console.log(`[analysis/congress] ${endpoint}: ${offset}/${totalAvailable}, pausing...`);
+      await delay(PAGE_DELAY_MS);
+    }
   }
 
   return created;
@@ -311,11 +323,9 @@ async function generateVotingPatternSummary(
   profile: AnalysisProfile,
   orgId: string
 ): Promise<number> {
-  // Check if we already have a recent voting summary
   const summarySourceUrl = `analysis://voting-pattern-summary/${profile.id}`;
   if (await isDuplicate(profile.id, summarySourceUrl)) return 0;
 
-  // Fetch all bill items for this profile to give Claude context
   const { data: billItems } = await supabaseAdmin
     .from('analysis_data_items')
     .select('title, summary, subcategory, key_topics, item_date')
@@ -359,7 +369,6 @@ ${billSummaries}`,
   const title = `Legislative Pattern Summary: ${profile.full_name}`;
   const summary = claudeResponse.text;
 
-  // Extract top topics from bills
   const topicCounts: Record<string, number> = {};
   for (const b of billItems) {
     for (const t of b.key_topics || []) {
@@ -399,33 +408,23 @@ async function searchCongressionalRecord(
   orgId: string,
   apiKey: string
 ): Promise<number> {
-  const searchName = profile.full_name;
-  const params = new URLSearchParams({
-    query: searchName,
-    limit: '50',
-    api_key: apiKey,
-  });
+  const url = `${CONGRESS_BASE}/congressional-record?query=${encodeURIComponent(profile.full_name)}&limit=50&api_key=${apiKey}&format=json`;
+  const resp = await fetchWithRetry(url);
 
-  const res = await congressFetch(`${CONGRESS_API_BASE}/congressional-record?${params}`);
-  if (!res.ok) {
-    throw new Error(`Congressional Record API returned ${res.status}`);
+  if (!resp) {
+    throw new Error('Congressional Record API request failed');
   }
 
-  const data = await res.json();
-  // The CR endpoint returns results under "Results" or "congressionalRecord"
-  const records = data.Results || data.congressionalRecord || data.results || [];
+  const records = (resp.Results || resp.congressionalRecord || resp.results || []) as Record<string, unknown>[];
 
-  // Normalize: the API may return grouped issues or individual articles
   const articles: Array<Record<string, unknown>> = [];
   if (Array.isArray(records)) {
     for (const record of records) {
-      // Each record may be an issue containing articles, or an article itself
-      if (record.Articles && Array.isArray(record.Articles)) {
-        articles.push(...record.Articles);
-      } else if (record.articles && Array.isArray(record.articles)) {
-        articles.push(...record.articles);
+      if (Array.isArray(record.Articles)) {
+        articles.push(...(record.Articles as Record<string, unknown>[]));
+      } else if (Array.isArray(record.articles)) {
+        articles.push(...(record.articles as Record<string, unknown>[]));
       } else {
-        // Treat the record itself as an article
         articles.push(record);
       }
     }
@@ -435,13 +434,8 @@ async function searchCongressionalRecord(
 
   for (const article of articles) {
     const articleTitle = (article.title as string) || (article.Title as string) || '';
-    const articleUrl =
-      (article.url as string) ||
-      (article.Url as string) ||
-      (article.pdf as string) ||
-      '';
+    const articleUrl = (article.url as string) || (article.Url as string) || (article.pdf as string) || '';
 
-    // Build a stable source URL — if no direct URL, synthesize one from available data
     const sourceUrl =
       articleUrl ||
       `https://www.congress.gov/congressional-record/${article.issueDate || article.date || 'unknown'}/${encodeURIComponent(articleTitle.slice(0, 80))}`;
@@ -458,9 +452,7 @@ async function searchCongressionalRecord(
       section ? `Section: ${section}` : '',
       startPage ? `Page: ${startPage}` : '',
       issueDate ? `Date: ${issueDate}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
+    ].filter(Boolean).join('\n');
 
     const keyTopics: string[] = ['congressional record', 'floor activity'];
     if (section) keyTopics.push(section.toLowerCase());
@@ -495,48 +487,36 @@ async function searchBillsByKeyword(
   orgId: string,
   apiKey: string
 ): Promise<number> {
-  const searchName = profile.full_name.split(' ').pop() || profile.full_name;
-  const params = new URLSearchParams({
-    query: searchName,
-    sort: 'updateDate+desc',
-    limit: '50',
-    api_key: apiKey,
-  });
+  const searchName = extractLastName(profile.full_name);
+  const url = `${CONGRESS_BASE}/bill?query=${encodeURIComponent(searchName)}&sort=updateDate+desc&limit=50&api_key=${apiKey}&format=json`;
+  const resp = await fetchWithRetry(url);
 
-  const res = await congressFetch(`${CONGRESS_API_BASE}/bill?${params}`);
-  if (!res.ok) {
-    throw new Error(`Congress.gov bill API returned ${res.status}`);
+  if (!resp) {
+    throw new Error('Congress.gov bill API request failed');
   }
 
-  const data = await res.json();
-  const bills = data.bills || [];
+  const bills = (resp.bills || []) as Record<string, unknown>[];
   let created = 0;
 
   for (const bill of bills) {
     const sourceUrl =
-      bill.url ||
-      `https://www.congress.gov/bill/${bill.congress}/${(bill.type || '').toLowerCase()}/${bill.number}`;
+      (bill.url as string) ||
+      `https://www.congress.gov/bill/${bill.congress}/${(String(bill.type || '')).toLowerCase()}/${bill.number}`;
 
     if (await isDuplicate(profile.id, sourceUrl)) continue;
 
     const title = `${bill.type || ''}${bill.number || ''}: ${bill.title || 'Untitled'}`;
+    const latestAction = bill.latestAction as Record<string, string> | undefined;
+    const policyArea = bill.policyArea as Record<string, string> | undefined;
+
     const summary = [
-      bill.title,
-      bill.latestAction?.text
-        ? `Latest Action: ${bill.latestAction.text} (${bill.latestAction.actionDate})`
-        : '',
-      bill.policyArea?.name ? `Policy Area: ${bill.policyArea.name}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
+      bill.title as string,
+      latestAction?.text ? `Latest Action: ${latestAction.text} (${latestAction.actionDate})` : '',
+      policyArea?.name ? `Policy Area: ${policyArea.name}` : '',
+    ].filter(Boolean).join('\n');
 
     const keyTopics: string[] = [];
-    if (bill.policyArea?.name) keyTopics.push(bill.policyArea.name);
-    if (bill.subjects?.length) {
-      for (const s of bill.subjects.slice(0, 5)) {
-        if (s.name) keyTopics.push(s.name);
-      }
-    }
+    if (policyArea?.name) keyTopics.push(policyArea.name);
 
     const anomaly = checkForAnomalies(profile, { title, summary });
 
@@ -544,14 +524,14 @@ async function searchBillsByKeyword(
       profile_id: profile.id,
       org_id: orgId,
       category: 'bill',
-      subcategory: bill.type || null,
+      subcategory: (bill.type as string) || null,
       title,
       summary,
       key_topics: keyTopics,
       source_url: sourceUrl,
       source_name: 'congress.gov',
       source_trust_level: 'trusted',
-      item_date: bill.latestAction?.actionDate || bill.updateDate || null,
+      item_date: latestAction?.actionDate || (bill.updateDate as string) || null,
       verification_status: anomaly.isAnomaly ? 'unverified' : 'verified',
       anomaly_flags: anomaly.isAnomaly ? { flags: anomaly.flags } : {},
     });

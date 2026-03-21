@@ -14,6 +14,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const items_added = await ingestRegulationsForOrg(org_id);
-  return NextResponse.json({ items_added });
+  const report = await ingestRegulationsForOrg(org_id);
+  return NextResponse.json({ items_added: report.items_ingested, report });
 }

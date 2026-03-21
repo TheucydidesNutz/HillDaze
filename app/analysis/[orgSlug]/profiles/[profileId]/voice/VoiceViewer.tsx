@@ -6,6 +6,13 @@ import type { AnalysisProfile, AnalysisSoulDocument } from '@/lib/analysis/types
 
 // ── Types for soul document content ──────────────────────────────────
 
+interface CitationObject {
+  quote?: string;
+  source_item_id?: string;
+}
+
+type Citation = string | CitationObject;
+
 interface SoulMeta {
   person_name?: string;
   title?: string;
@@ -23,7 +30,7 @@ interface CommunicationStyle {
   humor_style?: string;
   signature_phrases?: string[];
   differences_by_medium?: Record<string, string>;
-  source_citations?: string[];
+  source_citations?: Citation[];
 }
 
 interface TopIssue {
@@ -32,27 +39,27 @@ interface TopIssue {
   intensity?: string;
   evolution?: string;
   key_quotes?: string[];
-  source_citations?: string[];
+  source_citations?: Citation[];
 }
 
 interface OppositionItem {
   topic: string;
   position?: string;
-  source_citations?: string[];
+  source_citations?: Citation[];
 }
 
 interface Priorities {
   top_issues?: TopIssue[];
   secondary_issues?: string[];
   known_opposition?: OppositionItem[];
-  source_citations?: string[];
+  source_citations?: Citation[];
 }
 
 interface VotingPatternSummary {
   party_alignment?: string;
   breakaway_areas?: string[];
   bipartisan_collaborations?: string[];
-  source_citations?: string[];
+  source_citations?: Citation[];
 }
 
 interface PersonalTouchstones {
@@ -60,14 +67,14 @@ interface PersonalTouchstones {
   education?: string;
   family_references?: string;
   hobbies_interests?: string;
-  source_citations?: string[];
+  source_citations?: Citation[];
 }
 
 interface DonationNetworkSummary {
   top_donors_by_sector?: string[];
   top_recipients_of_personal_donations?: string[];
   pac_affiliations?: string[];
-  source_citations?: string[];
+  source_citations?: Citation[];
 }
 
 interface SocialMediaHabits {
@@ -81,14 +88,14 @@ interface MediaPresence {
   preferred_outlets?: string[];
   podcast_appearances?: string[];
   social_media_habits?: SocialMediaHabits;
-  source_citations?: string[];
+  source_citations?: Citation[];
 }
 
 interface HowToCommunicate {
   dos?: string[];
   donts?: string[];
   best_approach_by_context?: Record<string, string>;
-  source_citations?: string[];
+  source_citations?: Citation[];
 }
 
 interface SoulContent {
@@ -113,6 +120,20 @@ interface VoiceViewerProps {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
+
+/** Safely convert any jsonb value to a renderable string — handles citation objects, etc. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function safe(val: any): string {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (typeof val === 'object') {
+    if ('quote' in val && val.quote) return String(val.quote);
+    if ('source_item_id' in val) return String(val.source_item_id);
+    return JSON.stringify(val);
+  }
+  return String(val);
+}
 
 function partyBadge(party: string | null) {
   if (!party) return null;
@@ -165,11 +186,16 @@ function intensityBadge(intensity?: string) {
   );
 }
 
-function CitationChip({ id, index }: { id: string; index: number }) {
+function CitationChip({ citation, index }: { citation: Citation; index: number }) {
+  const isObj = typeof citation === 'object' && citation !== null;
+  const sourceId = isObj ? (citation.source_item_id || '') : citation;
+  const quote = isObj ? citation.quote : undefined;
+  const tooltipText = quote ? `"${quote}" — Source: ${sourceId}` : `Source: ${sourceId}`;
+
   return (
     <span
-      title={`Source: ${id}`}
-      className="inline-flex items-center justify-center min-w-[22px] h-5 px-1 rounded text-[10px] font-mono font-medium bg-white/10 cursor-default hover:bg-white/20 transition-colors"
+      title={tooltipText}
+      className="inline-flex items-center gap-1 min-w-[22px] h-5 px-1.5 rounded text-[10px] font-mono font-medium bg-white/10 cursor-default hover:bg-white/20 transition-colors"
       style={{ color: 'var(--analysis-primary)' }}
     >
       [{index + 1}]
@@ -177,14 +203,17 @@ function CitationChip({ id, index }: { id: string; index: number }) {
   );
 }
 
-function CitationRow({ citations }: { citations?: string[] }) {
+function CitationRow({ citations }: { citations?: Citation[] }) {
   if (!citations || citations.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-1.5 pt-3 mt-3 border-t border-white/5">
       <span className="text-[10px] uppercase tracking-wider opacity-30 mr-1 self-center">Sources</span>
-      {citations.map((id, i) => (
-        <CitationChip key={id} id={id} index={i} />
-      ))}
+      {citations.map((citation, i) => {
+        const key = typeof citation === 'object' && citation !== null
+          ? (citation.source_item_id || `citation-${i}`)
+          : citation;
+        return <CitationChip key={key} citation={citation} index={i} />;
+      })}
     </div>
   );
 }
@@ -418,14 +447,14 @@ export default function VoiceViewer({
               {commStyle.overall_tone && (
                 <div>
                   <label className="text-[11px] uppercase tracking-wider opacity-40 font-medium">Overall Tone</label>
-                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{commStyle.overall_tone}</p>
+                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{safe(commStyle.overall_tone)}</p>
                 </div>
               )}
 
               {commStyle.vocabulary_level && (
                 <div>
                   <label className="text-[11px] uppercase tracking-wider opacity-40 font-medium">Vocabulary Level</label>
-                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{commStyle.vocabulary_level}</p>
+                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{safe(commStyle.vocabulary_level)}</p>
                 </div>
               )}
 
@@ -436,7 +465,7 @@ export default function VoiceViewer({
                     {commStyle.rhetorical_devices.map((device, i) => (
                       <li key={i} className="text-sm opacity-80 flex items-start gap-2">
                         <span className="opacity-40 mt-0.5">&#8226;</span>
-                        {device}
+                        {safe(device)}
                       </li>
                     ))}
                   </ul>
@@ -446,14 +475,14 @@ export default function VoiceViewer({
               {commStyle.sentence_patterns && (
                 <div>
                   <label className="text-[11px] uppercase tracking-wider opacity-40 font-medium">Sentence Patterns</label>
-                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{commStyle.sentence_patterns}</p>
+                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{safe(commStyle.sentence_patterns)}</p>
                 </div>
               )}
 
               {commStyle.humor_style && (
                 <div>
                   <label className="text-[11px] uppercase tracking-wider opacity-40 font-medium">Humor Style</label>
-                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{commStyle.humor_style}</p>
+                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{safe(commStyle.humor_style)}</p>
                 </div>
               )}
 
@@ -467,7 +496,7 @@ export default function VoiceViewer({
                         className="pl-4 py-2 text-sm italic opacity-80 leading-relaxed"
                         style={{ borderLeft: '3px solid var(--analysis-primary)' }}
                       >
-                        {phrase}
+                        {safe(phrase)}
                       </blockquote>
                     ))}
                   </div>
@@ -486,7 +515,7 @@ export default function VoiceViewer({
                         <span className="text-xs font-semibold capitalize" style={{ color: 'var(--analysis-primary)' }}>
                           {medium.replace(/_/g, ' ')}
                         </span>
-                        <p className="text-sm opacity-70 mt-1 leading-relaxed">{desc}</p>
+                        <p className="text-sm opacity-70 mt-1 leading-relaxed">{safe(desc)}</p>
                       </div>
                     ))}
                   </div>
@@ -512,15 +541,15 @@ export default function VoiceViewer({
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-sm font-bold" style={{ color: 'var(--analysis-text)' }}>
-                            {issue.topic}
+                            {safe(issue.topic)}
                           </span>
-                          {intensityBadge(issue.intensity)}
+                          {intensityBadge(safe(issue.intensity))}
                         </div>
                         {issue.position && (
-                          <p className="text-sm opacity-70 leading-relaxed">{issue.position}</p>
+                          <p className="text-sm opacity-70 leading-relaxed">{safe(issue.position)}</p>
                         )}
                         {issue.evolution && (
-                          <p className="text-xs opacity-50 italic">{issue.evolution}</p>
+                          <p className="text-xs opacity-50 italic">{safe(issue.evolution)}</p>
                         )}
                         {issue.key_quotes && issue.key_quotes.length > 0 && (
                           <div className="space-y-1.5 pt-1">
@@ -530,7 +559,7 @@ export default function VoiceViewer({
                                 className="pl-3 py-1 text-sm italic opacity-70 leading-relaxed"
                                 style={{ borderLeft: '2px solid var(--analysis-primary)' }}
                               >
-                                &ldquo;{quote}&rdquo;
+                                &ldquo;{safe(quote)}&rdquo;
                               </blockquote>
                             ))}
                           </div>
@@ -550,7 +579,7 @@ export default function VoiceViewer({
                     {priorities.secondary_issues.map((issue, i) => (
                       <li key={i} className="text-sm opacity-70 flex items-start gap-2">
                         <span className="opacity-40 mt-0.5">&#8226;</span>
-                        {typeof issue === 'string' ? issue : JSON.stringify(issue)}
+                        {safe(issue)}
                       </li>
                     ))}
                   </ul>
@@ -569,10 +598,10 @@ export default function VoiceViewer({
                         style={{ borderLeftWidth: '3px', borderLeftColor: '#ef4444' }}
                       >
                         <span className="text-sm font-semibold" style={{ color: 'var(--analysis-text)' }}>
-                          {opp.topic}
+                          {safe(opp.topic)}
                         </span>
                         {opp.position && (
-                          <p className="text-sm opacity-70 mt-1 leading-relaxed">{opp.position}</p>
+                          <p className="text-sm opacity-70 mt-1 leading-relaxed">{safe(opp.position)}</p>
                         )}
                         <CitationRow citations={opp.source_citations} />
                       </div>
@@ -599,7 +628,7 @@ export default function VoiceViewer({
                         {howTo.dos.map((item, i) => (
                           <li key={i} className="flex items-start gap-2 text-sm opacity-80">
                             <Check className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
-                            <span>{item}</span>
+                            <span>{safe(item)}</span>
                           </li>
                         ))}
                       </ul>
@@ -614,7 +643,7 @@ export default function VoiceViewer({
                         {howTo.donts.map((item, i) => (
                           <li key={i} className="flex items-start gap-2 text-sm opacity-80">
                             <X className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                            <span>{item}</span>
+                            <span>{safe(item)}</span>
                           </li>
                         ))}
                       </ul>
@@ -636,7 +665,7 @@ export default function VoiceViewer({
                         <span className="text-xs font-semibold capitalize" style={{ color: 'var(--analysis-primary)' }}>
                           {context.replace(/_/g, ' ')}
                         </span>
-                        <p className="text-sm opacity-70 mt-1 leading-relaxed">{advice}</p>
+                        <p className="text-sm opacity-70 mt-1 leading-relaxed">{safe(advice)}</p>
                       </div>
                     ))}
                   </div>
@@ -653,7 +682,7 @@ export default function VoiceViewer({
               {voting.party_alignment && (
                 <div>
                   <label className="text-[11px] uppercase tracking-wider opacity-40 font-medium">Party Alignment</label>
-                  <p className="text-sm opacity-80 mt-1 font-medium">{voting.party_alignment}</p>
+                  <p className="text-sm opacity-80 mt-1 font-medium">{safe(voting.party_alignment)}</p>
                 </div>
               )}
 
@@ -664,7 +693,7 @@ export default function VoiceViewer({
                     {voting.breakaway_areas.map((area, i) => (
                       <li key={i} className="text-sm opacity-70 flex items-start gap-2">
                         <span className="opacity-40 mt-0.5">&#8226;</span>
-                        {area}
+                        {safe(area)}
                       </li>
                     ))}
                   </ul>
@@ -678,7 +707,7 @@ export default function VoiceViewer({
                     {voting.bipartisan_collaborations.map((collab, i) => (
                       <li key={i} className="text-sm opacity-70 flex items-start gap-2">
                         <span className="opacity-40 mt-0.5">&#8226;</span>
-                        {collab}
+                        {safe(collab)}
                       </li>
                     ))}
                   </ul>
@@ -695,28 +724,28 @@ export default function VoiceViewer({
               {personal.background && (
                 <div>
                   <label className="text-[11px] uppercase tracking-wider opacity-40 font-medium">Background</label>
-                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{personal.background}</p>
+                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{safe(personal.background)}</p>
                 </div>
               )}
 
               {personal.education && (
                 <div>
                   <label className="text-[11px] uppercase tracking-wider opacity-40 font-medium">Education</label>
-                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{personal.education}</p>
+                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{safe(personal.education)}</p>
                 </div>
               )}
 
               {personal.family_references && (
                 <div>
                   <label className="text-[11px] uppercase tracking-wider opacity-40 font-medium">Family</label>
-                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{personal.family_references}</p>
+                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{safe(personal.family_references)}</p>
                 </div>
               )}
 
               {personal.hobbies_interests && (
                 <div>
                   <label className="text-[11px] uppercase tracking-wider opacity-40 font-medium">Hobbies &amp; Interests</label>
-                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{personal.hobbies_interests}</p>
+                  <p className="text-sm opacity-80 mt-1 leading-relaxed">{safe(personal.hobbies_interests)}</p>
                 </div>
               )}
 
@@ -734,7 +763,7 @@ export default function VoiceViewer({
                     {donations.top_donors_by_sector.map((donor, i) => (
                       <li key={i} className="text-sm opacity-70 flex items-start gap-2">
                         <span className="opacity-40 mt-0.5">&#8226;</span>
-                        {typeof donor === 'string' ? donor : JSON.stringify(donor)}
+                        {safe(donor)}
                       </li>
                     ))}
                   </ul>
@@ -748,7 +777,7 @@ export default function VoiceViewer({
                     {donations.top_recipients_of_personal_donations.map((r, i) => (
                       <li key={i} className="text-sm opacity-70 flex items-start gap-2">
                         <span className="opacity-40 mt-0.5">&#8226;</span>
-                        {typeof r === 'string' ? r : JSON.stringify(r)}
+                        {safe(r)}
                       </li>
                     ))}
                   </ul>
@@ -762,7 +791,7 @@ export default function VoiceViewer({
                     {donations.pac_affiliations.map((pac, i) => (
                       <li key={i} className="text-sm opacity-70 flex items-start gap-2">
                         <span className="opacity-40 mt-0.5">&#8226;</span>
-                        {typeof pac === 'string' ? pac : JSON.stringify(pac)}
+                        {safe(pac)}
                       </li>
                     ))}
                   </ul>
@@ -783,7 +812,7 @@ export default function VoiceViewer({
                     {media.preferred_outlets.map((outlet, i) => (
                       <li key={i} className="text-sm opacity-70 flex items-start gap-2">
                         <span className="opacity-40 mt-0.5">&#8226;</span>
-                        {outlet}
+                        {safe(outlet)}
                       </li>
                     ))}
                   </ul>
@@ -797,7 +826,7 @@ export default function VoiceViewer({
                     {media.podcast_appearances.map((pod, i) => (
                       <li key={i} className="text-sm opacity-70 flex items-start gap-2">
                         <span className="opacity-40 mt-0.5">&#8226;</span>
-                        {typeof pod === 'string' ? pod : JSON.stringify(pod)}
+                        {safe(pod)}
                       </li>
                     ))}
                   </ul>
@@ -813,7 +842,7 @@ export default function VoiceViewer({
                         <span className="text-xs font-semibold" style={{ color: 'var(--analysis-primary)' }}>
                           Platform
                         </span>
-                        <span className="text-sm opacity-70">{media.social_media_habits.platform}</span>
+                        <span className="text-sm opacity-70">{safe(media.social_media_habits.platform)}</span>
                       </div>
                     )}
                     {media.social_media_habits.frequency && (
@@ -821,7 +850,7 @@ export default function VoiceViewer({
                         <span className="text-xs font-semibold" style={{ color: 'var(--analysis-primary)' }}>
                           Frequency
                         </span>
-                        <span className="text-sm opacity-70">{media.social_media_habits.frequency}</span>
+                        <span className="text-sm opacity-70">{safe(media.social_media_habits.frequency)}</span>
                       </div>
                     )}
                     {media.social_media_habits.tone && (
@@ -829,7 +858,7 @@ export default function VoiceViewer({
                         <span className="text-xs font-semibold" style={{ color: 'var(--analysis-primary)' }}>
                           Tone
                         </span>
-                        <span className="text-sm opacity-70">{media.social_media_habits.tone}</span>
+                        <span className="text-sm opacity-70">{safe(media.social_media_habits.tone)}</span>
                       </div>
                     )}
                     {media.social_media_habits.common_topics && media.social_media_habits.common_topics.length > 0 && (
@@ -843,7 +872,7 @@ export default function VoiceViewer({
                               key={i}
                               className="px-2 py-0.5 rounded text-xs bg-white/[0.08] opacity-70"
                             >
-                              {topic}
+                              {safe(topic)}
                             </span>
                           ))}
                         </div>

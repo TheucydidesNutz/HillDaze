@@ -60,7 +60,7 @@ async function main() {
         const response = await client.messages.create({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 4096,
-          tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 5 }],
+          tools: [{ type: 'web_search_20260209' as const, name: 'web_search', max_uses: 5 }],
           messages: [{
             role: 'user',
             content: `Search for: ${sq.query}\n\nReturn ONLY a JSON array about ${profile.full_name}. Each: {"title":"...","date":"YYYY-MM-DD or null","source_url":"...","source_name":"...","summary":"...","category":"speech|news|position|podcast|social_media","key_quotes":["..."]}. Return [] if nothing found.`,

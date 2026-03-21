@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Trash2, Loader2 } from 'lucide-react';
 import type { IntelDocument, IntelMemberRole } from '@/lib/intel/types';
 
 export default function DocumentSummaryCard({
@@ -9,24 +10,51 @@ export default function DocumentSummaryCard({
   onDelete,
   expanded,
   onToggle,
+  selected,
+  onToggleSelect,
 }: {
   document: IntelDocument;
   userRole: IntelMemberRole;
   onDelete: (id: string) => void;
   expanded: boolean;
   onToggle: () => void;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const meta = doc.summary_metadata;
   const hasSummary = !!doc.summary;
   const isAdmin = userRole === 'super_admin' || userRole === 'admin';
 
+  async function handleQuickDelete(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!window.confirm(`Delete "${meta?.title || doc.filename}"? This will remove it from the data lake.`)) return;
+    setDeleting(true);
+    await onDelete(doc.id);
+    setDeleting(false);
+  }
+
   return (
-    <div className="border border-white/10 rounded-xl overflow-hidden transition-colors hover:border-white/15">
+    <div className={`group border rounded-xl overflow-hidden transition-colors ${selected ? 'border-[var(--intel-primary)]/40 bg-white/[0.02]' : 'border-white/10 hover:border-white/15'}`}>
       {/* Collapsed header */}
+      <div className="flex items-start">
+        {onToggleSelect && (
+          <label
+            className="flex items-center pl-4 pt-4 cursor-pointer"
+            onClick={e => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              checked={selected || false}
+              onChange={() => onToggleSelect(doc.id)}
+              className="w-3.5 h-3.5 rounded border-white/20 accent-[var(--intel-primary)]"
+            />
+          </label>
+        )}
       <button
         onClick={onToggle}
-        className="w-full px-4 py-4 flex items-start gap-4 text-left"
+        className="flex-1 px-4 py-4 flex items-start gap-4 text-left min-w-0"
       >
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-medium truncate" style={{ color: 'var(--intel-text)' }}>
@@ -97,6 +125,17 @@ export default function DocumentSummaryCard({
           </svg>
         </div>
       </button>
+        {isAdmin && (
+          <button
+            onClick={handleQuickDelete}
+            disabled={deleting}
+            className="px-3 pt-4 opacity-0 group-hover:opacity-100 hover:!opacity-100 focus:!opacity-100 text-red-400/60 hover:text-red-400 transition-all disabled:opacity-30 shrink-0 self-start"
+            title="Delete document"
+          >
+            {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+          </button>
+        )}
+      </div>
 
       {/* Expanded content */}
       {expanded && hasSummary && meta && (

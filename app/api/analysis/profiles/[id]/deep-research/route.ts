@@ -76,7 +76,7 @@ export async function POST(
               const response = await client.messages.create({
                 model,
                 max_tokens: 4096,
-                tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 3 }],
+                tools: [{ type: 'web_search_20260209' as const, name: 'web_search', max_uses: 3 }],
                 messages: [{
                   role: 'user',
                   content: `Fetch and analyze this URL: ${url}
@@ -148,7 +148,7 @@ If you cannot access the URL, return {"error": "cannot access"}.`
           const discoverResponse = await client.messages.create({
             model,
             max_tokens: 4096,
-            tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 10 }],
+            tools: [{ type: 'web_search_20260209' as const, name: 'web_search', max_uses: 10 }],
             messages: [{
               role: 'user',
               content: `Search the website ${domain} for pages related to ${profile.full_name}. Look for:
@@ -195,7 +195,7 @@ If you can't find any relevant pages, return [].`
               const response = await client.messages.create({
                 model,
                 max_tokens: 4096,
-                tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 3 }],
+                tools: [{ type: 'web_search_20260209' as const, name: 'web_search', max_uses: 3 }],
                 messages: [{
                   role: 'user',
                   content: `Fetch and analyze: ${url}\n\nExtract content about ${profile.full_name}. Return ONLY JSON:\n{"title":"...","date":"YYYY-MM-DD or null","summary":"...","category":"speech|news|position|legal_filing","key_quotes":["..."],"key_topics":["..."],"full_text":"first 50000 chars of content"}\n\nReturn {"error":"cannot access"} if inaccessible.`
@@ -285,7 +285,7 @@ If you can't find any relevant pages, return [].`
               const response = await client.messages.create({
                 model,
                 max_tokens: 4096,
-                tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 10 }],
+                tools: [{ type: 'web_search_20260209' as const, name: 'web_search', max_uses: 10 }],
                 messages: [{
                   role: 'user',
                   content: `Search for: ${query}\n\nReturn ONLY a JSON array of results about ${profile.full_name}:\n[{"title":"...","date":"YYYY-MM-DD or null","source_url":"...","source_name":"...","summary":"...","category":"${category}","key_quotes":["..."]}]\n\nReturn [] if nothing found.`
