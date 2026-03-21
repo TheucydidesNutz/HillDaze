@@ -861,6 +861,11 @@ export default function DataLakeBrowserPage() {
                       </div>
                     )}
 
+                    {/* CSV table preview */}
+                    {item.subcategory === 'csv' && item.tone_analysis && !!(item.tone_analysis as Record<string, unknown>).csv_headers && (
+                      <CsvTablePreview toneAnalysis={item.tone_analysis as Record<string, unknown>} />
+                    )}
+
                     {/* Key quotes */}
                     {item.key_quotes && item.key_quotes.length > 0 && (
                       <div className="space-y-2 pt-1">
@@ -972,6 +977,63 @@ export default function DataLakeBrowserPage() {
           onComplete={() => fetchItems(false)}
         />
       )}
+    </div>
+  );
+}
+
+// ── CSV Table Preview ──────────────────────────────────────────────
+
+function CsvTablePreview({ toneAnalysis }: { toneAnalysis: Record<string, unknown> }) {
+  const [showAll, setShowAll] = useState(false);
+  const headers = (toneAnalysis.csv_headers || []) as string[];
+  const preview = (toneAnalysis.csv_preview || []) as Record<string, string>[];
+  const rowCount = (toneAnalysis.csv_row_count || 0) as number;
+
+  if (headers.length === 0 || preview.length === 0) return null;
+
+  const displayRows = showAll ? preview : preview.slice(0, 10);
+
+  return (
+    <div className="pt-2">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium uppercase tracking-wide opacity-40">
+          CSV Data ({rowCount} rows)
+        </span>
+        {rowCount > 10 && (
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="text-[10px] hover:underline"
+            style={{ color: 'var(--analysis-primary)' }}
+          >
+            {showAll ? 'Show preview' : `Show all ${Math.min(rowCount, preview.length)} rows`}
+          </button>
+        )}
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-white/10">
+        <table className="w-full text-xs" style={{ color: 'var(--analysis-text)' }}>
+          <thead>
+            <tr className="border-b border-white/10 bg-white/[0.03]">
+              {headers.slice(0, 10).map(h => (
+                <th key={h} className="px-3 py-2 text-left font-semibold opacity-60 whitespace-nowrap">{h}</th>
+              ))}
+              {headers.length > 10 && (
+                <th className="px-3 py-2 text-left opacity-30">+{headers.length - 10}</th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {displayRows.map((row, i) => (
+              <tr key={i} className="border-b border-white/5 hover:bg-white/[0.02]">
+                {headers.slice(0, 10).map(h => (
+                  <td key={h} className="px-3 py-1.5 opacity-70 whitespace-nowrap max-w-[200px] truncate">
+                    {row[h] || '—'}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

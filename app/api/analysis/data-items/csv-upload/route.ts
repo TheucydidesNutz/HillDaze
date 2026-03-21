@@ -170,6 +170,14 @@ ${previewText}`,
       summaryData = { title: file.name, executive_summary: `CSV with ${rows.length} rows and ${headers.length} columns.`, key_topics: [] };
     }
 
+    // Build CSV preview metadata for table display
+    const csvPreview = rows.slice(0, 10);
+    const csvMeta = {
+      csv_headers: headers,
+      csv_row_count: rows.length,
+      csv_preview: csvPreview,
+    };
+
     const { data: dataItem, error: insertError } = await supabaseAdmin
       .from('analysis_data_items')
       .insert({
@@ -192,6 +200,7 @@ ${previewText}`,
         file_size_bytes: file.size,
         verification_status: 'verified',
         anomaly_flags: {},
+        tone_analysis: csvMeta,
       })
       .select()
       .single();

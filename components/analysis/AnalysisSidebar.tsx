@@ -62,6 +62,7 @@ export default function AnalysisSidebar({
   ];
 
   const profileNavItems: NavItem[] = profileBase ? [
+    { label: 'Fact Sheet', href: `${profileBase}/fact-sheet`, enabled: true },
     { label: 'Voice', href: `${profileBase}/voice`, enabled: true },
     { label: 'Data Lake', href: `${profileBase}/data`, enabled: true },
     { label: 'Documents', href: `${profileBase}/documents`, enabled: true },

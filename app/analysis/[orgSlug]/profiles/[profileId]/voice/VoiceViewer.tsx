@@ -51,7 +51,7 @@ interface OppositionItem {
 interface Priorities {
   top_issues?: TopIssue[];
   secondary_issues?: string[];
-  known_opposition?: OppositionItem[];
+  known_opposition?: (string | OppositionItem)[];
   source_citations?: Citation[];
 }
 
@@ -188,17 +188,36 @@ function intensityBadge(intensity?: string) {
 
 function CitationChip({ citation, index }: { citation: Citation; index: number }) {
   const isObj = typeof citation === 'object' && citation !== null;
-  const sourceId = isObj ? (citation.source_item_id || '') : citation;
+  const sourceId = isObj ? (citation.source_item_id || '') : String(citation);
   const quote = isObj ? citation.quote : undefined;
-  const tooltipText = quote ? `"${quote}" — Source: ${sourceId}` : `Source: ${sourceId}`;
+
+  // Truncate source ID for display (UUIDs are long)
+  const shortId = sourceId.length > 12 ? sourceId.slice(0, 8) + '...' : sourceId;
 
   return (
-    <span
-      title={tooltipText}
-      className="inline-flex items-center gap-1 min-w-[22px] h-5 px-1.5 rounded text-[10px] font-mono font-medium bg-white/10 cursor-default hover:bg-white/20 transition-colors"
-      style={{ color: 'var(--analysis-primary)' }}
-    >
-      [{index + 1}]
+    <span className="relative group/cite inline-flex">
+      <span
+        className="inline-flex items-center gap-1 min-w-[22px] h-5 px-1.5 rounded text-[10px] font-mono font-medium bg-white/10 cursor-default hover:bg-white/20 transition-colors"
+        style={{ color: 'var(--analysis-primary)' }}
+      >
+        [{index + 1}]
+      </span>
+      {/* Hover tooltip */}
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cite:block z-50 pointer-events-none">
+        <div
+          className="rounded-lg border border-white/15 shadow-xl p-2.5 w-64 text-[11px] leading-relaxed"
+          style={{ backgroundColor: 'var(--analysis-bg, #0f0f23)', color: 'var(--analysis-text)' }}
+        >
+          <div className="font-medium opacity-70 mb-1 font-mono text-[10px]">
+            Source: {shortId}
+          </div>
+          {quote && (
+            <div className="opacity-50 line-clamp-3 italic">
+              &ldquo;{quote.length > 120 ? quote.slice(0, 120) + '...' : quote}&rdquo;
+            </div>
+          )}
+        </div>
+      </div>
     </span>
   );
 }
@@ -586,26 +605,32 @@ export default function VoiceViewer({
                 </div>
               )}
 
-              {/* Known opposition */}
+              {/* Known opposition — data can be string[] or OppositionItem[] */}
               {priorities.known_opposition && priorities.known_opposition.length > 0 && (
                 <div>
                   <label className="text-[11px] uppercase tracking-wider opacity-40 font-medium">Known Opposition</label>
                   <div className="mt-2 space-y-2">
-                    {priorities.known_opposition.map((opp, i) => (
-                      <div
-                        key={i}
-                        className="rounded-lg border border-white/10 bg-white/[0.03] p-3"
-                        style={{ borderLeftWidth: '3px', borderLeftColor: '#ef4444' }}
-                      >
-                        <span className="text-sm font-semibold" style={{ color: 'var(--analysis-text)' }}>
-                          {safe(opp.topic)}
-                        </span>
-                        {opp.position && (
-                          <p className="text-sm opacity-70 mt-1 leading-relaxed">{safe(opp.position)}</p>
-                        )}
-                        <CitationRow citations={opp.source_citations} />
-                      </div>
-                    ))}
+                    {priorities.known_opposition.map((opp, i) => {
+                      const isString = typeof opp === 'string';
+                      const label = isString ? opp : (opp.topic || safe(opp));
+                      const position = isString ? undefined : opp.position;
+                      const citations = isString ? undefined : opp.source_citations;
+                      return (
+                        <div
+                          key={i}
+                          className="rounded-lg border border-white/10 bg-white/[0.03] p-3"
+                          style={{ borderLeftWidth: '3px', borderLeftColor: '#ef4444' }}
+                        >
+                          <span className="text-sm font-semibold" style={{ color: 'var(--analysis-text)' }}>
+                            {safe(label)}
+                          </span>
+                          {position && (
+                            <p className="text-sm opacity-70 mt-1 leading-relaxed">{safe(position)}</p>
+                          )}
+                          <CitationRow citations={citations} />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

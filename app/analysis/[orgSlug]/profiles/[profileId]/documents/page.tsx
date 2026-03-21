@@ -3,18 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Upload, FileText, Folder, ChevronDown, ChevronRight, Loader2, Check, X, AlertCircle, Trash2 } from 'lucide-react';
+import { useUploadQueue } from '@/components/analysis/AnalysisUploadContext';
+import type { UploadItem } from '@/components/analysis/AnalysisUploadContext';
 
 type StorageTier = 'deep_dive' | 'reference';
-type UploadStatus = 'pending' | 'uploading' | 'extracting' | 'summarizing' | 'complete' | 'error';
-
-interface UploadFile {
-  id: string;
-  file: File;
-  folderPath: string;
-  status: UploadStatus;
-  error?: string;
-  dataItem?: Record<string, unknown>;
-}
 
 interface DataItem {
   id: string;
@@ -54,7 +46,6 @@ export default function DocumentsPage() {
   const [profileName, setProfileName] = useState('');
   const [loading, setLoading] = useState(true);
   const [storageTier, setStorageTier] = useState<StorageTier>('deep_dive');
-  const [uploads, setUploads] = useState<UploadFile[]>([]);
   const [documents, setDocuments] = useState<DataItem[]>([]);
   const [folderAnalyses, setFolderAnalyses] = useState<FolderAnalysis[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -64,7 +55,11 @@ export default function DocumentsPage() {
   const [duplicatePrompt, setDuplicatePrompt] = useState<{ dupes: string[]; all: { file: File; folderPath: string }[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
-  const processingRef = useRef(false);
+
+  // Upload context — persists across navigation
+  const { uploads: allUploads, addUploads, clearCompleted, clearAll, isUploading, onUploadComplete } = useUploadQueue();
+  // Filter uploads for this profile only
+  const uploads = allUploads.filter(u => u.profileId === profileId);
 
   // CSV preview state
   const [csvPreview, setCsvPreview] = useState<{
@@ -141,89 +136,21 @@ export default function DocumentsPage() {
     }
   }, [orgId, profileId, fetchDocuments, fetchFolderAnalyses]);
 
-  // Process upload queue
-  const processQueue = useCallback(async () => {
-    if (processingRef.current || !orgId) return;
-    processingRef.current = true;
-
-    while (true) {
-      const next = uploads.find(u => u.status === 'pending');
-      if (!next) break;
-
-      // Mark as uploading
-      setUploads(prev => prev.map(u => u.id === next.id ? { ...u, status: 'uploading' as const } : u));
-
-      try {
-        // CSV files go through preview flow instead of direct upload
-        if (next.file.name.toLowerCase().endsWith('.csv')) {
-          try {
-            const previewForm = new FormData();
-            previewForm.append('file', next.file);
-            const previewRes = await fetch('/api/analysis/data-items/csv-preview', {
-              method: 'POST',
-              body: previewForm,
-            });
-            if (previewRes.ok) {
-              const previewData = await previewRes.json();
-              setCsvPreview({
-                file: next.file,
-                folderPath: next.folderPath,
-                ...previewData,
-              });
-              // Mark as complete — the actual import happens after user confirms
-              setUploads(prev => prev.map(u => u.id === next.id ? { ...u, status: 'complete' as const } : u));
-              continue; // Skip the normal upload flow
-            }
-          } catch {
-            // Fall through to normal upload on preview failure
-          }
-        }
-
-        const formData = new FormData();
-        formData.append('file', next.file);
-        formData.append('profile_id', profileId);
-        formData.append('org_id', orgId);
-        formData.append('storage_tier', storageTier);
-        if (next.folderPath) formData.append('folder_path', next.folderPath);
-
-        // Mark as extracting
-        setUploads(prev => prev.map(u => u.id === next.id ? { ...u, status: 'extracting' as const } : u));
-
-        const res = await fetch('/api/analysis/data-items/upload', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (res.ok) {
-          const dataItem = await res.json();
-          setUploads(prev => prev.map(u => u.id === next.id ? { ...u, status: 'complete' as const, dataItem } : u));
-          // Refresh documents list
-          await fetchDocuments();
-          // Refresh folder analyses after a short delay (they run fire-and-forget on the server)
-          setTimeout(() => fetchFolderAnalyses(), 5000);
-        } else {
-          const err = await res.json().catch(() => ({ error: 'Upload failed' }));
-          setUploads(prev => prev.map(u => u.id === next.id ? { ...u, status: 'error' as const, error: err.error } : u));
-        }
-      } catch {
-        setUploads(prev => prev.map(u => u.id === next.id ? { ...u, status: 'error' as const, error: 'Network error' } : u));
-      }
-    }
-
-    processingRef.current = false;
-  }, [orgId, profileId, storageTier, uploads, fetchDocuments, fetchFolderAnalyses]);
-
+  // Auto-refresh documents when an upload completes (works even if navigated away and back)
   useEffect(() => {
-    const hasPending = uploads.some(u => u.status === 'pending');
-    if (hasPending && !processingRef.current) {
-      processQueue();
-    }
-  }, [uploads, processQueue]);
+    return onUploadComplete(() => {
+      fetchDocuments();
+      setTimeout(() => fetchFolderAnalyses(), 5000);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onUploadComplete, fetchDocuments, fetchFolderAnalyses]);
 
-  // File handling
+  // File handling — CSV files still go through local preview flow
   function addFiles(files: File[], basePath: string = '') {
+    if (!orgId) return;
     const accepted = ['pdf', 'doc', 'docx', 'txt', 'csv'];
-    const candidates: { file: File; folderPath: string }[] = [];
+    const csvFiles: { file: File; folderPath: string }[] = [];
+    const nonCsvCandidates: { file: File; folderPath: string }[] = [];
 
     for (const file of files) {
       const ext = file.name.toLowerCase().split('.').pop() || '';
@@ -237,34 +164,60 @@ export default function DocumentsPage() {
           folderPath = parts.slice(0, -1).join('/');
         }
       }
-      candidates.push({ file, folderPath });
+
+      if (ext === 'csv') {
+        csvFiles.push({ file, folderPath });
+      } else {
+        nonCsvCandidates.push({ file, folderPath });
+      }
     }
 
-    if (candidates.length === 0) return;
+    // Handle CSV files through preview flow (needs UI interaction, stays local)
+    if (csvFiles.length > 0) {
+      handleCsvPreview(csvFiles[0]);
+    }
+
+    if (nonCsvCandidates.length === 0) return;
 
     // Check for duplicates against already-uploaded documents
-    const dupeNames = candidates
+    const dupeNames = nonCsvCandidates
       .filter(c => documents.some(d => d.original_filename === c.file.name && d.file_size_bytes === c.file.size))
       .map(c => c.file.name);
 
     if (dupeNames.length > 0) {
-      setDuplicatePrompt({ dupes: [...new Set(dupeNames)], all: candidates });
+      setDuplicatePrompt({ dupes: [...new Set(dupeNames)], all: nonCsvCandidates });
       return;
     }
 
-    enqueueFiles(candidates);
+    enqueueFiles(nonCsvCandidates);
+  }
+
+  async function handleCsvPreview(csv: { file: File; folderPath: string }) {
+    try {
+      const previewForm = new FormData();
+      previewForm.append('file', csv.file);
+      const previewRes = await fetch('/api/analysis/data-items/csv-preview', {
+        method: 'POST',
+        body: previewForm,
+      });
+      if (previewRes.ok) {
+        const previewData = await previewRes.json();
+        setCsvPreview({ file: csv.file, folderPath: csv.folderPath, ...previewData });
+      }
+    } catch {
+      // Fall through — CSV will not be uploaded without preview
+    }
   }
 
   function enqueueFiles(candidates: { file: File; folderPath: string }[]) {
-    const newUploads: UploadFile[] = candidates.map(c => ({
-      id: crypto.randomUUID(),
+    if (!orgId) return;
+    addUploads(candidates.map(c => ({
       file: c.file,
+      profileId,
+      orgId,
+      storageTier,
       folderPath: c.folderPath,
-      status: 'pending' as const,
-    }));
-    if (newUploads.length > 0) {
-      setUploads(prev => [...prev, ...newUploads]);
-    }
+    })));
   }
 
   function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
@@ -372,9 +325,9 @@ export default function DocumentsPage() {
     );
   }
 
-  const completedCount = uploads.filter(u => u.status === 'complete').length;
-  const errorCount = uploads.filter(u => u.status === 'error').length;
-  const processingCount = uploads.filter(u => ['pending', 'uploading', 'extracting', 'summarizing'].includes(u.status)).length;
+  const completedCount = uploads.filter((u: UploadItem) => u.status === 'complete').length;
+  const errorCount = uploads.filter((u: UploadItem) => u.status === 'error').length;
+  const processingCount = uploads.filter((u: UploadItem) => ['pending', 'uploading', 'extracting', 'summarizing'].includes(u.status)).length;
 
   return (
     <div>
@@ -474,7 +427,7 @@ export default function DocumentsPage() {
             </span>
             {processingCount === 0 && (
               <button
-                onClick={() => setUploads([])}
+                onClick={clearAll}
                 className="text-[10px] opacity-40 hover:opacity-70"
                 style={{ color: 'var(--analysis-text)' }}
               >
@@ -495,13 +448,13 @@ export default function DocumentsPage() {
             </div>
           )}
           <div className="max-h-40 overflow-y-auto">
-            {uploads.map(u => (
+            {uploads.map((u: UploadItem) => (
               <div key={u.id} className="flex items-center gap-2 px-4 py-2 border-b border-white/5 last:border-b-0">
                 {u.status === 'complete' ? <Check size={14} className="text-green-400 shrink-0" /> :
                  u.status === 'error' ? <X size={14} className="text-red-400 shrink-0" /> :
                  <Loader2 size={14} className="animate-spin shrink-0" style={{ color: 'var(--analysis-primary)' }} />}
                 <span className="text-xs truncate flex-1" style={{ color: 'var(--analysis-text)' }}>
-                  {u.folderPath ? `${u.folderPath}/` : ''}{u.file.name}
+                  {u.folderPath ? `${u.folderPath}/` : ''}{u.fileName}
                 </span>
                 <span className="text-[10px] opacity-30 shrink-0" style={{ color: 'var(--analysis-text)' }}>
                   {u.status === 'uploading' ? 'Uploading...' :

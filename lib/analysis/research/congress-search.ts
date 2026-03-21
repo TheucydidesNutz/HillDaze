@@ -257,74 +257,107 @@ async function fetchPaginatedLegislation(
   let hasMore = true;
 
   while (hasMore) {
-    let url = `${CONGRESS_BASE}/member/${bioguideId}/${endpoint}?api_key=${apiKey}&format=json&limit=${MAX_PER_PAGE}&offset=${offset}`;
-    if (since) {
-      url += `&fromDateTime=${encodeURIComponent(since)}`;
-    }
-    const resp = await fetchWithRetry(url);
+    try {
+      let url = `${CONGRESS_BASE}/member/${bioguideId}/${endpoint}?api_key=${apiKey}&format=json&limit=${MAX_PER_PAGE}&offset=${offset}`;
+      if (since) {
+        url += `&fromDateTime=${encodeURIComponent(since)}`;
+      }
+      const resp = await fetchWithRetry(url);
 
-    if (!resp || !resp[responseKey]) {
-      console.error(`[analysis/congress] Failed to fetch ${endpoint} at offset ${offset}`);
+      if (!resp || !resp[responseKey]) {
+        console.error(`[analysis/congress] Failed to fetch ${endpoint} at offset ${offset}`);
+        break;
+      }
+
+      if (offset === 0) {
+        const pagination = resp.pagination as Record<string, number> | undefined;
+        totalAvailable = pagination?.count || 0;
+        console.log(`[analysis/congress] ${totalAvailable} ${endpoint} items for ${bioguideId}`);
+      }
+
+      const bills = (resp[responseKey] || []) as Record<string, unknown>[];
+      if (bills.length === 0) { hasMore = false; break; }
+
+      for (const bill of bills) {
+        try {
+          // Congress.gov API returns `url` as the API URL, not the web URL.
+          // Build a proper web URL from bill type, congress, and number.
+          const billType = String(bill.type || '').toLowerCase(); // e.g., "s", "hr", "sres"
+          const billNumber = String(bill.number || '');
+          const billCongress = String(bill.congress || '');
+          const billTitle = String(bill.title || '');
+
+          // Map API type codes to congress.gov web URL path segments
+          const typeMap: Record<string, string> = {
+            s: 'senate-bill', hr: 'house-bill', sres: 'senate-resolution',
+            hres: 'house-resolution', sjres: 'senate-joint-resolution',
+            hjres: 'house-joint-resolution', sconres: 'senate-concurrent-resolution',
+            hconres: 'house-concurrent-resolution',
+          };
+          const webType = typeMap[billType] || billType;
+
+          const sourceUrl = billCongress && billNumber
+            ? `https://www.congress.gov/bill/${billCongress}th-congress/${webType}/${billNumber}`
+            : (bill.url as string) || `https://www.congress.gov/bill/${billCongress}/${billType}/${billNumber}`;
+
+          if (await isDuplicate(profile.id, sourceUrl)) continue;
+
+          // Build a readable title: "S. 4111: Windfall Profits Excise Tax Act of 2026"
+          const typeLabel = billType.toUpperCase();
+          const numberPart = billNumber ? `${typeLabel}. ${billNumber}` : typeLabel;
+          const title = billTitle
+            ? `${numberPart}: ${billTitle}`
+            : (numberPart || 'Untitled Bill');
+
+          const latestAction = bill.latestAction as Record<string, string> | undefined;
+          const policyArea = bill.policyArea as Record<string, string> | undefined;
+
+          const summary = [
+            billTitle,
+            subcategory === 'sponsored' ? `Sponsor: ${profile.full_name} (primary)` : `Cosponsor: ${profile.full_name}`,
+            latestAction?.text ? `Latest Action: ${latestAction.text} (${latestAction.actionDate})` : '',
+            policyArea?.name ? `Policy Area: ${policyArea.name}` : '',
+            bill.introducedDate ? `Introduced: ${bill.introducedDate}` : '',
+          ].filter(Boolean).join('\n');
+
+          const keyTopics: string[] = [];
+          if (policyArea?.name) keyTopics.push(policyArea.name);
+
+          const anomaly = checkForAnomalies(profile, { title, summary });
+
+          await supabaseAdmin.from('analysis_data_items').insert({
+            profile_id: profile.id,
+            org_id: orgId,
+            category: 'bill',
+            subcategory,
+            title,
+            summary,
+            key_topics: keyTopics,
+            source_url: sourceUrl,
+            source_name: 'congress.gov',
+            source_trust_level: 'trusted',
+            item_date: latestAction?.actionDate || (bill.introducedDate as string) || null,
+            verification_status: anomaly.isAnomaly ? 'unverified' : 'verified',
+            anomaly_flags: anomaly.isAnomaly ? { flags: anomaly.flags } : {},
+          });
+          created++;
+        } catch (itemErr) {
+          console.error(`[analysis/congress] Error processing bill in ${endpoint}:`, itemErr);
+          // Skip this bill but continue with the rest
+        }
+      }
+
+      offset += bills.length;
+      hasMore = offset < totalAvailable && bills.length === MAX_PER_PAGE;
+
+      if (hasMore) {
+        console.log(`[analysis/congress] ${endpoint}: ${offset}/${totalAvailable}, pausing...`);
+        await delay(PAGE_DELAY_MS);
+      }
+    } catch (pageErr) {
+      console.error(`[analysis/congress] Page fetch error for ${endpoint} at offset ${offset}:`, pageErr);
+      // Stop pagination for this source but don't crash the pipeline
       break;
-    }
-
-    if (offset === 0) {
-      const pagination = resp.pagination as Record<string, number> | undefined;
-      totalAvailable = pagination?.count || 0;
-      console.log(`[analysis/congress] ${totalAvailable} ${endpoint} items for ${bioguideId}`);
-    }
-
-    const bills = (resp[responseKey] || []) as Record<string, unknown>[];
-    if (bills.length === 0) { hasMore = false; break; }
-
-    for (const bill of bills) {
-      const sourceUrl =
-        (bill.url as string) ||
-        `https://www.congress.gov/bill/${bill.congress}/${(String(bill.type || '')).toLowerCase()}/${bill.number}`;
-
-      if (await isDuplicate(profile.id, sourceUrl)) continue;
-
-      const title = `${bill.type || ''}${bill.number || ''}: ${bill.title || 'Untitled'}`;
-      const latestAction = bill.latestAction as Record<string, string> | undefined;
-      const policyArea = bill.policyArea as Record<string, string> | undefined;
-
-      const summary = [
-        bill.title as string,
-        subcategory === 'sponsored' ? `Sponsor: ${profile.full_name} (primary)` : `Cosponsor: ${profile.full_name}`,
-        latestAction?.text ? `Latest Action: ${latestAction.text} (${latestAction.actionDate})` : '',
-        policyArea?.name ? `Policy Area: ${policyArea.name}` : '',
-        bill.introducedDate ? `Introduced: ${bill.introducedDate}` : '',
-      ].filter(Boolean).join('\n');
-
-      const keyTopics: string[] = [];
-      if (policyArea?.name) keyTopics.push(policyArea.name);
-
-      const anomaly = checkForAnomalies(profile, { title, summary });
-
-      await supabaseAdmin.from('analysis_data_items').insert({
-        profile_id: profile.id,
-        org_id: orgId,
-        category: 'bill',
-        subcategory,
-        title,
-        summary,
-        key_topics: keyTopics,
-        source_url: sourceUrl,
-        source_name: 'congress.gov',
-        source_trust_level: 'trusted',
-        item_date: latestAction?.actionDate || (bill.introducedDate as string) || null,
-        verification_status: anomaly.isAnomaly ? 'unverified' : 'verified',
-        anomaly_flags: anomaly.isAnomaly ? { flags: anomaly.flags } : {},
-      });
-      created++;
-    }
-
-    offset += bills.length;
-    hasMore = offset < totalAvailable && bills.length === MAX_PER_PAGE;
-
-    if (hasMore) {
-      console.log(`[analysis/congress] ${endpoint}: ${offset}/${totalAvailable}, pausing...`);
-      await delay(PAGE_DELAY_MS);
     }
   }
 
@@ -513,43 +546,65 @@ async function searchBillsByKeyword(
   let created = 0;
 
   for (const bill of bills) {
-    const sourceUrl =
-      (bill.url as string) ||
-      `https://www.congress.gov/bill/${bill.congress}/${(String(bill.type || '')).toLowerCase()}/${bill.number}`;
+    try {
+      const billType = String(bill.type || '').toLowerCase();
+      const billNumber = String(bill.number || '');
+      const billCongress = String(bill.congress || '');
+      const billTitle = String(bill.title || '');
 
-    if (await isDuplicate(profile.id, sourceUrl)) continue;
+      const typeMap: Record<string, string> = {
+        s: 'senate-bill', hr: 'house-bill', sres: 'senate-resolution',
+        hres: 'house-resolution', sjres: 'senate-joint-resolution',
+        hjres: 'house-joint-resolution', sconres: 'senate-concurrent-resolution',
+        hconres: 'house-concurrent-resolution',
+      };
+      const webType = typeMap[billType] || billType;
 
-    const title = `${bill.type || ''}${bill.number || ''}: ${bill.title || 'Untitled'}`;
-    const latestAction = bill.latestAction as Record<string, string> | undefined;
-    const policyArea = bill.policyArea as Record<string, string> | undefined;
+      const sourceUrl = billCongress && billNumber
+        ? `https://www.congress.gov/bill/${billCongress}th-congress/${webType}/${billNumber}`
+        : (bill.url as string) || `https://www.congress.gov/bill/${billCongress}/${billType}/${billNumber}`;
 
-    const summary = [
-      bill.title as string,
-      latestAction?.text ? `Latest Action: ${latestAction.text} (${latestAction.actionDate})` : '',
-      policyArea?.name ? `Policy Area: ${policyArea.name}` : '',
-    ].filter(Boolean).join('\n');
+      if (await isDuplicate(profile.id, sourceUrl)) continue;
 
-    const keyTopics: string[] = [];
-    if (policyArea?.name) keyTopics.push(policyArea.name);
+      const typeLabel = billType.toUpperCase();
+      const numberPart = billNumber ? `${typeLabel}. ${billNumber}` : typeLabel;
+      const title = billTitle
+        ? `${numberPart}: ${billTitle}`
+        : (numberPart || 'Untitled Bill');
 
-    const anomaly = checkForAnomalies(profile, { title, summary });
+      const latestAction = bill.latestAction as Record<string, string> | undefined;
+      const policyArea = bill.policyArea as Record<string, string> | undefined;
 
-    await supabaseAdmin.from('analysis_data_items').insert({
-      profile_id: profile.id,
-      org_id: orgId,
-      category: 'bill',
-      subcategory: (bill.type as string) || null,
-      title,
-      summary,
-      key_topics: keyTopics,
-      source_url: sourceUrl,
-      source_name: 'congress.gov',
-      source_trust_level: 'trusted',
-      item_date: latestAction?.actionDate || (bill.updateDate as string) || null,
-      verification_status: anomaly.isAnomaly ? 'unverified' : 'verified',
-      anomaly_flags: anomaly.isAnomaly ? { flags: anomaly.flags } : {},
-    });
-    created++;
+      const summary = [
+        billTitle,
+        latestAction?.text ? `Latest Action: ${latestAction.text} (${latestAction.actionDate})` : '',
+        policyArea?.name ? `Policy Area: ${policyArea.name}` : '',
+      ].filter(Boolean).join('\n');
+
+      const keyTopics: string[] = [];
+      if (policyArea?.name) keyTopics.push(policyArea.name);
+
+      const anomaly = checkForAnomalies(profile, { title, summary });
+
+      await supabaseAdmin.from('analysis_data_items').insert({
+        profile_id: profile.id,
+        org_id: orgId,
+        category: 'bill',
+        subcategory: billType || null,
+        title,
+        summary,
+        key_topics: keyTopics,
+        source_url: sourceUrl,
+        source_name: 'congress.gov',
+        source_trust_level: 'trusted',
+        item_date: latestAction?.actionDate || (bill.updateDate as string) || null,
+        verification_status: anomaly.isAnomaly ? 'unverified' : 'verified',
+        anomaly_flags: anomaly.isAnomaly ? { flags: anomaly.flags } : {},
+      });
+      created++;
+    } catch (itemErr) {
+      console.error('[analysis/congress] Error processing keyword bill:', itemErr);
+    }
   }
 
   return created;

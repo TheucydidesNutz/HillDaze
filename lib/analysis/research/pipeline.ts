@@ -49,6 +49,52 @@ export async function runResearchPipeline(profileId: string, options: ResearchOp
   // Update status to in_progress
   await updateProfile(profileId, { research_status: 'in_progress' });
 
+  // Top-level try/catch guarantees status is ALWAYS reset, even on unexpected crashes
+  try {
+    return await _runResearchPipelineInner(profileId, profile, orgId, options);
+  } catch (err) {
+    console.error(`[research-pipeline] Unhandled error for ${profileId}:`, err);
+    const errorMsg = err instanceof Error ? err.message : String(err);
+
+    // Always reset status so the profile doesn't get stuck
+    try {
+      await supabaseAdmin
+        .from('analysis_profiles')
+        .update({
+          research_status: 'error',
+          research_report: {
+            timestamp: new Date().toISOString(),
+            profile_id: profileId,
+            sources: [],
+            total_items_ingested: 0,
+            recommendations: [`Pipeline crashed: ${errorMsg}`],
+          },
+        })
+        .eq('id', profileId);
+    } catch {
+      // Last resort — try the simpler update
+      await updateProfile(profileId, { research_status: 'error' }).catch(() => {});
+    }
+
+    await logWorker('research-pipeline', profileId, 'error', `Pipeline crashed: ${errorMsg}`);
+
+    return {
+      profile_id: profileId,
+      total_items_created: 0,
+      results: {},
+      skippedSources: [],
+      status: 'error',
+    };
+  }
+}
+
+async function _runResearchPipelineInner(
+  profileId: string,
+  profile: Awaited<ReturnType<typeof getProfile>> & {},
+  orgId: string,
+  options: ResearchOptions
+): Promise<PipelineResult> {
+
   // Set baseline attributes for anomaly detection
   await supabaseAdmin
     .from('analysis_profiles')
