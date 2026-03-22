@@ -27,17 +27,21 @@ export async function POST(
   }
 
   // Check for an existing pending/running job
-  const { data: existingJob } = await supabaseAdmin
-    .from('analysis_jobs')
-    .select('id, status')
-    .eq('profile_id', profileId)
-    .in('job_type', ['research_quick_update', 'research_full_rerun'])
-    .in('status', ['pending', 'running'])
-    .limit(1)
-    .maybeSingle();
+  try {
+    const { data: existingJob } = await supabaseAdmin
+      .from('analysis_jobs')
+      .select('id, status')
+      .eq('profile_id', profileId)
+      .in('job_type', ['research_quick_update', 'research_full_rerun'])
+      .in('status', ['pending', 'running'])
+      .limit(1)
+      .maybeSingle();
 
-  if (existingJob) {
-    return NextResponse.json({ status: 'already_running', job_id: existingJob.id });
+    if (existingJob) {
+      return NextResponse.json({ status: 'already_running', job_id: existingJob.id });
+    }
+  } catch {
+    // analysis_jobs table may not exist yet — proceed to try inserting
   }
 
   const body = await request.json().catch(() => ({}));
@@ -51,23 +55,30 @@ export async function POST(
     .eq('id', profileId);
 
   // Enqueue job for the Mac Mini worker
-  const { data: job } = await supabaseAdmin
-    .from('analysis_jobs')
-    .insert({
-      profile_id: profileId,
-      org_id: profile.org_id,
-      job_type: jobType,
-      status: 'pending',
-      params: { mode },
-    })
-    .select('id')
-    .single();
+  try {
+    const { data: job } = await supabaseAdmin
+      .from('analysis_jobs')
+      .insert({
+        profile_id: profileId,
+        org_id: profile.org_id,
+        job_type: jobType,
+        status: 'pending',
+        params: { mode },
+      })
+      .select('id')
+      .single();
 
-  return NextResponse.json({
-    status: 'queued',
-    job_id: job?.id,
-    mode,
-  });
+    return NextResponse.json({
+      status: 'queued',
+      job_id: job?.id,
+      mode,
+    });
+  } catch (err) {
+    return NextResponse.json({
+      error: 'Failed to enqueue job. The analysis_jobs table may not exist yet — run the migration.',
+      details: err instanceof Error ? err.message : String(err),
+    }, { status: 500 });
+  }
 }
 
 // GET endpoint to poll for status + research report

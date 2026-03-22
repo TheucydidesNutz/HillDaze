@@ -89,8 +89,9 @@ async function main() {
         continue;
       }
 
-      // Look up the bill from Congress.gov API
-      const url = `${CONGRESS_BASE}/bill/${parsed.congress}/${parsed.type}/${parsed.number}?api_key=${apiKey}&format=json`;
+      // Look up the bill or amendment from Congress.gov API
+      const endpoint = parsed.kind === 'amendment' ? 'amendment' : 'bill';
+      const url = `${CONGRESS_BASE}/${endpoint}/${parsed.congress}/${parsed.type}/${parsed.number}?api_key=${apiKey}&format=json`;
 
       const resp = await fetch(url, {
         headers: { Accept: 'application/json' },
@@ -140,8 +141,9 @@ async function main() {
 
 interface ParsedBill {
   congress: string;
-  type: string;    // lowercase: "s", "hr", "sres", etc.
+  type: string;    // lowercase: "s", "hr", "sres", "samdt", "hamdt", etc.
   number: string;
+  kind: 'bill' | 'amendment';
 }
 
 function parseBillFromUrl(sourceUrl: string | null): ParsedBill | null {
@@ -152,19 +154,24 @@ function parseBillFromUrl(sourceUrl: string | null): ParsedBill | null {
   if (webMatch) {
     const congress = webMatch[1];
     const webType = webMatch[2];
-    // Reverse map web type to API type
     const reverseMap: Record<string, string> = {};
     for (const [apiType, web] of Object.entries(TYPE_MAP)) {
       reverseMap[web] = apiType;
     }
     const type = reverseMap[webType] || webType;
-    return { congress, type, number: webMatch[3] };
+    return { congress, type, number: webMatch[3], kind: 'bill' };
   }
 
   // Pattern 2: /bill/119/s/4111 (API URL or old format)
-  const apiMatch = sourceUrl.match(/\/bill\/(\d+)\/([\w]+)\/(\d+)/);
-  if (apiMatch) {
-    return { congress: apiMatch[1], type: apiMatch[2].toLowerCase(), number: apiMatch[3] };
+  const apiBillMatch = sourceUrl.match(/\/bill\/(\d+)\/([\w]+)\/(\d+)/);
+  if (apiBillMatch) {
+    return { congress: apiBillMatch[1], type: apiBillMatch[2].toLowerCase(), number: apiBillMatch[3], kind: 'bill' };
+  }
+
+  // Pattern 3: /amendment/119/samdt/4451 (API URL for amendments)
+  const amendMatch = sourceUrl.match(/\/amendment\/(\d+)\/([\w]+)\/(\d+)/);
+  if (amendMatch) {
+    return { congress: amendMatch[1], type: amendMatch[2].toLowerCase(), number: amendMatch[3], kind: 'amendment' };
   }
 
   return null;
@@ -176,16 +183,21 @@ async function processBillResponse(
   data: Record<string, unknown>
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const bill = (data.bill || data) as any;
-  const realTitle = bill.title || bill.latestTitle || bill.officialTitle || '';
-
-  if (!realTitle) {
-    log(WORKER, `  No title in API response for ${parsed.type}${parsed.number} (congress ${parsed.congress})`);
-    return;
-  }
+  const record = (data.amendment || data.bill || data) as any;
+  const realTitle = record.title || record.latestTitle || record.officialTitle
+    || record.description || record.purpose || '';
 
   const typeLabel = parsed.type.toUpperCase();
-  const newTitle = `${typeLabel}. ${parsed.number}: ${realTitle}`;
+  const prefix = parsed.kind === 'amendment' ? `${typeLabel} ${parsed.number}` : `${typeLabel}. ${parsed.number}`;
+
+  let newTitle: string;
+  if (realTitle) {
+    newTitle = `${prefix}: ${realTitle}`;
+  } else {
+    // No title from API — at least fix the ": Untitled" to show the amendment/bill number
+    newTitle = `${prefix} (${parsed.kind === 'amendment' ? 'Amendment' : 'Bill'}, ${parsed.congress}th Congress)`;
+    log(WORKER, `  No title from API for ${parsed.type}${parsed.number} — using fallback: "${newTitle}"`);
+  }
 
   // Also fix the summary if it starts with an empty line
   const { error: updateError } = await supabase
