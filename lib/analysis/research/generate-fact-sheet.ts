@@ -52,19 +52,51 @@ export async function generateFactSheet(profileId: string): Promise<Record<strin
 
       await delay(1000);
 
-      // Current session sponsored legislation
+      // Current session sponsored legislation (119th Congress only)
       const billsResp = await fetchWithRetry(
-        `${CONGRESS_BASE}/member/${bioguideId}/sponsored-legislation?congress=119&limit=20&api_key=${congressApiKey}&format=json`
+        `${CONGRESS_BASE}/member/${bioguideId}/sponsored-legislation?congress=119&limit=50&api_key=${congressApiKey}&format=json`
       );
 
       if (billsResp?.sponsoredLegislation) {
-        congressData.bills_sponsored_current_session = (billsResp.sponsoredLegislation as Array<Record<string, unknown>>).map(b => ({
-          number: `${b.type || ''}${b.number || ''}`,
-          title: b.title || 'Untitled',
+        const allItems = billsResp.sponsoredLegislation as Array<Record<string, unknown>>;
+
+        // Separate bills from amendments based on the API URL structure
+        // Amendments: url contains "/amendment/", have `amendmentNumber` field, type is null
+        // Bills: url contains "/bill/", have `number` and `type` fields
+        const bills: Array<Record<string, unknown>> = [];
+        const amendments: string[] = [];
+
+        for (const b of allItems) {
+          const apiUrl = String(b.url || '');
+          const congress = Number(b.congress || 0);
+          if (congress && congress !== 119) continue;
+
+          if (apiUrl.includes('/amendment/')) {
+            // Extract amendment type+number from URL: .../amendment/119/samdt/4451
+            const match = apiUrl.match(/\/amendment\/\d+\/(\w+)\/(\d+)/);
+            if (match) {
+              amendments.push(`${match[1].toUpperCase()} ${match[2]}`);
+            } else {
+              const num = b.amendmentNumber || b.number || '';
+              if (num) amendments.push(`AMDT ${num}`);
+            }
+          } else {
+            bills.push(b);
+          }
+        }
+
+        congressData.bills_sponsored_current_session = bills.map(b => ({
+          number: `${String(b.type || '').toUpperCase()}. ${b.number || ''}`.trim(),
+          title: b.title || b.latestTitle || 'Untitled',
           status: (b.latestAction as Record<string, string>)?.text || 'Introduced',
           url: (b.url as string)?.replace('api.congress.gov/v3', 'congress.gov') || null,
           date: (b.latestAction as Record<string, string>)?.actionDate || (b.introducedDate as string) || null,
         }));
+
+        if (amendments.length > 0) {
+          congressData.amendments_current_session = amendments;
+        }
+
         sourcesUsed.push('congress.gov/legislation');
       }
     } catch (err) {

@@ -111,12 +111,20 @@ interface SoulContent {
 
 // ── Props ────────────────────────────────────────────────────────────
 
+interface SourceInfo {
+  title: string;
+  source_name: string;
+  source_url: string | null;
+  item_date: string | null;
+}
+
 interface VoiceViewerProps {
   profile: AnalysisProfile;
   soulDocument: AnalysisSoulDocument | null;
   orgSlug: string;
   verifiedItemCount: number;
   pendingProposalCount: number;
+  sourceMap?: Record<string, SourceInfo>;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -186,13 +194,13 @@ function intensityBadge(intensity?: string) {
   );
 }
 
-function CitationChip({ citation, index }: { citation: Citation; index: number }) {
+function CitationChip({ citation, index, sourceMap }: { citation: Citation; index: number; sourceMap: Record<string, SourceInfo> }) {
   const isObj = typeof citation === 'object' && citation !== null;
   const sourceId = isObj ? (citation.source_item_id || '') : String(citation);
   const quote = isObj ? citation.quote : undefined;
 
-  // Truncate source ID for display (UUIDs are long)
-  const shortId = sourceId.length > 12 ? sourceId.slice(0, 8) + '...' : sourceId;
+  // Look up resolved source info
+  const info = sourceMap[sourceId];
 
   return (
     <span className="relative group/cite inline-flex">
@@ -205,15 +213,37 @@ function CitationChip({ citation, index }: { citation: Citation; index: number }
       {/* Hover tooltip */}
       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cite:block z-50 pointer-events-none">
         <div
-          className="rounded-lg border border-white/15 shadow-xl p-2.5 w-64 text-[11px] leading-relaxed"
+          className="rounded-lg border border-white/15 shadow-xl p-2.5 w-72 text-[11px] leading-relaxed"
           style={{ backgroundColor: 'var(--analysis-bg, #0f0f23)', color: 'var(--analysis-text)' }}
         >
-          <div className="font-medium opacity-70 mb-1 font-mono text-[10px]">
-            Source: {shortId}
-          </div>
+          {info ? (
+            <>
+              <div className="font-medium opacity-90 mb-0.5">{info.source_name}</div>
+              <div className="opacity-60 mb-1 line-clamp-2">{info.title}</div>
+              {info.source_url && (
+                <a
+                  href={info.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block truncate mb-1 pointer-events-auto hover:underline"
+                  style={{ color: 'var(--analysis-primary)' }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  {info.source_url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 50)}
+                </a>
+              )}
+              {info.item_date && (
+                <div className="opacity-40">{new Date(info.item_date).toLocaleDateString()}</div>
+              )}
+            </>
+          ) : (
+            <div className="font-mono text-[10px] opacity-50">
+              Source: {sourceId.length > 12 ? sourceId.slice(0, 8) + '...' : sourceId}
+            </div>
+          )}
           {quote && (
-            <div className="opacity-50 line-clamp-3 italic">
-              &ldquo;{quote.length > 120 ? quote.slice(0, 120) + '...' : quote}&rdquo;
+            <div className="opacity-50 mt-1 line-clamp-2 italic border-t border-white/5 pt-1">
+              &ldquo;{quote.length > 100 ? quote.slice(0, 100) + '...' : quote}&rdquo;
             </div>
           )}
         </div>
@@ -222,7 +252,7 @@ function CitationChip({ citation, index }: { citation: Citation; index: number }
   );
 }
 
-function CitationRow({ citations }: { citations?: Citation[] }) {
+function CitationRow({ citations, sourceMap }: { citations?: Citation[]; sourceMap: Record<string, SourceInfo> }) {
   if (!citations || citations.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-1.5 pt-3 mt-3 border-t border-white/5">
@@ -231,7 +261,7 @@ function CitationRow({ citations }: { citations?: Citation[] }) {
         const key = typeof citation === 'object' && citation !== null
           ? (citation.source_item_id || `citation-${i}`)
           : citation;
-        return <CitationChip key={key} citation={citation} index={i} />;
+        return <CitationChip key={key} citation={citation} index={i} sourceMap={sourceMap} />;
       })}
     </div>
   );
@@ -296,6 +326,7 @@ export default function VoiceViewer({
   orgSlug,
   verifiedItemCount,
   pendingProposalCount,
+  sourceMap = {},
 }: VoiceViewerProps) {
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
@@ -541,7 +572,7 @@ export default function VoiceViewer({
                 </div>
               )}
 
-              <CitationRow citations={commStyle.source_citations} />
+              <CitationRow citations={commStyle.source_citations} sourceMap={sourceMap} />
             </AccordionSection>
           )}
 
@@ -583,7 +614,7 @@ export default function VoiceViewer({
                             ))}
                           </div>
                         )}
-                        <CitationRow citations={issue.source_citations} />
+                        <CitationRow citations={issue.source_citations} sourceMap={sourceMap} />
                       </div>
                     ))}
                   </div>
@@ -627,7 +658,7 @@ export default function VoiceViewer({
                           {position && (
                             <p className="text-sm opacity-70 mt-1 leading-relaxed">{safe(position)}</p>
                           )}
-                          <CitationRow citations={citations} />
+                          <CitationRow citations={citations} sourceMap={sourceMap} />
                         </div>
                       );
                     })}
@@ -635,7 +666,7 @@ export default function VoiceViewer({
                 </div>
               )}
 
-              <CitationRow citations={priorities.source_citations} />
+              <CitationRow citations={priorities.source_citations} sourceMap={sourceMap} />
             </AccordionSection>
           )}
 
@@ -697,7 +728,7 @@ export default function VoiceViewer({
                 </div>
               )}
 
-              <CitationRow citations={howTo.source_citations} />
+              <CitationRow citations={howTo.source_citations} sourceMap={sourceMap} />
             </AccordionSection>
           )}
 
@@ -739,7 +770,7 @@ export default function VoiceViewer({
                 </div>
               )}
 
-              <CitationRow citations={voting.source_citations} />
+              <CitationRow citations={voting.source_citations} sourceMap={sourceMap} />
             </AccordionSection>
           )}
 
@@ -774,7 +805,7 @@ export default function VoiceViewer({
                 </div>
               )}
 
-              <CitationRow citations={personal.source_citations} />
+              <CitationRow citations={personal.source_citations} sourceMap={sourceMap} />
             </AccordionSection>
           )}
 
@@ -823,7 +854,7 @@ export default function VoiceViewer({
                 </div>
               )}
 
-              <CitationRow citations={donations.source_citations} />
+              <CitationRow citations={donations.source_citations} sourceMap={sourceMap} />
             </AccordionSection>
           )}
 
@@ -907,7 +938,7 @@ export default function VoiceViewer({
                 </div>
               )}
 
-              <CitationRow citations={media.source_citations} />
+              <CitationRow citations={media.source_citations} sourceMap={sourceMap} />
             </AccordionSection>
           )}
         </div>

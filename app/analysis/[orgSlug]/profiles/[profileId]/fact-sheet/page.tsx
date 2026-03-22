@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import {
   Loader2, RefreshCw, Phone, Mail, Building2, Globe, GraduationCap,
@@ -38,6 +38,11 @@ export default function FactSheetPage() {
   // News items
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [newsItems, setNewsItems] = useState<any[]>([]);
+
+  // Polling
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [pollTimedOut, setPollTimedOut] = useState(false);
 
   // Sections
   const [expanded, setExpanded] = useState(true);
@@ -93,17 +98,56 @@ export default function FactSheetPage() {
   useEffect(() => { fetchFactSheet(); fetchNotes(); }, [fetchFactSheet, fetchNotes]);
   useEffect(() => { if (orgId) fetchNews(); }, [orgId, fetchNews]);
 
+  function stopPolling() {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+  }
+
+  // Cleanup on unmount
+  useEffect(() => () => stopPolling(), []);
+
   async function handleGenerate() {
+    // Don't clear existing fact sheet — show spinner overlay instead
     setGenerating(true);
+    setPollTimedOut(false);
+    stopPolling();
+
+    const startedAt = new Date().toISOString();
+
     try {
       const res = await fetch(`/api/analysis/profiles/${profileId}/fact-sheet`, { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        setFactSheet(data.fact_sheet);
-        setGeneratedAt(new Date().toISOString());
+      if (!res.ok) {
+        setGenerating(false);
+        return;
       }
-    } catch { /* */ }
-    setGenerating(false);
+
+      // POST returns { status: 'queued' } — now poll for completion
+      pollRef.current = setInterval(async () => {
+        try {
+          const pollRes = await fetch(`/api/analysis/profiles/${profileId}/fact-sheet`);
+          if (!pollRes.ok) return;
+          const data = await pollRes.json();
+
+          // Check if fact_sheet_generated_at is newer than when we clicked Generate
+          if (data.fact_sheet && data.generated_at && data.generated_at > startedAt) {
+            stopPolling();
+            setFactSheet(data.fact_sheet);
+            setGeneratedAt(data.generated_at);
+            setGenerating(false);
+          }
+        } catch { /* keep polling */ }
+      }, 3000);
+
+      // Safety timeout — 2 minutes
+      timeoutRef.current = setTimeout(() => {
+        stopPolling();
+        setGenerating(false);
+        setPollTimedOut(true);
+      }, 120000);
+
+    } catch {
+      setGenerating(false);
+    }
   }
 
   async function handleAddNote() {
@@ -164,8 +208,15 @@ export default function FactSheetPage() {
         </button>
       </div>
 
+      {/* Timeout message */}
+      {pollTimedOut && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm text-amber-400">
+          Generation is taking longer than expected. The page will update when ready.
+        </div>
+      )}
+
       {/* No fact sheet state */}
-      {!fs && !generating && (
+      {!fs && !generating && !pollTimedOut && (
         <div className="text-center py-16 rounded-xl border border-white/10 bg-white/[0.02]" style={{ color: 'var(--analysis-text)' }}>
           <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-20" />
           <p className="text-sm opacity-50 mb-2">No fact sheet generated yet</p>
@@ -175,7 +226,7 @@ export default function FactSheetPage() {
         </div>
       )}
 
-      {/* Generating indicator */}
+      {/* Generating from scratch (no existing data) */}
       {generating && !fs && (
         <div className="text-center py-16 rounded-xl border border-white/10 bg-white/[0.02]" style={{ color: 'var(--analysis-text)' }}>
           <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin opacity-40" />
@@ -186,7 +237,16 @@ export default function FactSheetPage() {
 
       {/* Fact sheet content */}
       {fs && (
-        <div className="space-y-4">
+        <div className="relative space-y-4">
+          {/* Regenerating overlay — shows on top of existing content */}
+          {generating && (
+            <div className="absolute inset-0 z-10 flex items-start justify-center pt-20 bg-[var(--analysis-bg,#0f0f23)]/70 rounded-xl backdrop-blur-[2px]">
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--analysis-primary)' }} />
+                <span className="text-sm opacity-70" style={{ color: 'var(--analysis-text)' }}>Regenerating...</span>
+              </div>
+            </div>
+          )}
           {/* Collapsible wrapper */}
           <button
             onClick={() => setExpanded(!expanded)}
@@ -295,34 +355,51 @@ export default function FactSheetPage() {
               )}
 
               {/* ── Bills — Current Session ───────────────────── */}
-              {fs.bills_sponsored_current_session && fs.bills_sponsored_current_session.length > 0 && (
-                <Section title="Bills — 119th Congress" icon={ScrollText}>
-                  <ul className="space-y-2">
-                    {fs.bills_sponsored_current_session.slice(0, 5).map((b: { number: string; title: string; status: string; url?: string; date?: string }, i: number) => (
-                      <li key={i} className="text-sm" style={{ color: 'var(--analysis-text)' }}>
-                        <div className="flex items-start gap-2">
-                          <span className="font-mono text-xs opacity-50 shrink-0 mt-0.5">{b.number}</span>
-                          <div className="min-w-0">
-                            {b.url ? (
-                              <a href={b.url} target="_blank" rel="noopener noreferrer"
-                                className="hover:underline" style={{ color: 'var(--analysis-primary)' }}>
-                                {b.title}
-                              </a>
-                            ) : (
-                              <span className="opacity-80">{b.title}</span>
-                            )}
-                            <div className="text-xs opacity-40 mt-0.5">
-                              {b.status}{b.date ? ` — ${b.date}` : ''}
+              {((fs.bills_sponsored_current_session && fs.bills_sponsored_current_session.length > 0) || (fs.amendments_current_session && fs.amendments_current_session.length > 0)) && (
+                <Section title="Legislation — 119th Congress" icon={ScrollText}>
+                  {/* Bills */}
+                  {fs.bills_sponsored_current_session && fs.bills_sponsored_current_session.length > 0 && (
+                    <>
+                      <ul className="space-y-2">
+                        {fs.bills_sponsored_current_session.slice(0, 8).map((b: { number: string; title: string; status: string; url?: string; date?: string }, i: number) => (
+                          <li key={i} className="text-sm" style={{ color: 'var(--analysis-text)' }}>
+                            <div className="flex items-start gap-2">
+                              <span className="font-mono text-xs opacity-50 shrink-0 mt-0.5">{b.number}</span>
+                              <div className="min-w-0">
+                                {b.url ? (
+                                  <a href={b.url} target="_blank" rel="noopener noreferrer"
+                                    className="hover:underline" style={{ color: 'var(--analysis-primary)' }}>
+                                    {b.title}
+                                  </a>
+                                ) : (
+                                  <span className="opacity-80">{b.title}</span>
+                                )}
+                                <div className="text-xs opacity-40 mt-0.5">
+                                  {b.status}{b.date ? ` — ${b.date}` : ''}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                  {fs.bills_sponsored_current_session.length > 5 && (
-                    <p className="text-xs mt-2 opacity-40" style={{ color: 'var(--analysis-text)' }}>
-                      + {fs.bills_sponsored_current_session.length - 5} more
-                    </p>
+                          </li>
+                        ))}
+                      </ul>
+                      {fs.bills_sponsored_current_session.length > 8 && (
+                        <p className="text-xs mt-2 opacity-40" style={{ color: 'var(--analysis-text)' }}>
+                          + {fs.bills_sponsored_current_session.length - 8} more bills
+                        </p>
+                      )}
+                    </>
+                  )}
+
+                  {/* Amendments — compact list */}
+                  {fs.amendments_current_session && fs.amendments_current_session.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-white/5">
+                      <span className="text-[10px] uppercase tracking-wider opacity-40 font-medium" style={{ color: 'var(--analysis-text)' }}>
+                        Amendments ({fs.amendments_current_session.length})
+                      </span>
+                      <p className="text-xs opacity-50 mt-1 leading-relaxed" style={{ color: 'var(--analysis-text)' }}>
+                        {(fs.amendments_current_session as string[]).join(', ')}
+                      </p>
+                    </div>
                   )}
                 </Section>
               )}
