@@ -426,7 +426,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               <input
                 ref={photoInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/png,image/svg+xml,image/jpeg,image/jpg"
                 onChange={handlePhotoUpload}
                 className="hidden"
               />
@@ -707,7 +707,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             <input
               ref={albumPhotoInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/png,image/svg+xml,image/jpeg,image/jpg"
               onChange={handleAlbumPhotoUpload}
               className="hidden"
             />

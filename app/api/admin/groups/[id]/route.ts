@@ -27,19 +27,17 @@ export async function PATCH(
 
   // FIX: Explicitly pick allowed fields (strip id, trip_id)
   const { data, error } = await supabaseAdmin
-    .from('groups')
-    .update({
-      name: body.name,
-      description: body.description,
-      lead_name: body.lead_name,
-      lead_phone: body.lead_phone,
-      lead_email: body.lead_email,
-      lead_photo_url: body.lead_photo_url,
-    })
-    .eq('id', groupId)
-    .eq('trip_id', access.tripId)
-    .select()
-    .single()
+  .from('groups')
+  .insert([{
+    name: body.name,
+    lead_name: body.lead_name || null,
+    lead_phone: body.lead_phone || null,
+    lead_email: body.lead_email || null,
+    lead_photo_url: body.lead_photo_url || null,
+    trip_id: access.tripId,
+  }])
+  .select()
+  .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)

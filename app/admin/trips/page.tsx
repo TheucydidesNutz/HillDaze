@@ -689,7 +689,7 @@ export default function TripsPage() {
                         )}
                         <input
                           type="file"
-                          accept="image/jpeg,image/png,image/webp"
+                          accept="image/png,image/svg+xml,image/jpeg,image/jpg"
                           onChange={async e => {
                             const file = e.target.files?.[0]
                             if (!file) return
@@ -802,7 +802,7 @@ export default function TripsPage() {
                     )}
                     <input
                       type="file"
-                      accept="image/jpeg,image/png,image/webp"
+                      accept="image/png,image/svg+xml,image/jpeg,image/jpg"
                       onChange={async e => {
                         const file = e.target.files?.[0]
                         if (!file) return
@@ -961,7 +961,7 @@ export default function TripsPage() {
                         <div>
                           <input
                             type="file"
-                            accept="image/jpeg,image/png,image/webp"
+                            accept="image/png,image/svg+xml,image/jpeg,image/jpg"
                             onChange={handleAdminPhotoUpload}
                             className="text-sm text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer"
                           />
