@@ -6,6 +6,7 @@ import AttendeeCalendar from '@/components/AttendeeCalendar'
 import JournalSection from '@/components/JournalSection'
 import MapModal from '@/components/MapModal'
 import BroadcastFeed from '@/components/BroadcastFeed'
+import AttendeesModal from '@/components/AttendeesModal'
 import {
   Phone,
   Mail,
@@ -23,6 +24,7 @@ import {
   X,
   ExternalLink,
   Zap,
+  Users,
 } from 'lucide-react'
 
 interface FactSheet {
@@ -93,6 +95,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   // Fact sheet — opens in new browser tab
   const [loadingFactSheet, setLoadingFactSheet] = useState(false)
 
+  const [showAttendees, setShowAttendees] = useState(false)
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
@@ -101,21 +104,27 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   useEffect(() => {
     params.then(async ({ token: t }) => {
       setToken(t)
-      const [attendeeRes, mapRes] = await Promise.all([
-        fetch(`/api/attendee/${t}`),
-        fetch(`/api/attendee/map?token=${t}`),
-      ])
-      const [attendeeData, mapData] = await Promise.all([
-        attendeeRes.json(),
-        mapRes.json(),
-      ])
-      if (attendeeData.error) setError(attendeeData.error)
-      else setData(attendeeData)
-      if (mapData.map) setMap(mapData.map)
-      const docsRes = await fetch(`/api/attendee/documents?token=${t}`)
-      const docsData = await docsRes.json()
-      if (Array.isArray(docsData)) setDocuments(docsData)
-      setLoading(false)
+      try {
+        const [attendeeRes, mapRes] = await Promise.all([
+          fetch(`/api/attendee/${t}`),
+          fetch(`/api/attendee/map?token=${t}`),
+        ])
+        const [attendeeData, mapData] = await Promise.all([
+          attendeeRes.json(),
+          mapRes.json(),
+        ])
+        if (attendeeData.error) setError(attendeeData.error)
+        else setData(attendeeData)
+        if (mapData.map) setMap(mapData.map)
+        const docsRes = await fetch(`/api/attendee/documents?token=${t}`)
+        const docsData = await docsRes.json()
+        if (Array.isArray(docsData)) setDocuments(docsData)
+      } catch (err) {
+        console.error('Failed to load attendee data:', err)
+        setError('Failed to load your information. Please try refreshing the page.')
+      } finally {
+        setLoading(false)
+      }
     })
   }, [params])
 
@@ -381,6 +390,11 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => setShowAttendees(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors">
+              <Users className="w-4 h-4 text-emerald-400" />
+              <span className="hidden sm:inline">Attendees</span>
+            </button>
             {map && (
               <button onClick={handleMapOpen}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors">
@@ -719,6 +733,9 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
 
       {showMap && mapUrl && map && (
         <MapModal mapUrl={mapUrl} mapLabel={map.label} onClose={() => setShowMap(false)} />
+      )}
+      {showAttendees && token && (
+        <AttendeesModal token={token} onClose={() => setShowAttendees(false)} />
       )}
     </div>
   )
