@@ -74,13 +74,15 @@ export default function EventModal({ event, participants, groups, onClose, onSav
     if (!form.end_time) return alert('End time is required')
     setSaving(true)
 
-    const payload = {
-      ...form,
-      participant_ids: selectedParticipants,
-      group_ids: selectedGroups,
-    }
-
     const isNew = !event?.id || event.id === ''
+
+    const payload: any = { ...form }
+    // Only include participant/group assignments for new events
+    // (editing doesn't show the assignment UI, so these would be empty and wipe all assignments)
+    if (isNew) {
+      payload.participant_ids = selectedParticipants
+      payload.group_ids = selectedGroups
+    }
     const url = isNew ? '/api/admin/events' : `/api/admin/events/${event.id}`
     const method = isNew ? 'POST' : 'PATCH'
 

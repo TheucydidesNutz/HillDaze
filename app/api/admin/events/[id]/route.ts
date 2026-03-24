@@ -44,8 +44,13 @@ export async function PATCH(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // If participant_ids provided, replace all assignments
-  if (participant_ids !== undefined) {
+  // If participant_ids explicitly provided with actual values, replace all assignments
+  // Skip if participant_ids is absent (edit without reassignment) or empty with no groups
+  // to prevent accidental wipe of all assignments
+  const hasAssignments = participant_ids !== undefined &&
+    ((Array.isArray(participant_ids) && participant_ids.length > 0) ||
+     (Array.isArray(group_ids) && group_ids.length > 0))
+  if (hasAssignments) {
     await supabaseAdmin
       .from('participant_events')
       .delete()

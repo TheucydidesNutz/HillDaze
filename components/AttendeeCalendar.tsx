@@ -5,7 +5,7 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import listPlugin from '@fullcalendar/list'
 import { Event } from '@/lib/types'
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { Clock, MapPin, X, NotebookPen } from 'lucide-react'
 
 interface EventContext {
@@ -26,12 +26,36 @@ interface Props {
 
 export default function AttendeeCalendar({ events, timezone, onNoteAboutEvent }: Props) {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+  const [viewRange, setViewRange] = useState<{ start: Date; end: Date } | null>(null)
 
-  const ONE_HOUR_AGO = new Date(Date.now() - 60 * 60 * 1000)
+  const timeBounds = useMemo(() => {
+    if (!viewRange) return { slotMinTime: '08:00:00', slotMaxTime: '18:00:00' }
+    const visibleEvents = events.filter(e => {
+      const start = new Date(e.start_time)
+      return start >= viewRange.start && start < viewRange.end
+    })
+    if (visibleEvents.length === 0) {
+      return { slotMinTime: '08:00:00', slotMaxTime: '18:00:00' }
+    }
+    const earliestHour = Math.min(...visibleEvents.map(e => new Date(e.start_time).getHours()))
+    const latestHour = Math.max(...visibleEvents.map(e => {
+      const end = new Date(e.end_time)
+      return end.getMinutes() > 0 ? end.getHours() + 1 : end.getHours()
+    }))
+    return {
+      slotMinTime: `${String(Math.max(earliestHour - 1, 6)).padStart(2, '0')}:00:00`,
+      slotMaxTime: `${String(Math.min(latestHour + 1, 23)).padStart(2, '0')}:00:00`,
+    }
+  }, [events, viewRange])
+
+  const handleDatesSet = useCallback((dateInfo: any) => {
+    setViewRange({ start: dateInfo.start, end: dateInfo.end })
+  }, [])
 
   const calendarEvents = events.map(e => {
-    const recentlyUpdated = e.updated_at && new Date(e.updated_at) > ONE_HOUR_AGO &&
-      new Date(e.updated_at) > new Date(e.created_at)
+    // Show orange if event was ever modified after creation (2s threshold for trigger timing)
+    const recentlyUpdated = e.updated_at && e.created_at &&
+      new Date(e.updated_at).getTime() - new Date(e.created_at).getTime() > 2000
     return {
       id: e.id,
       title: recentlyUpdated ? `⚡ ${e.title}` : e.title,
@@ -81,6 +105,9 @@ export default function AttendeeCalendar({ events, timezone, onNoteAboutEvent }:
         }}
         events={calendarEvents}
         eventClick={handleEventClick}
+        datesSet={handleDatesSet}
+        slotMinTime={timeBounds.slotMinTime}
+        slotMaxTime={timeBounds.slotMaxTime}
         height={events.length === 0 ? 300 : 'auto'}
         eventDisplay="block"
         timeZone={timezone || 'local'}

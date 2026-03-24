@@ -21,6 +21,8 @@ interface CalendarEvent {
   end_time: string
   location: string
   type: 'mandatory' | 'optional'
+  created_at: string
+  updated_at: string
 }
 
 // Convert an IANA timezone (e.g. "America/New_York") to an offset string
@@ -92,7 +94,7 @@ export default function EventsPage() {
     }
   }
 
-  function handleSaved(saved: CalendarEvent) {
+  function handleSaved(saved: any) {
     setEvents(prev => {
       const exists = prev.find(e => e.id === saved.id)
       if (exists) return prev.map(e => e.id === saved.id ? saved : e)
@@ -121,13 +123,16 @@ export default function EventsPage() {
     const cleanStart = e.start_time?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
     const cleanEnd = (e.end_time || e.start_time)?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
 
+    const wasUpdated = e.updated_at && e.created_at &&
+      new Date(e.updated_at).getTime() - new Date(e.created_at).getTime() > 2000
+
     return {
       id: e.id,
-      title: e.title,
+      title: wasUpdated ? `⚡ ${e.title}` : e.title,
       start: `${cleanStart}${startOffset}`,
       end: `${cleanEnd}${endOffset}`,
-      backgroundColor: e.type === 'mandatory' ? '#EF4444' : '#3B82F6',
-      borderColor: e.type === 'mandatory' ? '#DC2626' : '#2563EB',
+      backgroundColor: wasUpdated ? '#D97706' : e.type === 'mandatory' ? '#EF4444' : '#3B82F6',
+      borderColor: wasUpdated ? '#B45309' : e.type === 'mandatory' ? '#DC2626' : '#2563EB',
       extendedProps: { location: e.location, description: e.description, type: e.type }
     }
   })
@@ -161,6 +166,10 @@ export default function EventsPage() {
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded-full bg-blue-500 inline-block"></span>
                 <span className="text-slate-400">Optional</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-amber-600 inline-block"></span>
+                <span className="text-slate-400">⚡ Updated</span>
               </span>
             </div>
 
