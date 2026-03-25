@@ -41,7 +41,7 @@ body {
 }
 
 [style*="--theme-bg"] .bg-slate-700 {
-  background-color: var(--theme-border) !important;
+  background-color: var(--theme-secondary) !important;
 }
 
 [style*="--theme-bg"] .border-slate-800,
