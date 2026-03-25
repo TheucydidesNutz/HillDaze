@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { TIER_LIMITS, TIER_NAMES, isExpired } from '@/lib/limits'
-import type { SubscriptionTier } from '@/lib/limits'
+import { TIER_LIMITS, TIER_NAMES, isExpired } from '@/lib/events/limits'
+import type { SubscriptionTier } from '@/lib/events/limits'
 
 interface UsageData {
   tier: SubscriptionTier
@@ -15,7 +15,7 @@ export default function UsageBanner() {
 
   useEffect(() => {
     async function load() {
-      const res = await fetch('/api/admin/usage')
+      const res = await fetch('/api/events/admin/usage')
       if (!res.ok) return
       const data = await res.json()
       setUsage({

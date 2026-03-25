@@ -20,8 +20,8 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url)
 
-  // Only cache requests under /attendee/ paths — leave the rest untouched
-  if (!url.pathname.startsWith('/attendee/')) return
+  // Only cache requests under /events/attendee/ paths — leave the rest untouched
+  if (!url.pathname.startsWith('/events/attendee/')) return
 
   // Network first for API calls
   if (url.pathname.startsWith('/api/')) {

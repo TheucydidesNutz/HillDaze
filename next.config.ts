@@ -4,8 +4,9 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['unpdf', 'pdfjs-dist', 'mammoth'],
   async redirects() {
     return [
-      // Remove or comment out the root redirect
-      // { source: '/', destination: '/admin/login', permanent: false },
+      { source: '/', destination: '/home', permanent: false },
+      { source: '/admin/:path*', destination: '/events/admin/:path*', permanent: false },
+      { source: '/attendee/:path*', destination: '/events/attendee/:path*', permanent: false },
     ]
   },
 };

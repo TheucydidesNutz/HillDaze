@@ -22,21 +22,28 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Admin routes
-  if (
-    request.nextUrl.pathname.startsWith('/admin') &&
-    !request.nextUrl.pathname.startsWith('/admin/login') &&
-    !request.nextUrl.pathname.startsWith('/admin/signup') &&
-    !user
-  ) {
+  // Hub page
+  if (request.nextUrl.pathname === '/home' && !user) {
     const url = request.nextUrl.clone()
-    url.pathname = '/admin/login'
+    url.pathname = '/events/admin/login'
     return NextResponse.redirect(url)
   }
 
-  if (request.nextUrl.pathname === '/admin/login' && user) {
+  // Events admin routes
+  if (
+    request.nextUrl.pathname.startsWith('/events/admin') &&
+    !request.nextUrl.pathname.startsWith('/events/admin/login') &&
+    !request.nextUrl.pathname.startsWith('/events/admin/signup') &&
+    !user
+  ) {
     const url = request.nextUrl.clone()
-    url.pathname = '/admin/trips'
+    url.pathname = '/events/admin/login'
+    return NextResponse.redirect(url)
+  }
+
+  if (request.nextUrl.pathname === '/events/admin/login' && user) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/home'
     return NextResponse.redirect(url)
   }
 
@@ -68,5 +75,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/intel/:path*', '/api/intel/:path*', '/analysis/:path*', '/api/analysis/:path*', '/api/shared/:path*'],
+  matcher: ['/home', '/events/:path*', '/intel/:path*', '/api/intel/:path*', '/analysis/:path*', '/api/analysis/:path*', '/api/shared/:path*'],
 }

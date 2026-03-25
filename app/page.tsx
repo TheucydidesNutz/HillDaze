@@ -312,9 +312,9 @@ export default function LandingPage() {
           <div className="flex items-center gap-2 md:gap-4">
             {/* Hide Pricing link on very small screens to avoid crowding */}
             <a href="/pricing" className="hidden sm:block text-slate-400 hover:text-white text-sm transition-colors">Pricing</a>
-            <a href="/admin/login" className="text-slate-400 hover:text-white text-sm transition-colors">Sign in</a>
+            <a href="/events/admin/login" className="text-slate-400 hover:text-white text-sm transition-colors">Sign in</a>
             <button
-              onClick={() => router.push('/admin/signup')}
+              onClick={() => router.push('/events/admin/signup')}
               className="px-3 py-1.5 md:px-4 md:py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
             >
               Get started
@@ -347,7 +347,7 @@ export default function LandingPage() {
           {/* FIX: stack buttons vertically on mobile, side-by-side on sm+ */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4">
             <button
-              onClick={() => router.push('/admin/signup')}
+              onClick={() => router.push('/events/admin/signup')}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 md:px-8 md:py-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-colors text-base md:text-lg"
             >
               Get started free
@@ -533,7 +533,7 @@ export default function LandingPage() {
             Join the organizers who have stopped herding cats and started running coordinated, professional group travel.
           </p>
           <button
-            onClick={() => router.push('/admin/signup')}
+            onClick={() => router.push('/events/admin/signup')}
             className="flex items-center gap-2 px-8 py-4 md:px-10 md:py-5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors text-lg md:text-xl mx-auto"
           >
             Get started free
@@ -551,8 +551,8 @@ export default function LandingPage() {
           <p className="text-slate-600 text-sm italic">Group travel, coordinated.</p>
           <div className="flex items-center gap-4 md:gap-6 text-slate-500 text-sm">
             <a href="/pricing" className="hover:text-white transition-colors">Pricing</a>
-            <a href="/admin/login" className="hover:text-white transition-colors">Sign in</a>
-            <a href="/admin/signup" className="hover:text-white transition-colors">Sign up</a>
+            <a href="/events/admin/login" className="hover:text-white transition-colors">Sign in</a>
+            <a href="/events/admin/signup" className="hover:text-white transition-colors">Sign up</a>
           </div>
         </div>
       </footer>

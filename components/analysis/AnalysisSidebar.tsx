@@ -102,16 +102,25 @@ export default function AnalysisSidebar({
         style={{ backgroundColor: 'var(--analysis-bg)' }}
       >
         {/* Logo area */}
-        <div className="p-4 border-b border-white/10 flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs"
-            style={{ backgroundColor: 'var(--analysis-primary)' }}
-          >
-            CA
+        <div className="p-4 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs"
+              style={{ backgroundColor: 'var(--analysis-primary)' }}
+            >
+              CA
+            </div>
+            <span className="text-sm font-semibold" style={{ color: 'var(--analysis-text)' }}>
+              Analysis
+            </span>
           </div>
-          <span className="text-sm font-semibold" style={{ color: 'var(--analysis-text)' }}>
-            Analysis
-          </span>
+          <Link
+            href="/home"
+            className="mt-2 flex items-center gap-1.5 text-xs opacity-50 hover:opacity-100 transition-opacity"
+            style={{ color: 'var(--analysis-text)' }}
+          >
+            &larr; Home
+          </Link>
         </div>
 
         {/* Nav items */}

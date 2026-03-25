@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Trip } from '@/lib/types'
+import { Trip } from '@/lib/events/types'
 import LogoutButton from '@/components/LogoutButton'
 
 interface TripHeaderProps {
@@ -42,13 +42,19 @@ export default function TripHeader({ trip, pageTitle, pageSubtitle }: TripHeader
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push('/admin')}
+            onClick={() => router.push('/home')}
             className="text-slate-400 hover:text-white text-sm transition-colors"
           >
-            ← Dashboard
+            Home
           </button>
           <button
-            onClick={() => router.push('/admin/trips')}
+            onClick={() => router.push('/events/admin')}
+            className="text-slate-400 hover:text-white text-sm transition-colors"
+          >
+            Dashboard
+          </button>
+          <button
+            onClick={() => router.push('/events/admin/trips')}
             className="text-slate-400 hover:text-white text-sm transition-colors"
           >
             All Trips

@@ -145,7 +145,7 @@ export default function PricingPage() {
             ← Back
           </button>
           <h1 className="text-white font-bold text-lg">Covaled</h1>
-          <a href="/admin/login" className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
+          <a href="/events/admin/login" className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
             Sign in
           </a>
         </div>
@@ -218,7 +218,7 @@ export default function PricingPage() {
               </ul>
 
               <button
-                onClick={() => router.push('/admin/signup')}
+                onClick={() => router.push('/events/admin/signup')}
                 className={`w-full py-2.5 rounded-lg font-medium text-sm transition-colors ${plan.ctaStyle}`}
               >
                 {plan.cta}
@@ -266,7 +266,7 @@ export default function PricingPage() {
           </p>
           <div className="flex items-center justify-center gap-4">
             <button
-              onClick={() => router.push('/admin/signup')}
+              onClick={() => router.push('/events/admin/signup')}
               className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
             >
               Get started free
