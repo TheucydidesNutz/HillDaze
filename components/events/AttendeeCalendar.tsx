@@ -21,10 +21,11 @@ interface EventContext {
 interface Props {
   events: Event[]
   timezone?: string
+  alertColor?: string
   onNoteAboutEvent?: (eventContext: EventContext) => void
 }
 
-export default function AttendeeCalendar({ events, timezone, onNoteAboutEvent }: Props) {
+export default function AttendeeCalendar({ events, timezone, alertColor = '#D97706', onNoteAboutEvent }: Props) {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [viewRange, setViewRange] = useState<{ start: Date; end: Date } | null>(null)
 
@@ -61,8 +62,8 @@ export default function AttendeeCalendar({ events, timezone, onNoteAboutEvent }:
       title: recentlyUpdated ? `⚡ ${e.title}` : e.title,
       start: e.start_time,
       end: e.end_time,
-      backgroundColor: recentlyUpdated ? '#D97706' : e.type === 'mandatory' ? '#EF4444' : '#3B82F6',
-      borderColor: recentlyUpdated ? '#B45309' : e.type === 'mandatory' ? '#DC2626' : '#2563EB',
+      backgroundColor: recentlyUpdated ? alertColor : e.type === 'mandatory' ? '#EF4444' : '#3B82F6',
+      borderColor: recentlyUpdated ? alertColor : e.type === 'mandatory' ? '#DC2626' : '#2563EB',
     }
   })
 

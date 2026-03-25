@@ -56,6 +56,7 @@ export interface TripTheme {
   primary: string
   secondary: string
   accent: string
+  alert: string
   background: string
   surface: string
   text: string
@@ -67,6 +68,7 @@ export const DEFAULT_TRIP_THEME: TripTheme = {
   primary: '#3B82F6',
   secondary: '#1E293B',
   accent: '#F59E0B',
+  alert: '#D97706',
   background: '#0F172A',
   surface: '#1E293B',
   text: '#F8FAFC',
@@ -78,6 +80,7 @@ export const LIGHT_TRIP_THEME: TripTheme = {
   primary: '#2563EB',
   secondary: '#E2E8F0',
   accent: '#D97706',
+  alert: '#B45309',
   background: '#F8FAFC',
   surface: '#FFFFFF',
   text: '#0F172A',

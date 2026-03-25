@@ -58,6 +58,7 @@ export default function EventsPage() {
   const tripTimezone = (trip as any)?.timezone || 'America/New_York'
   const tripTheme = (trip as any)?.theme || null
   const primaryColor = tripTheme?.primary || '#3B82F6'
+  const alertColor = tripTheme?.alert || '#D97706'
   const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
   useEffect(() => {
@@ -133,8 +134,8 @@ export default function EventsPage() {
       title: wasUpdated ? `⚡ ${e.title}` : e.title,
       start: `${cleanStart}${startOffset}`,
       end: `${cleanEnd}${endOffset}`,
-      backgroundColor: wasUpdated ? '#D97706' : e.type === 'mandatory' ? '#EF4444' : primaryColor,
-      borderColor: wasUpdated ? '#B45309' : e.type === 'mandatory' ? '#DC2626' : primaryColor,
+      backgroundColor: wasUpdated ? alertColor : e.type === 'mandatory' ? '#EF4444' : primaryColor,
+      borderColor: wasUpdated ? alertColor : e.type === 'mandatory' ? '#DC2626' : primaryColor,
       extendedProps: { location: e.location, description: e.description, type: e.type }
     }
   })

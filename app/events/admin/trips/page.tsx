@@ -851,6 +851,7 @@ export default function TripsPage() {
                       ['secondary', 'Secondary'],
                       ['primary', 'Accent 1'],
                       ['accent', 'Accent 2'],
+                      ['alert', 'Alert'],
                     ] as [keyof TripTheme, string][]).map(([key, label]) => (
                       <div key={key} className="flex items-center gap-2">
                         <input
@@ -875,6 +876,7 @@ export default function TripsPage() {
                     <div className="flex gap-2">
                       <div className="px-2 py-1 rounded text-[10px] font-medium text-white" style={{ backgroundColor: editTheme.primary }}>Accent 1</div>
                       <div className="px-2 py-1 rounded text-[10px] font-medium text-white" style={{ backgroundColor: editTheme.accent }}>Accent 2</div>
+                      <div className="px-2 py-1 rounded text-[10px] font-medium text-white" style={{ backgroundColor: editTheme.alert }}>Alert</div>
                     </div>
                   </div>
                 </div>

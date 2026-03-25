@@ -312,6 +312,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     '--theme-primary': tripTheme.primary || '#3B82F6',
     '--theme-secondary': tripTheme.secondary || '#1E293B',
     '--theme-accent': tripTheme.accent || '#F59E0B',
+    '--theme-alert': tripTheme.alert || '#D97706',
     '--theme-bg': tripTheme.background || '#0F172A',
     '--theme-surface': tripTheme.surface || '#1E293B',
     '--theme-text': tripTheme.text || '#F8FAFC',
@@ -618,13 +619,14 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               <span style={{ color: "var(--theme-text-secondary)" }}>Optional</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
-              <span className="flex items-center gap-1" style={{ color: "var(--theme-text-secondary)" }}><Zap className="w-3 h-3 text-amber-400" /> Recently updated</span>
+              <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: 'var(--theme-alert, #D97706)' }}></span>
+              <span className="flex items-center gap-1" style={{ color: "var(--theme-text-secondary)" }}><Zap className="w-3 h-3" style={{ color: 'var(--theme-alert, #D97706)' }} /> Recently updated</span>
             </span>
           </div>
           <AttendeeCalendar
             events={events}
             timezone={activeTimezone}
+            alertColor={tripTheme.alert || '#D97706'}
             onNoteAboutEvent={handleNoteAboutEvent}
           />
           {tripTimezone && (
