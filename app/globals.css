@@ -25,6 +25,71 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* ── Theme-aware overrides for admin pages ──
+   When --theme-bg is set (by the admin layout or attendee page),
+   remap common Tailwind slate classes to use theme CSS variables.
+   This avoids editing every page file individually. */
+
+[style*="--theme-bg"] .bg-slate-950,
+[style*="--theme-bg"] .bg-slate-900 {
+  background-color: var(--theme-surface) !important;
+}
+
+[style*="--theme-bg"] .bg-slate-800,
+[style*="--theme-bg"] .bg-slate-800\/50 {
+  background-color: var(--theme-secondary) !important;
+}
+
+[style*="--theme-bg"] .bg-slate-700 {
+  background-color: var(--theme-border) !important;
+}
+
+[style*="--theme-bg"] .border-slate-800,
+[style*="--theme-bg"] .border-slate-700 {
+  border-color: var(--theme-border) !important;
+}
+
+[style*="--theme-bg"] .text-white {
+  color: var(--theme-text) !important;
+}
+
+[style*="--theme-bg"] .text-slate-300,
+[style*="--theme-bg"] .text-slate-400 {
+  color: var(--theme-text-secondary) !important;
+}
+
+[style*="--theme-bg"] .text-slate-500,
+[style*="--theme-bg"] .text-slate-600 {
+  color: color-mix(in srgb, var(--theme-text-secondary) 70%, transparent) !important;
+}
+
+[style*="--theme-bg"] .bg-blue-600 {
+  background-color: var(--theme-primary) !important;
+}
+
+[style*="--theme-bg"] .bg-blue-500,
+[style*="--theme-bg"] .hover\:bg-blue-500:hover {
+  background-color: var(--theme-primary) !important;
+  filter: brightness(1.1);
+}
+
+[style*="--theme-bg"] .text-blue-400 {
+  color: var(--theme-primary) !important;
+}
+
+[style*="--theme-bg"] .border-blue-500 {
+  border-color: var(--theme-primary) !important;
+}
+
+[style*="--theme-bg"] .ring-blue-500,
+[style*="--theme-bg"] .focus\:ring-blue-500:focus {
+  --tw-ring-color: var(--theme-primary) !important;
+}
+
+[style*="--theme-bg"] .placeholder-slate-500::placeholder {
+  color: color-mix(in srgb, var(--theme-text-secondary) 60%, transparent) !important;
+}
+
 /* FullCalendar theme — inherits from CSS custom properties */
 .fc {
   --fc-border-color: var(--theme-border, #1e293b);
