@@ -146,7 +146,7 @@ export default function NotesFeedPage() {
     })
 
   return (
-    <div className="min-h-screen bg-slate-950 p-8">
+    <div className="p-8">
       <div className="max-w-4xl mx-auto">
 
         {trip && (

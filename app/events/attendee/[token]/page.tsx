@@ -590,20 +590,18 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               Your Schedule
             </h2>
             {tripTimezone && (
-              <div className="flex items-center gap-1 rounded-lg p-1 text-xs" style={{ backgroundColor: "var(--theme-secondary)" }}>
+              <div className="flex items-center gap-1 rounded-lg p-1 text-xs" style={{ backgroundColor: 'var(--theme-secondary)' }}>
                 <button
                   onClick={() => setUseEventTimezone(false)}
-                  className={`px-2.5 py-1 rounded-md transition-colors ${
-                    !useEventTimezone ? 'font-medium' : ''
-                  }`}
+                  className="px-2.5 py-1 rounded-md transition-colors font-medium"
+                  style={!useEventTimezone ? { backgroundColor: 'var(--theme-primary)', color: '#fff' } : { color: 'var(--theme-text-secondary)' }}
                 >
                   My Time
                 </button>
                 <button
                   onClick={() => setUseEventTimezone(true)}
-                  className={`px-2.5 py-1 rounded-md transition-colors ${
-                    useEventTimezone ? 'font-medium' : ''
-                  }`}
+                  className="px-2.5 py-1 rounded-md transition-colors font-medium"
+                  style={useEventTimezone ? { backgroundColor: 'var(--theme-primary)', color: '#fff' } : { color: 'var(--theme-text-secondary)' }}
                 >
                   Event Time
                 </button>

@@ -27,35 +27,40 @@ export default function TripHeader({ trip, pageTitle, pageSubtitle }: TripHeader
         <div className="flex items-center gap-4">
           {trip.logo_url ? (
             <img src={trip.logo_url} alt={trip.title}
-              className="w-14 h-14 rounded-xl object-contain bg-slate-800 p-1 flex-shrink-0" />
+              className="w-14 h-14 rounded-xl object-contain p-1 flex-shrink-0"
+              style={{ backgroundColor: 'var(--theme-secondary)' }} />
           ) : (
-            <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-2xl font-bold">{trip.title.charAt(0)}</span>
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: 'var(--theme-primary)' }}>
+              <span className="text-2xl font-bold" style={{ color: 'var(--theme-text)' }}>{trip.title.charAt(0)}</span>
             </div>
           )}
           <div>
-            <h1 className="text-2xl font-bold text-white">{trip.title}</h1>
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--theme-text)' }}>{trip.title}</h1>
             {formatDateRange() && (
-              <p className="text-slate-400 text-sm">{formatDateRange()}</p>
+              <p className="text-sm" style={{ color: 'var(--theme-text-secondary)' }}>{formatDateRange()}</p>
             )}
           </div>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push('/home')}
-            className="text-slate-400 hover:text-white text-sm transition-colors"
+            className="text-sm transition-colors"
+            style={{ color: 'var(--theme-text-secondary)' }}
           >
             Home
           </button>
           <button
             onClick={() => router.push('/events/admin')}
-            className="text-slate-400 hover:text-white text-sm transition-colors"
+            className="text-sm transition-colors"
+            style={{ color: 'var(--theme-text-secondary)' }}
           >
             Dashboard
           </button>
           <button
             onClick={() => router.push('/events/admin/trips')}
-            className="text-slate-400 hover:text-white text-sm transition-colors"
+            className="text-sm transition-colors"
+            style={{ color: 'var(--theme-text-secondary)' }}
           >
             All Trips
           </button>
@@ -66,8 +71,8 @@ export default function TripHeader({ trip, pageTitle, pageSubtitle }: TripHeader
       {/* Page title sits below the trip header */}
       {pageTitle && (
         <div className="mt-6">
-          <h2 className="text-3xl font-bold text-white">{pageTitle}</h2>
-          {pageSubtitle && <p className="text-slate-400 mt-1">{pageSubtitle}</p>}
+          <h2 className="text-3xl font-bold" style={{ color: 'var(--theme-text)' }}>{pageTitle}</h2>
+          {pageSubtitle && <p className="mt-1" style={{ color: 'var(--theme-text-secondary)' }}>{pageSubtitle}</p>}
         </div>
       )}
     </div>

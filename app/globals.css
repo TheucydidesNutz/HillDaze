@@ -25,35 +25,35 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* FullCalendar dark theme */
+/* FullCalendar theme — inherits from CSS custom properties */
 .fc {
-  --fc-border-color: #1e293b;
-  --fc-button-bg-color: #1e293b;
-  --fc-button-border-color: #334155;
-  --fc-button-hover-bg-color: #334155;
-  --fc-button-hover-border-color: #475569;
-  --fc-button-active-bg-color: #3b82f6;
-  --fc-button-active-border-color: #3b82f6;
-  --fc-today-bg-color: rgba(59, 130, 246, 0.1);
+  --fc-border-color: var(--theme-border, #1e293b);
+  --fc-button-bg-color: var(--theme-secondary, #1e293b);
+  --fc-button-border-color: var(--theme-border, #334155);
+  --fc-button-hover-bg-color: var(--theme-border, #334155);
+  --fc-button-hover-border-color: var(--theme-border, #475569);
+  --fc-button-active-bg-color: var(--theme-primary, #3b82f6);
+  --fc-button-active-border-color: var(--theme-primary, #3b82f6);
+  --fc-today-bg-color: color-mix(in srgb, var(--theme-primary, #3b82f6) 10%, transparent);
   --fc-page-bg-color: transparent;
-  --fc-neutral-bg-color: #0f172a;
-  color: #e2e8f0;
+  --fc-neutral-bg-color: var(--theme-bg, #0f172a);
+  color: var(--theme-text, #e2e8f0);
 }
 
 .fc .fc-toolbar-title {
-  color: white;
+  color: var(--theme-text, white);
   font-size: 1.25rem;
   font-weight: 600;
 }
 
 .fc .fc-col-header-cell-cushion,
 .fc .fc-daygrid-day-number {
-  color: #94a3b8;
+  color: var(--theme-text-secondary, #94a3b8);
   text-decoration: none;
 }
 
 .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
-  color: #3b82f6;
+  color: var(--theme-primary, #3b82f6);
   font-weight: bold;
 }
 

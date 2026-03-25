@@ -144,7 +144,7 @@ export default function EventsPage() {
   const displayTimezone = useEventTimezone ? tripTimezone : browserTimezone
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 md:p-8">
+    <div className="p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
 
         {trip && (
@@ -219,7 +219,7 @@ export default function EventsPage() {
         </div>
 
         {/* Calendar */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 md:p-6 calendar-container">
+        <div className="rounded-xl p-3 md:p-6 calendar-container border" style={{ backgroundColor: "var(--theme-surface)", borderColor: "var(--theme-border)" }}>
           <FullCalendar
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
             initialView={isMobile ? 'listWeek' : 'dayGridMonth'}

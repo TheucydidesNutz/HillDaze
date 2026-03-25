@@ -112,7 +112,7 @@ export default function ImportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-8">
+    <div className="p-8">
       <div className="max-w-3xl mx-auto">
         {trip && (
           <TripHeader

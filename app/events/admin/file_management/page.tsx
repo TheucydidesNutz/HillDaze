@@ -185,7 +185,7 @@ export default function SettingsPage() {
   const docs = documents.filter(d => d.doc_type === 'document')
 
   return (
-    <div className="min-h-screen bg-slate-950 p-8">
+    <div className="p-8">
       <div className="max-w-3xl mx-auto space-y-8">
 
         {trip && (

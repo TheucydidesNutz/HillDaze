@@ -80,7 +80,7 @@ export default function AdminDashboard() {
   }, [router])
 
   if (!trip) return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center">
       <div className="text-slate-400">Loading...</div>
     </div>
   )
@@ -94,7 +94,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-8">
+    <div className="p-8">
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}
@@ -104,24 +104,26 @@ export default function AdminDashboard() {
               <img
                 src={trip.logo_url}
                 alt={trip.title}
-                className="w-14 h-14 rounded-xl object-contain bg-slate-800 p-1 flex-shrink-0"
+                className="w-14 h-14 rounded-xl object-contain p-1 flex-shrink-0"
+                style={{ backgroundColor: 'var(--theme-secondary)' }}
               />
             ) : (
-              <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
-                <span className="text-white text-2xl font-bold">{trip.title.charAt(0)}</span>
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--theme-primary)' }}>
+                <span className="text-2xl font-bold" style={{ color: 'var(--theme-text)' }}>{trip.title.charAt(0)}</span>
               </div>
             )}
             <div>
-              <h1 className="text-2xl font-bold text-white">{trip.title}</h1>
+              <h1 className="text-2xl font-bold" style={{ color: 'var(--theme-text)' }}>{trip.title}</h1>
               {formatDateRange() && (
-                <p className="text-slate-400 text-sm">{formatDateRange()}</p>
+                <p className="text-sm" style={{ color: 'var(--theme-text-secondary)' }}>{formatDateRange()}</p>
               )}
             </div>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push('/events/admin/trips')}
-              className="text-slate-400 hover:text-white text-sm transition-colors"
+              className="text-sm transition-colors"
+              style={{ color: 'var(--theme-text-secondary)' }}
             >
               ← All Trips
             </button>
@@ -135,13 +137,14 @@ export default function AdminDashboard() {
             <a
               key={href}
               href={href}
-              className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-6 transition-all group hover:bg-slate-800/50"
+              className="rounded-xl p-6 transition-all group border"
+              style={{ backgroundColor: 'var(--theme-surface)', borderColor: 'var(--theme-border)' }}
             >
               <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${bg} mb-4`}>
                 <Icon className={`w-5 h-5 ${color}`} />
               </div>
-              <h3 className="text-white font-semibold mb-1 group-hover:text-blue-400 transition-colors">{title}</h3>
-              <p className="text-slate-400 text-sm">{description}</p>
+              <h3 className="font-semibold mb-1 transition-colors" style={{ color: 'var(--theme-text)' }}>{title}</h3>
+              <p className="text-sm" style={{ color: 'var(--theme-text-secondary)' }}>{description}</p>
             </a>
           ))}
         </div>

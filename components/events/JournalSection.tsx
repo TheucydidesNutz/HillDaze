@@ -250,13 +250,15 @@ export default function JournalSection({ token, eventContext, onNoteSubmitted }:
             : 'Write your thoughts, notes, or reflections here...'
           }
           rows={4}
-          className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+          className="w-full px-4 py-3 rounded-xl text-sm resize-none focus:outline-none focus:ring-2"
+          style={{ backgroundColor: 'var(--theme-secondary, #1E293B)', borderColor: 'var(--theme-border, #334155)', color: 'var(--theme-text, #F8FAFC)', border: '1px solid var(--theme-border, #334155)' }}
         />
         <div className="flex items-center justify-end mt-2">
           <button
             onClick={handleSubmit}
             disabled={saving || !content.trim()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-medium rounded-lg transition-colors"
+            className="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+            style={{ backgroundColor: 'var(--theme-primary, #3B82F6)' }}
           >
             {saving ? 'Saving...' : 'Submit Note'}
           </button>
@@ -265,13 +267,13 @@ export default function JournalSection({ token, eventContext, onNoteSubmitted }:
 
       {/* Notes list */}
       {notes.length > 0 && (
-        <div className="space-y-3 border-t border-slate-800 pt-4">
-          <p className="text-slate-400 text-sm font-medium">Your previous notes</p>
+        <div className="space-y-3 pt-4" style={{ borderTop: '1px solid var(--theme-border, #1E293B)' }}>
+          <p className="text-sm font-medium" style={{ color: 'var(--theme-text-secondary, #94A3B8)' }}>Your previous notes</p>
           {notes.map(note => (
-            <div key={note.id} className="bg-slate-800/50 rounded-xl p-4">
-              <p className="text-slate-300 text-sm whitespace-pre-wrap">{note.content}</p>
+            <div key={note.id} className="rounded-xl p-4" style={{ backgroundColor: 'var(--theme-secondary, #1E293B)' }}>
+              <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--theme-text, #F8FAFC)' }}>{note.content}</p>
               <div className="flex items-center justify-between mt-2">
-                <p className="text-slate-500 text-xs">{new Date(note.created_at).toLocaleString()}</p>
+                <p className="text-xs" style={{ color: 'var(--theme-text-secondary, #94A3B8)' }}>{new Date(note.created_at).toLocaleString()}</p>
                 {/* Sync status indicator */}
                 {note.status === 'synced' ? (
                   <span className="flex items-center gap-1 text-green-400 text-xs">

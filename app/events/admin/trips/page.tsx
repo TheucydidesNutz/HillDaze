@@ -498,7 +498,7 @@ export default function TripsPage() {
   const displayName = userSettings.org_name || '[Your Group]'
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 md:p-8">
+    <div className="p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
 
         {/* ── Header: logo + org name, centered ── */}
