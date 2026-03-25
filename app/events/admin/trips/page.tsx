@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Trip, TripTheme, DEFAULT_TRIP_THEME } from '@/lib/events/types'
+import { Trip, TripTheme, DEFAULT_TRIP_THEME, LIGHT_TRIP_THEME } from '@/lib/events/types'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import UsageBanner from '@/components/UsageBanner'
@@ -824,20 +824,28 @@ export default function TripsPage() {
                 </div>
                 {/* Theme Editor */}
                 <div className="border-t border-slate-800 pt-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-white font-medium">Theme Colors</h3>
+                  <h3 className="text-white font-medium mb-3">Theme Colors</h3>
+                  <div className="flex gap-2 mb-3">
                     <button
                       onClick={() => setEditTheme({ ...DEFAULT_TRIP_THEME })}
-                      className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                      className="flex-1 py-2 rounded-lg text-xs font-medium border transition-colors bg-slate-800 border-slate-600 text-slate-300 hover:border-slate-500"
                     >
-                      Reset to default
+                      <span className="inline-block w-3 h-3 rounded-full bg-slate-900 mr-1.5 align-middle border border-slate-600"></span>
+                      Dark Mode
+                    </button>
+                    <button
+                      onClick={() => setEditTheme({ ...LIGHT_TRIP_THEME })}
+                      className="flex-1 py-2 rounded-lg text-xs font-medium border transition-colors bg-slate-800 border-slate-600 text-slate-300 hover:border-slate-500"
+                    >
+                      <span className="inline-block w-3 h-3 rounded-full bg-white mr-1.5 align-middle border border-slate-400"></span>
+                      Light Mode
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {([
-                      ['primary', 'Primary'],
+                      ['primary', 'Accent 1'],
                       ['secondary', 'Secondary'],
-                      ['accent', 'Accent'],
+                      ['accent', 'Accent 2'],
                       ['background', 'Background'],
                       ['surface', 'Surface'],
                       ['text', 'Text'],
@@ -865,8 +873,8 @@ export default function TripsPage() {
                       <p className="text-[10px] mt-0.5" style={{ color: editTheme.textSecondary }}>10:00 AM - Grand Ballroom</p>
                     </div>
                     <div className="flex gap-2">
-                      <div className="px-2 py-1 rounded text-[10px] font-medium text-white" style={{ backgroundColor: editTheme.primary }}>Primary</div>
-                      <div className="px-2 py-1 rounded text-[10px] font-medium text-white" style={{ backgroundColor: editTheme.accent }}>Accent</div>
+                      <div className="px-2 py-1 rounded text-[10px] font-medium text-white" style={{ backgroundColor: editTheme.primary }}>Accent 1</div>
+                      <div className="px-2 py-1 rounded text-[10px] font-medium text-white" style={{ backgroundColor: editTheme.accent }}>Accent 2</div>
                     </div>
                   </div>
                 </div>

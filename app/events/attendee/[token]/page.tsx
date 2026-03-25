@@ -344,7 +344,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               </div>
             )}
             <div className="flex-1">
-              <p className="text-white text-sm font-medium">Add to Home Screen</p>
+              <p className="text-sm font-medium" style={{ color: "var(--theme-text)" }}>Add to Home Screen</p>
               <p className="text-slate-400 text-xs mt-0.5">
                 Tap <span className="text-blue-400">Share</span> then{' '}
                 <span className="text-blue-400">Add to Home Screen</span> to install {tripTitle}
@@ -369,7 +369,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               </div>
             )}
             <div className="flex-1">
-              <p className="text-white text-sm font-medium">Add to Home Screen</p>
+              <p className="text-sm font-medium" style={{ color: "var(--theme-text)" }}>Add to Home Screen</p>
               <p className="text-slate-400 text-xs mt-0.5">Install {tripTitle} for quick access</p>
             </div>
             <button onClick={() => setShowInstallBanner(false)} className="text-slate-500 hover:text-white mr-2 flex-shrink-0">
@@ -388,28 +388,28 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             {tripLogo ? (
-              <img src={tripLogo} alt={tripTitle} className="w-10 h-10 rounded-lg object-contain bg-slate-800 p-0.5" />
+              <img src={tripLogo} alt={tripTitle} className="w-10 h-10 rounded-lg object-contain p-0.5" style={{ backgroundColor: 'var(--theme-secondary)' }} />
             ) : (
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <span className="text-white text-sm font-bold">{tripTitle.charAt(0)}</span>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--theme-primary)' }}>
+                <span className="text-sm font-bold" style={{ color: 'var(--theme-text)' }}>{tripTitle.charAt(0)}</span>
               </div>
             )}
             <div>
-              <p className="text-white font-semibold text-sm leading-tight">{tripTitle}</p>
+              <p className="font-semibold text-sm leading-tight" style={{ color: "var(--theme-text)" }}>{tripTitle}</p>
               {trip && formatDateRange(trip) && (
-                <p className="text-slate-400 text-xs">{formatDateRange(trip)}</p>
+                <p className="text-xs" style={{ color: "var(--theme-text-secondary)" }}>{formatDateRange(trip)}</p>
               )}
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowAttendees(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors">
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors" style={{ backgroundColor: 'var(--theme-secondary)', color: 'var(--theme-text)' }}>
               <Users className="w-4 h-4 text-emerald-400" />
               <span className="hidden sm:inline">Attendees</span>
             </button>
             {map && (
               <button onClick={handleMapOpen}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors">
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors" style={{ backgroundColor: 'var(--theme-secondary)', color: 'var(--theme-text)' }}>
                 <Map className="w-4 h-4" />
                 Map
               </button>
@@ -445,7 +445,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               <button
                 onClick={() => photoInputRef.current?.click()}
                 disabled={uploadingPhoto}
-                className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 hover:bg-blue-500 rounded-full flex items-center justify-center transition-colors border-2 border-slate-900"
+                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center transition-colors border-2" style={{ backgroundColor: "var(--theme-primary)", borderColor: "var(--theme-surface)" }}
                 title="Update photo"
               >
                 <Camera className="w-3.5 h-3.5 text-white" />
@@ -459,18 +459,18 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               />
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold text-white">{p.name}</h1>
-              {p.title && <p className="text-slate-300">{p.title}</p>}
-              {p.company && <p className="text-slate-400 text-sm">{p.company}</p>}
+              <h1 className="text-2xl font-bold" style={{ color: 'var(--theme-text)' }}>{p.name}</h1>
+              {p.title && <p style={{ color: 'var(--theme-text-secondary)' }}>{p.title}</p>}
+              {p.company && <p className="text-sm" style={{ color: 'var(--theme-text-secondary)' }}>{p.company}</p>}
               <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-4 mt-2">
                 {p.phone && (
-                  <a href={`tel:${p.phone}`} className="flex items-center gap-1.5 text-blue-400 text-sm hover:text-blue-300">
+                  <a href={`tel:${p.phone}`} className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--theme-primary)' }}>
                     <Phone className="w-3.5 h-3.5 flex-shrink-0" />
                     {p.phone}
                   </a>
                 )}
                 {p.email && (
-                  <a href={`mailto:${p.email}`} className="flex items-center gap-1.5 text-blue-400 text-sm hover:text-blue-300 min-w-0">
+                  <a href={`mailto:${p.email}`} className="flex items-center gap-1.5 text-sm min-w-0" style={{ color: 'var(--theme-primary)' }}>
                     <Mail className="w-3.5 h-3.5 flex-shrink-0" />
                     <span className="truncate">{p.email}</span>
                   </a>
@@ -479,10 +479,10 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             </div>
           </div>
           {!isInstalled && token && (isIOS || installPrompt) && (
-            <div className="mt-4 pt-4 border-t border-slate-800">
+            <div className="mt-4 pt-4 border-t" style={{ borderColor: "var(--theme-border)" }}>
               <button
                 onClick={isIOS ? () => setShowInstallBanner(true) : handleInstall}
-                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2" style={{ backgroundColor: "var(--theme-secondary)", color: "var(--theme-text-secondary)" }}
               >
                 <Smartphone className="w-4 h-4" />
                 Add to Home Screen
@@ -497,12 +497,12 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         {/* Group Info */}
         {p.group && (
           <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--theme-surface)', borderColor: 'var(--theme-border)' }}>
-            <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+            <h2 className="font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--theme-text)" }}>
               <Tag className="w-4 h-4 text-purple-400" />
               Your Group
             </h2>
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0" style={{ backgroundColor: 'var(--theme-primary)' }}>
                 {p.group.lead_photo_url ? (
                   <img src={p.group.lead_photo_url} alt={p.group.lead_name || ''} className="w-full h-full object-cover" />
                 ) : (
@@ -510,17 +510,17 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
                 )}
               </div>
               <div className="min-w-0">
-                <p className="text-white font-medium">{p.group.name}</p>
-                {p.group.lead_name && <p className="text-slate-300 text-sm">Lead: {p.group.lead_name}</p>}
+                <p className="font-medium" style={{ color: "var(--theme-text)" }}>{p.group.name}</p>
+                {p.group.lead_name && <p className="text-sm" style={{ color: "var(--theme-text-secondary)" }}>Lead: {p.group.lead_name}</p>}
                 <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-4 mt-1">
                   {p.group.lead_phone && (
-                    <a href={`tel:${p.group.lead_phone}`} className="flex items-center gap-1.5 text-blue-400 text-sm hover:text-blue-300">
+                    <a href={`tel:${p.group.lead_phone}`} className="flex items-center gap-1.5 text-sm" style={{ color: "var(--theme-primary)" }}>
                       <Phone className="w-3.5 h-3.5 flex-shrink-0" />
                       {p.group.lead_phone}
                     </a>
                   )}
                   {p.group.lead_email && (
-                    <a href={`mailto:${p.group.lead_email}`} className="flex items-center gap-1.5 text-blue-400 text-sm hover:text-blue-300 min-w-0">
+                    <a href={`mailto:${p.group.lead_email}`} className="flex items-center gap-1.5 text-sm min-w-0" style={{ color: "var(--theme-primary)" }}>
                       <Mail className="w-3.5 h-3.5 flex-shrink-0" />
                       <span className="truncate">{p.group.lead_email}</span>
                     </a>
@@ -534,25 +534,25 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         {/* Flights */}
         {(p.arrival_airline || p.departure_airline) && (
           <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--theme-surface)', borderColor: 'var(--theme-border)' }}>
-            <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+            <h2 className="font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--theme-text)" }}>
               <Plane className="w-4 h-4 text-cyan-400" />
               Flights
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {p.arrival_airline && (
                 <div>
-                  <p className="text-slate-400 text-xs uppercase tracking-wide mb-2">Arrival</p>
-                  <p className="text-white font-medium">{p.arrival_airline} {p.arrival_flight_no}</p>
-                  {p.arrival_datetime && <p className="text-slate-300 text-sm">{new Date(p.arrival_datetime).toLocaleString()}</p>}
-                  {p.arrival_airport && <p className="text-slate-400 text-sm flex items-center gap-1"><Plane className="w-3 h-3" />{p.arrival_airport}</p>}
+                  <p className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--theme-text-secondary)" }}>Arrival</p>
+                  <p className="font-medium" style={{ color: "var(--theme-text)" }}>{p.arrival_airline} {p.arrival_flight_no}</p>
+                  {p.arrival_datetime && <p className="text-sm" style={{ color: "var(--theme-text-secondary)" }}>{new Date(p.arrival_datetime).toLocaleString()}</p>}
+                  {p.arrival_airport && <p className="text-sm flex items-center gap-1" style={{ color: "var(--theme-text-secondary)" }}><Plane className="w-3 h-3" />{p.arrival_airport}</p>}
                 </div>
               )}
               {p.departure_airline && (
                 <div>
-                  <p className="text-slate-400 text-xs uppercase tracking-wide mb-2">Departure</p>
-                  <p className="text-white font-medium">{p.departure_airline} {p.departure_flight_no}</p>
-                  {p.departure_datetime && <p className="text-slate-300 text-sm">{new Date(p.departure_datetime).toLocaleString()}</p>}
-                  {p.departure_airport && <p className="text-slate-400 text-sm flex items-center gap-1"><Plane className="w-3 h-3" />{p.departure_airport}</p>}
+                  <p className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--theme-text-secondary)" }}>Departure</p>
+                  <p className="font-medium" style={{ color: "var(--theme-text)" }}>{p.departure_airline} {p.departure_flight_no}</p>
+                  {p.departure_datetime && <p className="text-sm" style={{ color: "var(--theme-text-secondary)" }}>{new Date(p.departure_datetime).toLocaleString()}</p>}
+                  {p.departure_airport && <p className="text-sm flex items-center gap-1" style={{ color: "var(--theme-text-secondary)" }}><Plane className="w-3 h-3" />{p.departure_airport}</p>}
                 </div>
               )}
             </div>
@@ -562,39 +562,39 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         {/* Hotel */}
         {p.hotel_name && (
           <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--theme-surface)', borderColor: 'var(--theme-border)' }}>
-            <h2 className="text-white font-semibold mb-3 flex items-center gap-2">
+            <h2 className="font-semibold mb-3 flex items-center gap-2" style={{ color: "var(--theme-text)" }}>
               <Hotel className="w-4 h-4 text-green-400" />
               Hotel
             </h2>
-            <p className="text-white text-lg">{p.hotel_name}</p>
-            {p.hotel_room && <p className="text-slate-400">Room {p.hotel_room}</p>}
+            <p className="text-lg" style={{ color: "var(--theme-text)" }}>{p.hotel_name}</p>
+            {p.hotel_room && <p style={{ color: "var(--theme-text-secondary)" }}>Room {p.hotel_room}</p>}
           </div>
         )}
 
         {/* Fun Diversions */}
         {p.fun_diversions && (
           <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--theme-surface)', borderColor: 'var(--theme-border)' }}>
-            <h2 className="text-white font-semibold mb-3 flex items-center gap-2">
+            <h2 className="font-semibold mb-3 flex items-center gap-2" style={{ color: "var(--theme-text)" }}>
               <PartyPopper className="w-4 h-4 text-yellow-400" />
               Fun Diversions
             </h2>
-            <p className="text-slate-300 whitespace-pre-wrap">{p.fun_diversions}</p>
+            <p className="whitespace-pre-wrap" style={{ color: "var(--theme-text-secondary)" }}>{p.fun_diversions}</p>
           </div>
         )}
 
         {/* Calendar */}
         <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--theme-surface)', borderColor: 'var(--theme-border)' }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-white font-semibold flex items-center gap-2">
+            <h2 className="font-semibold flex items-center gap-2" style={{ color: "var(--theme-text)" }}>
               <CalendarDays className="w-4 h-4 text-blue-400" />
               Your Schedule
             </h2>
             {tripTimezone && (
-              <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 text-xs">
+              <div className="flex items-center gap-1 rounded-lg p-1 text-xs" style={{ backgroundColor: "var(--theme-secondary)" }}>
                 <button
                   onClick={() => setUseEventTimezone(false)}
                   className={`px-2.5 py-1 rounded-md transition-colors ${
-                    !useEventTimezone ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'
+                    !useEventTimezone ? 'font-medium' : ''
                   }`}
                 >
                   My Time
@@ -602,7 +602,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
                 <button
                   onClick={() => setUseEventTimezone(true)}
                   className={`px-2.5 py-1 rounded-md transition-colors ${
-                    useEventTimezone ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+                    useEventTimezone ? 'font-medium' : ''
                   }`}
                 >
                   Event Time
@@ -613,15 +613,15 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
           <div className="flex flex-wrap gap-4 mb-4 text-sm">
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
-              <span className="text-slate-400">Mandatory</span>
+              <span style={{ color: "var(--theme-text-secondary)" }}>Mandatory</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-blue-500 inline-block"></span>
-              <span className="text-slate-400">Optional</span>
+              <span style={{ color: "var(--theme-text-secondary)" }}>Optional</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
-              <span className="text-slate-400 flex items-center gap-1"><Zap className="w-3 h-3 text-amber-400" /> Recently updated</span>
+              <span className="flex items-center gap-1" style={{ color: "var(--theme-text-secondary)" }}><Zap className="w-3 h-3 text-amber-400" /> Recently updated</span>
             </span>
           </div>
           <AttendeeCalendar
@@ -630,7 +630,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             onNoteAboutEvent={handleNoteAboutEvent}
           />
           {tripTimezone && (
-            <p className="text-slate-600 text-xs mt-2 text-right">
+            <p className="text-xs mt-2 text-right" style={{ color: "var(--theme-text-secondary)" }}>
               {useEventTimezone ? tripTimezone : browserTimezone}
             </p>
           )}
@@ -640,7 +640,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             <button
               onClick={handleCalendarDownload}
               disabled={downloadingCalendar}
-              className="mt-4 flex items-center gap-2 text-slate-400 hover:text-white text-sm transition-colors disabled:opacity-50"
+              className="mt-4 flex items-center gap-2 text-sm transition-colors disabled:opacity-50" style={{ color: "var(--theme-text-secondary)" }}
             >
               <CalendarDays className="w-4 h-4" />
               {downloadingCalendar ? 'Downloading...' : 'Add to Calendar (Google, Apple, Outlook)'}
@@ -651,11 +651,11 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         {/* Your Documents */}
         {documents.length > 0 && (
           <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--theme-surface)', borderColor: 'var(--theme-border)' }}>
-            <h2 className="text-white font-semibold mb-1 flex items-center gap-2">
+            <h2 className="font-semibold mb-1 flex items-center gap-2" style={{ color: "var(--theme-text)" }}>
               <FolderOpen className="w-4 h-4 text-orange-400" />
               Your Documents
             </h2>
-            <p className="text-slate-500 text-xs mb-4 flex items-center gap-1">
+            <p className="text-xs mb-4 flex items-center gap-1" style={{ color: "var(--theme-text-secondary)" }}>
               <ExternalLink className="w-3 h-3" />
               Opens in a new tab
             </p>
@@ -664,7 +664,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
                 <button
                   key={doc.id}
                   onClick={() => handleDocOpen(doc)}
-                  className="flex items-center gap-3 p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-xl text-left transition-colors"
+                  className="flex items-center gap-3 p-4 rounded-xl text-left transition-colors border" style={{ backgroundColor: "var(--theme-secondary)", borderColor: "var(--theme-border)" }}
                 >
                   <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
                     {doc.file_type === 'pdf'
@@ -673,10 +673,10 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
                     }
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{doc.label}</p>
-                    <p className="text-slate-400 text-xs">{doc.file_type === 'pdf' ? 'PDF Document' : 'Image'}</p>
+                    <p className="text-sm font-medium truncate" style={{ color: "var(--theme-text)" }}>{doc.label}</p>
+                    <p className="text-xs" style={{ color: "var(--theme-text-secondary)" }}>{doc.file_type === 'pdf' ? 'PDF Document' : 'Image'}</p>
                   </div>
-                  <ExternalLink className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                  <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--theme-text-secondary)" }} />
                 </button>
               ))}
             </div>
@@ -685,7 +685,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
 
         {/* Journal */}
         <div ref={journalRef} className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--theme-surface)', borderColor: 'var(--theme-border)' }}>
-          <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+          <h2 className="font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--theme-text)" }}>
             <NotebookPen className="w-4 h-4 text-yellow-400" />
             Notes & Journal
           </h2>
@@ -698,7 +698,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
 
         {/* Change 2: Trip Photos */}
         <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--theme-surface)', borderColor: 'var(--theme-border)' }}>
-          <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+          <h2 className="font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--theme-text)" }}>
             <Camera className="w-4 h-4 text-pink-400" />
             Trip Photos
           </h2>
@@ -706,7 +706,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             <button
               onClick={() => albumPhotoInputRef.current?.click()}
               disabled={uploadingAlbumPhoto}
-              className="flex items-center gap-3 w-full p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-xl text-left transition-colors disabled:opacity-50"
+              className="flex items-center gap-3 w-full p-4 rounded-xl text-left transition-colors disabled:opacity-50 border" style={{ backgroundColor: "var(--theme-secondary)", borderColor: "var(--theme-border)" }}
             >
               <div className="w-10 h-10 rounded-lg bg-pink-500/10 flex items-center justify-center flex-shrink-0">
                 {uploadingAlbumPhoto ? (
@@ -718,7 +718,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
                 )}
               </div>
               <div className="flex-1">
-                <p className="text-white text-sm font-medium">
+                <p className="text-sm font-medium" style={{ color: "var(--theme-text)" }}>
                   {uploadingAlbumPhoto
                     ? 'Uploading...'
                     : albumPhotoSuccess
@@ -727,7 +727,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
                   }
                 </p>
                 {!uploadingAlbumPhoto && !albumPhotoSuccess && (
-                  <p className="text-slate-500 text-xs mt-0.5">Photos are shared with your group organizer</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--theme-text-secondary)" }}>Photos are shared with your group organizer</p>
                 )}
               </div>
             </button>

@@ -74,6 +74,17 @@ export const DEFAULT_TRIP_THEME: TripTheme = {
   border: '#334155',
 }
 
+export const LIGHT_TRIP_THEME: TripTheme = {
+  primary: '#2563EB',
+  secondary: '#E2E8F0',
+  accent: '#D97706',
+  background: '#F8FAFC',
+  surface: '#FFFFFF',
+  text: '#0F172A',
+  textSecondary: '#475569',
+  border: '#CBD5E1',
+}
+
 export interface Trip {
   id: string
   title: string
