@@ -464,13 +464,13 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               {p.company && <p className="text-sm" style={{ color: 'var(--theme-text-secondary)' }}>{p.company}</p>}
               <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-4 mt-2">
                 {p.phone && (
-                  <a href={`tel:${p.phone}`} className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--theme-primary)' }}>
+                  <a href={`tel:${p.phone}`} className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--theme-text)' }}>
                     <Phone className="w-3.5 h-3.5 flex-shrink-0" />
                     {p.phone}
                   </a>
                 )}
                 {p.email && (
-                  <a href={`mailto:${p.email}`} className="flex items-center gap-1.5 text-sm min-w-0" style={{ color: 'var(--theme-primary)' }}>
+                  <a href={`mailto:${p.email}`} className="flex items-center gap-1.5 text-sm min-w-0" style={{ color: 'var(--theme-text)' }}>
                     <Mail className="w-3.5 h-3.5 flex-shrink-0" />
                     <span className="truncate">{p.email}</span>
                   </a>
@@ -514,13 +514,13 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
                 {p.group.lead_name && <p className="text-sm" style={{ color: "var(--theme-text-secondary)" }}>Lead: {p.group.lead_name}</p>}
                 <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-4 mt-1">
                   {p.group.lead_phone && (
-                    <a href={`tel:${p.group.lead_phone}`} className="flex items-center gap-1.5 text-sm" style={{ color: "var(--theme-primary)" }}>
+                    <a href={`tel:${p.group.lead_phone}`} className="flex items-center gap-1.5 text-sm" style={{ color: "var(--theme-text)" }}>
                       <Phone className="w-3.5 h-3.5 flex-shrink-0" />
                       {p.group.lead_phone}
                     </a>
                   )}
                   {p.group.lead_email && (
-                    <a href={`mailto:${p.group.lead_email}`} className="flex items-center gap-1.5 text-sm min-w-0" style={{ color: "var(--theme-primary)" }}>
+                    <a href={`mailto:${p.group.lead_email}`} className="flex items-center gap-1.5 text-sm min-w-0" style={{ color: "var(--theme-text)" }}>
                       <Mail className="w-3.5 h-3.5 flex-shrink-0" />
                       <span className="truncate">{p.group.lead_email}</span>
                     </a>
