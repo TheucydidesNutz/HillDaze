@@ -843,14 +843,14 @@ export default function TripsPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {([
-                      ['primary', 'Accent 1'],
-                      ['secondary', 'Secondary'],
-                      ['accent', 'Accent 2'],
-                      ['background', 'Background'],
                       ['surface', 'Surface'],
+                      ['background', 'Background'],
                       ['text', 'Text'],
                       ['textSecondary', 'Text Secondary'],
                       ['border', 'Border'],
+                      ['secondary', 'Secondary'],
+                      ['primary', 'Accent 1'],
+                      ['accent', 'Accent 2'],
                     ] as [keyof TripTheme, string][]).map(([key, label]) => (
                       <div key={key} className="flex items-center gap-2">
                         <input

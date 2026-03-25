@@ -90,6 +90,73 @@ body {
   color: color-mix(in srgb, var(--theme-text-secondary) 60%, transparent) !important;
 }
 
+/* Hover variants for bg-blue */
+[style*="--theme-bg"] .hover\:bg-blue-600:hover {
+  background-color: var(--theme-primary) !important;
+  filter: brightness(1.1);
+}
+
+/* Disabled states */
+[style*="--theme-bg"] .disabled\:bg-blue-800:disabled {
+  background-color: var(--theme-primary) !important;
+  opacity: 0.5;
+}
+
+[style*="--theme-bg"] .disabled\:bg-slate-700:disabled {
+  background-color: var(--theme-border) !important;
+}
+
+/* Hover variants for slate backgrounds */
+[style*="--theme-bg"] .hover\:bg-slate-700:hover,
+[style*="--theme-bg"] .hover\:bg-slate-600:hover {
+  background-color: var(--theme-border) !important;
+}
+
+[style*="--theme-bg"] .hover\:bg-slate-800:hover {
+  background-color: var(--theme-secondary) !important;
+  filter: brightness(1.15);
+}
+
+/* Border hover variants */
+[style*="--theme-bg"] .hover\:border-slate-700:hover,
+[style*="--theme-bg"] .hover\:border-slate-600:hover,
+[style*="--theme-bg"] .hover\:border-slate-500:hover {
+  border-color: var(--theme-text-secondary) !important;
+}
+
+/* File input buttons */
+[style*="--theme-bg"] .file\:bg-slate-700::file-selector-button {
+  background-color: var(--theme-border) !important;
+  color: var(--theme-text) !important;
+}
+
+[style*="--theme-bg"] .hover\:file\:bg-slate-600:hover::file-selector-button {
+  background-color: var(--theme-text-secondary) !important;
+}
+
+[style*="--theme-bg"] .file\:text-white::file-selector-button {
+  color: var(--theme-text) !important;
+}
+
+/* Additional border-slate variants */
+[style*="--theme-bg"] .border-slate-600 {
+  border-color: var(--theme-border) !important;
+}
+
+/* Active tab / blue-accented elements */
+[style*="--theme-bg"] .bg-blue-500\/20 {
+  background-color: color-mix(in srgb, var(--theme-primary) 20%, transparent) !important;
+}
+
+[style*="--theme-bg"] .border-blue-500\/20 {
+  border-color: color-mix(in srgb, var(--theme-primary) 20%, transparent) !important;
+}
+
+[style*="--theme-bg"] .text-blue-300 {
+  color: var(--theme-primary) !important;
+  filter: brightness(1.2);
+}
+
 /* FullCalendar theme — inherits from CSS custom properties */
 .fc {
   --fc-border-color: var(--theme-border, #1e293b);
