@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 
 const DEFAULT_THEME = {
   primary: '#3B82F6',
@@ -13,39 +14,55 @@ const DEFAULT_THEME = {
   border: '#334155',
 }
 
+// Pages that don't belong to a specific trip — always use default theme
+const NON_TRIP_PATHS = ['/events/admin/trips', '/events/admin/login', '/events/admin/signup']
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   const [theme, setTheme] = useState(DEFAULT_THEME)
+  const pathname = usePathname()
 
-  useEffect(() => {
+  const readTheme = useCallback(() => {
+    // Non-trip pages always get the default dark theme
+    if (NON_TRIP_PATHS.includes(pathname)) {
+      setTheme(DEFAULT_THEME)
+      return
+    }
     try {
       const tripStr = localStorage.getItem('current_trip')
       if (tripStr) {
         const trip = JSON.parse(tripStr)
         if (trip.theme) {
           setTheme({ ...DEFAULT_THEME, ...trip.theme })
+          return
         }
       }
     } catch {}
+    setTheme(DEFAULT_THEME)
+  }, [pathname])
 
-    // Listen for storage changes (when user switches trips)
-    const handler = () => {
-      try {
-        const tripStr = localStorage.getItem('current_trip')
-        if (tripStr) {
-          const trip = JSON.parse(tripStr)
-          setTheme(trip.theme ? { ...DEFAULT_THEME, ...trip.theme } : DEFAULT_THEME)
-        } else {
-          setTheme(DEFAULT_THEME)
-        }
-      } catch {}
+  // Re-read theme on every route change
+  useEffect(() => {
+    readTheme()
+  }, [readTheme])
+
+  // Patch localStorage.setItem to detect same-tab trip changes
+  useEffect(() => {
+    const originalSetItem = localStorage.setItem.bind(localStorage)
+    localStorage.setItem = function (key: string, value: string) {
+      originalSetItem(key, value)
+      if (key === 'current_trip') {
+        // Defer to let the calling code finish
+        setTimeout(readTheme, 0)
+      }
     }
-    window.addEventListener('storage', handler)
-    return () => window.removeEventListener('storage', handler)
-  }, [])
+    return () => {
+      localStorage.setItem = originalSetItem
+    }
+  }, [readTheme])
 
   const themeVars = {
     '--theme-primary': theme.primary,
