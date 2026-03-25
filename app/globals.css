@@ -103,7 +103,19 @@ body {
 }
 
 [style*="--theme-bg"] .disabled\:bg-slate-700:disabled {
-  background-color: var(--theme-border) !important;
+  background-color: var(--theme-secondary) !important;
+  opacity: 0.5;
+}
+
+[style*="--theme-bg"] .disabled\:bg-slate-800:disabled {
+  background-color: var(--theme-secondary) !important;
+  opacity: 0.5;
+}
+
+[style*="--theme-bg"] .disabled\:text-slate-600:disabled,
+[style*="--theme-bg"] .disabled\:text-slate-500:disabled {
+  color: var(--theme-text-secondary) !important;
+  opacity: 0.5;
 }
 
 /* Hover variants for slate backgrounds */
