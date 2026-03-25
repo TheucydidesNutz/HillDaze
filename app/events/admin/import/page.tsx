@@ -345,16 +345,18 @@ export default function ImportPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={handleICSPreview}
-                  disabled={!icsFile || icsLoading}
-                  className="px-6 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-white font-medium rounded-lg text-sm transition-colors"
-                >
-                  {icsLoading ? 'Parsing...' : 'Preview Events'}
-                </button>
-                {!icsLoading && !icsPreview && (
-                  <span className="text-slate-400 text-sm">Click Preview Events to proceed</span>
-                )}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleICSPreview}
+                    disabled={!icsFile || icsLoading}
+                    className="px-6 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-white font-medium rounded-lg text-sm transition-colors"
+                  >
+                    {icsLoading ? 'Parsing...' : 'Preview Events'}
+                  </button>
+                  {!icsLoading && !icsPreview && (
+                    <span className="text-slate-400 text-sm">Click Preview Events to proceed</span>
+                  )}
+                </div>
               </div>
             </div>
 
