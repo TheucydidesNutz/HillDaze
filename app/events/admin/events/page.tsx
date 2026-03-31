@@ -84,9 +84,9 @@ export default function EventsPage() {
     const [eData, pData, gData] = await Promise.all([
       eRes.json(), pRes.json(), gRes.json()
     ])
-    setEvents(eData)
-    setParticipants(pData)
-    setGroups(gData)
+    setEvents(Array.isArray(eData) ? eData : [])
+    setParticipants(Array.isArray(pData) ? pData : [])
+    setGroups(Array.isArray(gData) ? gData : [])
   }
 
   function handleEventClick(info: any) {

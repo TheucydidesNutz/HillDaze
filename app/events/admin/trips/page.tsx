@@ -167,9 +167,10 @@ export default function TripsPage() {
   async function fetchTrips() {
     const res = await fetch('/api/events/admin/trips')
     const data = await res.json()
-    setTrips(data)
+    const trips = Array.isArray(data) ? data : []
+    setTrips(trips)
     setLoading(false)
-    if (Array.isArray(data) && data.some((t: Trip) => t.role === 'super')) {
+    if (trips.some((t: Trip) => t.role === 'super')) {
       setIsSuperAdmin(true)
     }
   }

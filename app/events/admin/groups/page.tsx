@@ -26,7 +26,7 @@ export default function GroupsPage() {
   async function fetchGroups() {
     const res = await apiFetch('/api/events/admin/groups')
     const data = await res.json()
-    setGroups(data)
+    setGroups(Array.isArray(data) ? data : [])
     setLoading(false)
   }
 

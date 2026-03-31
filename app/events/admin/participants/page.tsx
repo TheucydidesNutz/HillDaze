@@ -167,8 +167,8 @@ export default function ParticipantsPage() {
       apiFetch('/api/events/admin/groups'),
     ])
     const [pData, gData] = await Promise.all([pRes.json(), gRes.json()])
-    setParticipants(pData)
-    setGroups(gData)
+    setParticipants(Array.isArray(pData) ? pData : [])
+    setGroups(Array.isArray(gData) ? gData : [])
     setLoading(false)
   }
 
@@ -229,7 +229,7 @@ export default function ParticipantsPage() {
     )
     const res = await apiFetch('/api/events/admin/participants')
     const data = await res.json()
-    setParticipants(data)
+    setParticipants(Array.isArray(data) ? data : [])
     setSelected(new Set())
     setBulkGroupId('')
     setBulkAssigning(false)

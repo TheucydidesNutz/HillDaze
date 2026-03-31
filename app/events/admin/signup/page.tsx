@@ -43,10 +43,12 @@ export default function SignupPage() {
     setLoading(true)
 
     // 1. Create auth account, store profile in metadata
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.covaled.com'
     const { data, error: signupError } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo: `${appUrl}/events/admin/login`,
         data: {
           display_name: name.trim(),
           phone: phone.trim(),

@@ -79,9 +79,9 @@ export default function SettingsPage() {
     const [fsData, docsData, gData] = await Promise.all([
       fsRes.json(), docsRes.json(), gRes.json()
     ])
-    setFactSheets(fsData)
-    setDocuments(docsData)
-    setGroups(gData)
+    setFactSheets(Array.isArray(fsData) ? fsData : [])
+    setDocuments(Array.isArray(docsData) ? docsData : [])
+    setGroups(Array.isArray(gData) ? gData : [])
     setLoading(false)
   }
 
