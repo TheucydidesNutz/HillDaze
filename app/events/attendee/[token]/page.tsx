@@ -626,6 +626,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
           <AttendeeCalendar
             events={events}
             timezone={activeTimezone}
+            tripTimezone={tripTimezone || undefined}
             alertColor={tripTheme.alert || '#D97706'}
             onNoteAboutEvent={handleNoteAboutEvent}
           />

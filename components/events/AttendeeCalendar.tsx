@@ -21,11 +21,12 @@ interface EventContext {
 interface Props {
   events: Event[]
   timezone?: string
+  tripTimezone?: string
   alertColor?: string
   onNoteAboutEvent?: (eventContext: EventContext) => void
 }
 
-export default function AttendeeCalendar({ events, timezone, alertColor = '#D97706', onNoteAboutEvent }: Props) {
+export default function AttendeeCalendar({ events, timezone, tripTimezone, alertColor = '#D97706', onNoteAboutEvent }: Props) {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [viewRange, setViewRange] = useState<{ start: Date; end: Date } | null>(null)
   const [meetingWithOpen, setMeetingWithOpen] = useState(false)
@@ -55,11 +56,21 @@ export default function AttendeeCalendar({ events, timezone, alertColor = '#D977
   }, [])
 
   // Timestamps in the DB are naive local times (trip timezone) stored with +00 offset.
-  // Strip the offset so FullCalendar treats them as local times in whichever timezone
-  // is set via the timeZone prop.
+  // Convert to true UTC so FullCalendar can properly convert between timezones.
+  function toTrueUTC(naiveDateStr: string, tz: string): string {
+    const naive = naiveDateStr?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
+    const fakeUtc = new Date(naive + 'Z')
+    const utcDate = new Date(fakeUtc.toLocaleString('en-US', { timeZone: 'UTC' }))
+    const tzDate = new Date(fakeUtc.toLocaleString('en-US', { timeZone: tz }))
+    const offsetMs = utcDate.getTime() - tzDate.getTime()
+    const trueUtc = new Date(fakeUtc.getTime() + offsetMs)
+    return trueUtc.toISOString()
+  }
+
   const calendarEvents = events.map(e => {
-    const cleanStart = e.start_time?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
-    const cleanEnd = e.end_time?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
+    const eventTz = tripTimezone || timezone
+    const start = eventTz ? toTrueUTC(e.start_time, eventTz) : e.start_time
+    const end = eventTz ? toTrueUTC(e.end_time, eventTz) : e.end_time
 
     // Show orange if event was updated within the last 3 hours
     const threeHoursMs = 3 * 60 * 60 * 1000
@@ -70,8 +81,8 @@ export default function AttendeeCalendar({ events, timezone, alertColor = '#D977
     return {
       id: e.id,
       title: recentlyUpdated ? `⚡ ${e.title}` : e.title,
-      start: cleanStart,
-      end: cleanEnd,
+      start,
+      end,
       backgroundColor: recentlyUpdated ? alertColor : e.type === 'mandatory' ? '#EF4444' : '#3B82F6',
       borderColor: recentlyUpdated ? alertColor : e.type === 'mandatory' ? '#DC2626' : '#2563EB',
     }

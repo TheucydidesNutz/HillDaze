@@ -101,11 +101,23 @@ export default function EventsPage() {
   }
 
   // Timestamps in the DB are naive local times (trip timezone) stored with +00 offset.
-  // Strip the offset so FullCalendar treats them as local times in whichever timezone
-  // is set via the timeZone prop — this makes My Time / Event Time switching work.
+  // To make FullCalendar timezone switching work, we need to convert them to true UTC
+  // by telling JS they are in the trip timezone, then getting the real UTC value.
+  function toTrueUTC(naiveDateStr: string, tz: string): string {
+    // Strip any offset — treat as naive
+    const naive = naiveDateStr?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
+    // Parse as if in the trip timezone: find what UTC instant corresponds to this local time
+    const fakeUtc = new Date(naive + 'Z') // treat naive as UTC temporarily
+    const utcDate = new Date(fakeUtc.toLocaleString('en-US', { timeZone: 'UTC' }))
+    const tzDate = new Date(fakeUtc.toLocaleString('en-US', { timeZone: tz }))
+    const offsetMs = utcDate.getTime() - tzDate.getTime()
+    const trueUtc = new Date(fakeUtc.getTime() + offsetMs)
+    return trueUtc.toISOString()
+  }
+
   const calendarEvents = events.map(e => {
-    const cleanStart = e.start_time?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
-    const cleanEnd = (e.end_time || e.start_time)?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
+    const start = toTrueUTC(e.start_time, tripTimezone)
+    const end = toTrueUTC(e.end_time || e.start_time, tripTimezone)
 
     const threeHoursMs = 3 * 60 * 60 * 1000
     const wasUpdated = e.updated_at && e.created_at &&
@@ -115,8 +127,8 @@ export default function EventsPage() {
     return {
       id: e.id,
       title: wasUpdated ? `⚡ ${e.title}` : e.title,
-      start: cleanStart,
-      end: cleanEnd,
+      start,
+      end,
       backgroundColor: wasUpdated ? alertColor : e.type === 'mandatory' ? '#EF4444' : primaryColor,
       borderColor: wasUpdated ? alertColor : e.type === 'mandatory' ? '#DC2626' : primaryColor,
       extendedProps: { location: e.location, description: e.description, type: e.type }
