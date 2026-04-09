@@ -305,7 +305,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   const tripLogo = trip?.logo_url
   const tripTimezone = (trip as any)?.timezone || null
   const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
-  const activeTimezone = useEventTimezone && tripTimezone ? tripTimezone : undefined
+  const activeTimezone = useEventTimezone ? tripTimezone : browserTimezone
 
   const tripTheme = (trip as any)?.theme || {}
   const themeVars = {
