@@ -306,6 +306,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   const tripTimezone = (trip as any)?.timezone || null
   const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const activeTimezone = useEventTimezone ? tripTimezone : browserTimezone
+  const showMyTime = !useEventTimezone
 
   const tripTheme = (trip as any)?.theme || {}
   const themeVars = {
@@ -629,6 +630,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             tripTimezone={tripTimezone || undefined}
             alertColor={tripTheme.alert || '#D97706'}
             onNoteAboutEvent={handleNoteAboutEvent}
+            showMyTime={showMyTime}
           />
           {tripTimezone && (
             <p className="text-xs mt-2 text-right" style={{ color: "var(--theme-text-secondary)" }}>

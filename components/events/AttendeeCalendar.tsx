@@ -24,12 +24,24 @@ interface Props {
   tripTimezone?: string
   alertColor?: string
   onNoteAboutEvent?: (eventContext: EventContext) => void
+  showMyTime?: boolean
 }
 
-export default function AttendeeCalendar({ events, timezone, tripTimezone, alertColor = '#D97706', onNoteAboutEvent }: Props) {
+export default function AttendeeCalendar({ events, timezone, tripTimezone, alertColor = '#D97706', onNoteAboutEvent, showMyTime = false }: Props) {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [viewRange, setViewRange] = useState<{ start: Date; end: Date } | null>(null)
   const [meetingWithOpen, setMeetingWithOpen] = useState(false)
+
+  // Calculate the offset in ms between trip timezone and browser timezone.
+  // If "My Time" is active, we shift event times by this amount.
+  const offsetMs = useMemo(() => {
+    if (!showMyTime || !tripTimezone) return 0
+    const now = new Date()
+    const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    const tripLocal = new Date(now.toLocaleString('en-US', { timeZone: tripTimezone }))
+    const browserLocal = new Date(now.toLocaleString('en-US', { timeZone: browserTz }))
+    return browserLocal.getTime() - tripLocal.getTime()
+  }, [showMyTime, tripTimezone])
 
   const timeBounds = useMemo(() => {
     if (!viewRange) return { slotMinTime: '08:00:00', slotMaxTime: '18:00:00' }
@@ -55,25 +67,25 @@ export default function AttendeeCalendar({ events, timezone, tripTimezone, alert
     setViewRange({ start: dateInfo.start, end: dateInfo.end })
   }, [])
 
-  // DB stores naive local times (trip timezone) with fake +00 offset.
-  // Tag with the real trip timezone offset so FullCalendar can convert properly.
-  function tagWithTripOffset(naiveDateStr: string, tz: string): string {
-    const naive = naiveDateStr?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
-    const date = new Date(naive + 'Z')
-    const utcStr = date.toLocaleString('en-US', { timeZone: 'UTC' })
-    const tzStr = date.toLocaleString('en-US', { timeZone: tz })
-    const offsetMinutes = (new Date(tzStr).getTime() - new Date(utcStr).getTime()) / 60000
-    const sign = offsetMinutes >= 0 ? '+' : '-'
-    const abs = Math.abs(offsetMinutes)
-    const h = String(Math.floor(abs / 60)).padStart(2, '0')
-    const m = String(abs % 60).padStart(2, '0')
-    return `${naive}${sign}${h}:${m}`
+  // Strip the fake +00 offset from DB timestamps and treat as naive local time.
+  // If "My Time" is active, shift by the offset between trip and browser timezones.
+  function shiftTime(dateStr: string): string {
+    const naive = dateStr?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
+    if (offsetMs === 0) return naive
+    const shifted = new Date(new Date(naive).getTime() + offsetMs)
+    // Return as naive ISO string (no offset)
+    const y = shifted.getFullYear()
+    const mo = String(shifted.getMonth() + 1).padStart(2, '0')
+    const d = String(shifted.getDate()).padStart(2, '0')
+    const h = String(shifted.getHours()).padStart(2, '0')
+    const mi = String(shifted.getMinutes()).padStart(2, '0')
+    const s = String(shifted.getSeconds()).padStart(2, '0')
+    return `${y}-${mo}-${d}T${h}:${mi}:${s}`
   }
 
   const calendarEvents = events.map(e => {
-    const eventTz = tripTimezone || timezone
-    const start = eventTz ? tagWithTripOffset(e.start_time, eventTz) : e.start_time
-    const end = eventTz ? tagWithTripOffset(e.end_time, eventTz) : e.end_time
+    const start = shiftTime(e.start_time)
+    const end = shiftTime(e.end_time)
 
     // Show orange if event was updated within the last 3 hours
     const threeHoursMs = 3 * 60 * 60 * 1000
@@ -114,11 +126,11 @@ export default function AttendeeCalendar({ events, timezone, tripTimezone, alert
     onNoteAboutEvent(context)
   }
 
-  function formatTime(utcStr: string, opts: Intl.DateTimeFormatOptions) {
-    return new Date(utcStr).toLocaleString('en-US', {
-      ...opts,
-      timeZone: timezone || undefined,
-    })
+  // Format time for popover display — always show in the currently active timezone
+  function formatTime(dateStr: string, opts: Intl.DateTimeFormatOptions) {
+    const naive = dateStr?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
+    const shifted = new Date(new Date(naive).getTime() + offsetMs)
+    return shifted.toLocaleString('en-US', opts)
   }
 
   const meetingContacts: MeetingContact[] = selectedEvent?.meeting_with
@@ -142,7 +154,7 @@ export default function AttendeeCalendar({ events, timezone, tripTimezone, alert
         slotMaxTime={timeBounds.slotMaxTime}
         height={events.length === 0 ? 300 : 'auto'}
         eventDisplay="block"
-        timeZone={timezone || 'local'}
+        timeZone="local"
       />
 
       {/* Event detail popover */}

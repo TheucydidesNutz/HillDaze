@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -100,26 +100,33 @@ export default function EventsPage() {
     setModalOpen(true)
   }
 
-  // DB stores naive local times (trip timezone) with fake +00 offset.
-  // FullCalendar's timeZone prop handles display conversion, but it needs
-  // timestamps tagged with the trip timezone offset so it knows what they represent.
-  function tagWithTripOffset(naiveDateStr: string, tz: string): string {
-    const naive = naiveDateStr?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
-    // Find the offset for this timezone at this date
-    const date = new Date(naive + 'Z')
-    const utcStr = date.toLocaleString('en-US', { timeZone: 'UTC' })
-    const tzStr = date.toLocaleString('en-US', { timeZone: tz })
-    const offsetMinutes = (new Date(tzStr).getTime() - new Date(utcStr).getTime()) / 60000
-    const sign = offsetMinutes >= 0 ? '+' : '-'
-    const abs = Math.abs(offsetMinutes)
-    const h = String(Math.floor(abs / 60)).padStart(2, '0')
-    const m = String(abs % 60).padStart(2, '0')
-    return `${naive}${sign}${h}:${m}`
+  // Calculate offset between trip timezone and browser timezone
+  const showMyTime = !useEventTimezone
+  const tzOffsetMs = useMemo(() => {
+    if (!showMyTime) return 0
+    const now = new Date()
+    const tripLocal = new Date(now.toLocaleString('en-US', { timeZone: tripTimezone }))
+    const browserLocal = new Date(now.toLocaleString('en-US', { timeZone: browserTimezone }))
+    return browserLocal.getTime() - tripLocal.getTime()
+  }, [showMyTime, tripTimezone, browserTimezone])
+
+  // Strip fake +00 offset and optionally shift by timezone difference
+  function shiftTime(dateStr: string): string {
+    const naive = dateStr?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
+    if (tzOffsetMs === 0) return naive
+    const shifted = new Date(new Date(naive).getTime() + tzOffsetMs)
+    const y = shifted.getFullYear()
+    const mo = String(shifted.getMonth() + 1).padStart(2, '0')
+    const d = String(shifted.getDate()).padStart(2, '0')
+    const h = String(shifted.getHours()).padStart(2, '0')
+    const mi = String(shifted.getMinutes()).padStart(2, '0')
+    const s = String(shifted.getSeconds()).padStart(2, '0')
+    return `${y}-${mo}-${d}T${h}:${mi}:${s}`
   }
 
   const calendarEvents = events.map(e => {
-    const start = tagWithTripOffset(e.start_time, tripTimezone)
-    const end = tagWithTripOffset(e.end_time || e.start_time, tripTimezone)
+    const start = shiftTime(e.start_time)
+    const end = shiftTime(e.end_time || e.start_time)
 
     const threeHoursMs = 3 * 60 * 60 * 1000
     const wasUpdated = e.updated_at && e.created_at &&
@@ -137,8 +144,6 @@ export default function EventsPage() {
     }
   })
 
-  // When "Event Time" is selected, show in trip timezone
-  // When "My Time" is selected, show in browser's local timezone
   const displayTimezone = useEventTimezone ? tripTimezone : browserTimezone
 
   return (
@@ -234,7 +239,7 @@ export default function EventsPage() {
             eventClick={handleEventClick}
             height="auto"
             eventDisplay="block"
-            timeZone={displayTimezone}
+            timeZone="local"
             views={{
               listWeek: { buttonText: 'Week' },
               listMonth: { buttonText: 'Month' },
