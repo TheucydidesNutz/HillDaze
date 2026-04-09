@@ -27,24 +27,6 @@ interface CalendarEvent {
   updated_at: string
 }
 
-// Convert an IANA timezone (e.g. "America/New_York") to an offset string
-// at the moment of a given date, like "-04:00" or "-05:00"
-function getTimezoneOffset(dateStr: string, timezone: string): string {
-  try {
-    const date = new Date(dateStr)
-    // Get the offset by comparing UTC and localized representations
-    const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }))
-    const tzDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }))
-    const offsetMinutes = (tzDate.getTime() - utcDate.getTime()) / 60000
-    const sign = offsetMinutes >= 0 ? '+' : '-'
-    const absMinutes = Math.abs(offsetMinutes)
-    const hours = String(Math.floor(absMinutes / 60)).padStart(2, '0')
-    const mins = String(absMinutes % 60).padStart(2, '0')
-    return `${sign}${hours}:${mins}`
-  } catch {
-    return '+00:00'
-  }
-}
 
 export default function EventsPage() {
   const router = useRouter()
@@ -118,13 +100,10 @@ export default function EventsPage() {
     setModalOpen(true)
   }
 
-  // FIX: Append the trip timezone offset to naive timestamps so FullCalendar
-  // knows what timezone they belong to and can convert correctly
+  // Timestamps in the DB are naive local times (trip timezone) stored with +00 offset.
+  // Strip the offset so FullCalendar treats them as local times in whichever timezone
+  // is set via the timeZone prop — this makes My Time / Event Time switching work.
   const calendarEvents = events.map(e => {
-    const startOffset = getTimezoneOffset(e.start_time, tripTimezone)
-    const endOffset = getTimezoneOffset(e.end_time || e.start_time, tripTimezone)
-
-    // Strip any existing timezone suffix, then append the trip's offset
     const cleanStart = e.start_time?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
     const cleanEnd = (e.end_time || e.start_time)?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
 
@@ -136,8 +115,8 @@ export default function EventsPage() {
     return {
       id: e.id,
       title: wasUpdated ? `⚡ ${e.title}` : e.title,
-      start: `${cleanStart}${startOffset}`,
-      end: `${cleanEnd}${endOffset}`,
+      start: cleanStart,
+      end: cleanEnd,
       backgroundColor: wasUpdated ? alertColor : e.type === 'mandatory' ? '#EF4444' : primaryColor,
       borderColor: wasUpdated ? alertColor : e.type === 'mandatory' ? '#DC2626' : primaryColor,
       extendedProps: { location: e.location, description: e.description, type: e.type }

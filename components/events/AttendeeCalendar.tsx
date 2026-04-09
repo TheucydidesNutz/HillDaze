@@ -54,47 +54,24 @@ export default function AttendeeCalendar({ events, timezone, alertColor = '#D977
     setViewRange({ start: dateInfo.start, end: dateInfo.end })
   }, [])
 
-  // Convert an IANA timezone to an offset string at the moment of a given date
-  function getTimezoneOffset(dateStr: string, tz: string): string {
-    try {
-      const date = new Date(dateStr)
-      const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }))
-      const tzDate = new Date(date.toLocaleString('en-US', { timeZone: tz }))
-      const offsetMinutes = (tzDate.getTime() - utcDate.getTime()) / 60000
-      const sign = offsetMinutes >= 0 ? '+' : '-'
-      const absMinutes = Math.abs(offsetMinutes)
-      const hours = String(Math.floor(absMinutes / 60)).padStart(2, '0')
-      const mins = String(absMinutes % 60).padStart(2, '0')
-      return `${sign}${hours}:${mins}`
-    } catch {
-      return '+00:00'
-    }
-  }
-
+  // Timestamps in the DB are naive local times (trip timezone) stored with +00 offset.
+  // Strip the offset so FullCalendar treats them as local times in whichever timezone
+  // is set via the timeZone prop.
   const calendarEvents = events.map(e => {
+    const cleanStart = e.start_time?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
+    const cleanEnd = e.end_time?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
+
     // Show orange if event was updated within the last 3 hours
     const threeHoursMs = 3 * 60 * 60 * 1000
     const recentlyUpdated = e.updated_at && e.created_at &&
       new Date(e.updated_at).getTime() - new Date(e.created_at).getTime() > 2000 &&
       Date.now() - new Date(e.updated_at).getTime() < threeHoursMs
 
-    // Apply trip timezone offset so FullCalendar can convert correctly
-    let start = e.start_time
-    let end = e.end_time
-    if (timezone) {
-      const cleanStart = e.start_time?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
-      const cleanEnd = e.end_time?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
-      const startOffset = getTimezoneOffset(e.start_time, timezone)
-      const endOffset = getTimezoneOffset(e.end_time || e.start_time, timezone)
-      start = `${cleanStart}${startOffset}`
-      end = `${cleanEnd}${endOffset}`
-    }
-
     return {
       id: e.id,
       title: recentlyUpdated ? `⚡ ${e.title}` : e.title,
-      start,
-      end,
+      start: cleanStart,
+      end: cleanEnd,
       backgroundColor: recentlyUpdated ? alertColor : e.type === 'mandatory' ? '#EF4444' : '#3B82F6',
       borderColor: recentlyUpdated ? alertColor : e.type === 'mandatory' ? '#DC2626' : '#2563EB',
     }
