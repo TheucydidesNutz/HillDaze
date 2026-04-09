@@ -7,6 +7,30 @@ async function requireAdmin() {
   return user
 }
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = await requireAdmin()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id } = await params
+
+  const access = await requireTripAccess(request, user.id)
+  if (!access) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const owns = await verifyResourceOwnership('events', id, access.tripId)
+  if (!owns) return NextResponse.json({ error: 'Event not found in this trip' }, { status: 404 })
+
+  const { data, error } = await supabaseAdmin
+    .from('participant_events')
+    .select('participant_id')
+    .eq('event_id', id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data.map((r: any) => r.participant_id))
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -46,13 +70,8 @@ export async function PATCH(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // If participant_ids explicitly provided with actual values, replace all assignments
-  // Skip if participant_ids is absent (edit without reassignment) or empty with no groups
-  // to prevent accidental wipe of all assignments
-  const hasAssignments = participant_ids !== undefined &&
-    ((Array.isArray(participant_ids) && participant_ids.length > 0) ||
-     (Array.isArray(group_ids) && group_ids.length > 0))
-  if (hasAssignments) {
+  // If participant_ids is explicitly provided, replace all assignments
+  if (participant_ids !== undefined) {
     await supabaseAdmin
       .from('participant_events')
       .delete()

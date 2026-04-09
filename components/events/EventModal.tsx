@@ -47,12 +47,20 @@ export default function EventModal({ event, participants, groups, onClose, onSav
     talking_points: event?.talking_points || '',
   })
 
-  // Default to all participants selected for new events
+  // For new events, default to all participants selected
+  // For existing events, fetch current assignments
   useEffect(() => {
     if (!event?.id) {
       setSelectedParticipants(participants.map(p => p.id))
+    } else {
+      apiFetch(`/api/events/admin/events/${event.id}`)
+        .then(res => res.json())
+        .then(ids => {
+          if (Array.isArray(ids)) setSelectedParticipants(ids)
+        })
+        .catch(() => {})
     }
-  }, [participants])
+  }, [participants, event?.id])
 
   function set(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -156,11 +164,9 @@ export default function EventModal({ event, participants, groups, onClose, onSav
       meeting_with: validContacts.length > 0 ? validContacts : null,
       talking_points: form.talking_points.trim() || null,
     }
-    // Only include participant/group assignments for new events
-    if (isNew) {
-      payload.participant_ids = selectedParticipants
-      payload.group_ids = selectedGroups
-    }
+    // Always include participant/group assignments
+    payload.participant_ids = selectedParticipants
+    payload.group_ids = selectedGroups
     const url = isNew ? '/api/events/admin/events' : `/api/events/admin/events/${event.id}`
     const method = isNew ? 'POST' : 'PATCH'
 
@@ -374,9 +380,8 @@ export default function EventModal({ event, participants, groups, onClose, onSav
             />
           </div>
 
-          {/* Assign — only for new events */}
-          {!event?.id && (
-            <div>
+          {/* Assign To */}
+          <div>
               <div className="flex items-center justify-between mb-2">
                 {label('Assign To')}
                 <div className="flex gap-2">
@@ -428,7 +433,6 @@ export default function EventModal({ event, participants, groups, onClose, onSav
                 {selectedParticipants.length} of {participants.length} participant{participants.length !== 1 ? 's' : ''} selected
               </p>
             </div>
-          )}
         </div>
 
         {/* Footer */}
