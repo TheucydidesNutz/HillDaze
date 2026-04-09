@@ -16,7 +16,7 @@ This tool is NOT for creating deepfakes, impersonation, or deception. It is a **
 - **Deployment**: Vercel (frontend/API) + Mac Mini (background workers)
 - **Auth**: Supabase Auth with RLS policies
 - **Multi-tenant**: Single deployment, org-scoped via RLS (like Covaled Events)
-- **GitHub**: HillDaze org
+- **GitHub**: Covaled org
 
 ### Where this lives:
 - URL: `covaled.com/analysis` — path-based routing within the **same Vercel project** as the main Covaled app

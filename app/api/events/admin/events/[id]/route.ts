@@ -36,6 +36,8 @@ export async function PATCH(
       start_time: rest.start_time,
       end_time: rest.end_time,
       type: rest.type,
+      talking_points: rest.talking_points,
+      meeting_with: rest.meeting_with,
     })
     .eq('id', id)
     .eq('trip_id', access.tripId)

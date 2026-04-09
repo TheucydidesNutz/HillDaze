@@ -59,6 +59,7 @@ export default function AnalysisSidebar({
   const navItems: NavItem[] = [
     { label: 'Dashboard', href: base, enabled: true },
     { label: 'Profiles', href: `${base}/profiles`, enabled: true },
+    { label: 'Workspaces', href: `${base}/w`, enabled: true },
   ];
 
   const profileNavItems: NavItem[] = profileBase ? [

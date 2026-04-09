@@ -4,9 +4,9 @@ import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import listPlugin from '@fullcalendar/list'
-import { Event } from '@/lib/events/types'
+import { Event, MeetingContact } from '@/lib/events/types'
 import { useState, useMemo, useCallback } from 'react'
-import { Clock, MapPin, X, NotebookPen } from 'lucide-react'
+import { Clock, MapPin, X, NotebookPen, Users, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface EventContext {
   id: string
@@ -28,6 +28,7 @@ interface Props {
 export default function AttendeeCalendar({ events, timezone, alertColor = '#D97706', onNoteAboutEvent }: Props) {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [viewRange, setViewRange] = useState<{ start: Date; end: Date } | null>(null)
+  const [meetingWithOpen, setMeetingWithOpen] = useState(false)
 
   const timeBounds = useMemo(() => {
     if (!viewRange) return { slotMinTime: '08:00:00', slotMaxTime: '18:00:00' }
@@ -69,7 +70,10 @@ export default function AttendeeCalendar({ events, timezone, alertColor = '#D977
 
   function handleEventClick(info: any) {
     const event = events.find(e => e.id === info.event.id)
-    if (event) setSelectedEvent(event)
+    if (event) {
+      setSelectedEvent(event)
+      setMeetingWithOpen(false)
+    }
   }
 
   function handleNoteAboutEvent() {
@@ -93,6 +97,10 @@ export default function AttendeeCalendar({ events, timezone, alertColor = '#D977
       timeZone: timezone || undefined,
     })
   }
+
+  const meetingContacts: MeetingContact[] = selectedEvent?.meeting_with
+    ? [...selectedEvent.meeting_with].sort((a, b) => a.sort_order - b.sort_order)
+    : []
 
   return (
     <>
@@ -118,7 +126,7 @@ export default function AttendeeCalendar({ events, timezone, alertColor = '#D977
       {selectedEvent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={() => setSelectedEvent(null)}>
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full"
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full max-h-[80vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -145,6 +153,56 @@ export default function AttendeeCalendar({ events, timezone, alertColor = '#D977
                 {selectedEvent.location}
               </p>
             )}
+
+            {/* Meeting With — clickable dropdown */}
+            {meetingContacts.length > 0 && (
+              <div className="mt-3">
+                <button
+                  onClick={() => setMeetingWithOpen(prev => !prev)}
+                  className="w-full flex items-center justify-between px-3 py-2 bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded-lg text-sm text-slate-300 hover:text-white transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-slate-500" />
+                    Meeting With ({meetingContacts.length})
+                  </span>
+                  {meetingWithOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {meetingWithOpen && (
+                  <div className="mt-2 space-y-2">
+                    {meetingContacts.map((contact, i) => (
+                      <div key={i} className="flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-lg">
+                        {contact.photo_url ? (
+                          <img
+                            src={contact.photo_url}
+                            alt={contact.name}
+                            className="w-9 h-9 rounded-full object-cover border border-slate-600 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-400 text-xs font-medium shrink-0">
+                            {contact.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-white text-sm font-medium truncate">{contact.name}</p>
+                          {contact.title && (
+                            <p className="text-slate-400 text-xs truncate">{contact.title}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Talking Points */}
+            {selectedEvent.talking_points && (
+              <div className="mt-3">
+                <p className="text-xs font-medium text-slate-500 mb-1">Talking Points</p>
+                <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedEvent.talking_points}</p>
+              </div>
+            )}
+
             {selectedEvent.description && (
               <p className="text-slate-400 text-sm mt-3">{selectedEvent.description}</p>
             )}

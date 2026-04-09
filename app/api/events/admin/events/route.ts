@@ -46,6 +46,8 @@ export async function POST(request: NextRequest) {
       start_time: rest.start_time,
       end_time: rest.end_time || null,
       type: rest.type || 'optional',
+      talking_points: rest.talking_points || null,
+      meeting_with: rest.meeting_with || null,
       trip_id: access.tripId,
     }])
     .select()

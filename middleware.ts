@@ -75,5 +75,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/home', '/events/:path*', '/intel/:path*', '/api/intel/:path*', '/analysis/:path*', '/api/analysis/:path*', '/api/shared/:path*'],
+  matcher: ['/home', '/events/:path*', '/intel/:path*', '/api/intel/:path*', '/analysis/:path*', '/api/analysis/:path*', '/api/shared/:path*', '/api/workspaces/:path*'],
 }

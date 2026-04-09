@@ -180,3 +180,147 @@ export interface AnalysisProfileWithCounts extends AnalysisProfile {
   data_item_count: number;
   unverified_count: number;
 }
+
+// ── Workspace Types ────────────────────────────────────────────────
+
+export type WorkspaceDocSourceType = 'upload' | 'web' | 'research_agent' | 'generated';
+export type WorkspaceConversationSource = 'web' | 'butterrobot' | 'api';
+export type WorkspaceSoulDocProposalSource = 'conversation' | 'research_agent' | 'manual';
+export type WorkspaceResearchVerification = 'unreviewed' | 'relevant' | 'ignored';
+export type WorkspaceReportFormat = 'docx' | 'md' | 'pdf';
+
+export interface Workspace {
+  id: string;
+  org_id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  soul_doc: Record<string, unknown>;
+  soul_doc_md: string | null;
+  soul_doc_version: number;
+  settings: Record<string, unknown>;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceDocument {
+  id: string;
+  workspace_id: string;
+  title: string;
+  source_type: WorkspaceDocSourceType;
+  source_url: string | null;
+  content: string | null;
+  summary: string | null;
+  metadata: Record<string, unknown>;
+  folder: string;
+  storage_path: string | null;
+  original_filename: string | null;
+  file_size_bytes: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceChunk {
+  id: string;
+  document_id: string;
+  workspace_id: string;
+  chunk_text: string;
+  chunk_index: number;
+  embedding: number[] | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface WorkspaceConversation {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  title: string;
+  source: WorkspaceConversationSource;
+  messages: Array<{
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+    model_used?: string | null;
+    token_count?: number | null;
+    created_at?: string;
+  }>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceSoulDocProposal {
+  id: string;
+  workspace_id: string;
+  proposed_changes: Record<string, unknown>;
+  description: string | null;
+  source: WorkspaceSoulDocProposalSource;
+  status: ProposalStatus;
+  proposed_by: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export interface WorkspaceSoulDocHistory {
+  id: string;
+  workspace_id: string;
+  version: number;
+  soul_doc: Record<string, unknown>;
+  soul_doc_md: string | null;
+  changed_by: 'user' | 'system' | 'butterrobot';
+  description: string | null;
+  created_at: string;
+}
+
+export interface WorkspaceReportTemplate {
+  id: string;
+  workspace_id: string;
+  name: string;
+  description: string | null;
+  example_reports: Array<{ title: string; content: string; date?: string }>;
+  output_format: WorkspaceReportFormat;
+  generation_prompt: string | null;
+  schedule: string | null;
+  last_generated_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceGeneratedReport {
+  id: string;
+  template_id: string;
+  workspace_id: string;
+  title: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  generated_by: string | null;
+  created_at: string;
+}
+
+export interface WorkspaceResearchConfig {
+  id: string;
+  workspace_id: string;
+  source_type: string;
+  config: Record<string, unknown>;
+  enabled: boolean;
+  check_interval: string;
+  last_checked_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceResearchItem {
+  id: string;
+  workspace_id: string;
+  research_config_id: string | null;
+  title: string;
+  content: string | null;
+  source_url: string | null;
+  source_type: string | null;
+  relevance_score: number | null;
+  verification_status: WorkspaceResearchVerification;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}

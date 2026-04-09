@@ -39,6 +39,13 @@ export interface Participant {
   group?: Group | null
 }
 
+export interface MeetingContact {
+  name: string
+  title: string
+  photo_url: string | null
+  sort_order: number
+}
+
 export interface Event {
   id: string
   title: string
@@ -47,6 +54,8 @@ export interface Event {
   end_time: string
   location: string | null
   type: 'mandatory' | 'optional'
+  talking_points: string | null
+  meeting_with: MeetingContact[] | null
   trip_id: string
   created_at: string
   updated_at: string

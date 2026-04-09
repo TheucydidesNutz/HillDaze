@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Participant, Group } from '@/lib/events/types'
+import { useState, useEffect, useRef } from 'react'
+import { Participant, Group, MeetingContact } from '@/lib/events/types'
 import { apiFetch } from '@/lib/apiFetch'
+import { Plus, GripVertical, Trash2, Upload } from 'lucide-react'
 
 interface Event {
   id: string
@@ -12,6 +13,8 @@ interface Event {
   end_time: string
   location: string
   type: 'mandatory' | 'optional'
+  talking_points: string | null
+  meeting_with: MeetingContact[] | null
 }
 
 interface Props {
@@ -27,6 +30,13 @@ export default function EventModal({ event, participants, groups, onClose, onSav
   const [saving, setSaving] = useState(false)
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([])
   const [selectedGroups, setSelectedGroups] = useState<string[]>([])
+  const [contacts, setContacts] = useState<MeetingContact[]>(
+    event?.meeting_with?.length ? [...event.meeting_with].sort((a, b) => a.sort_order - b.sort_order) : []
+  )
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null)
+  const dragItem = useRef<number | null>(null)
+  const dragOverItem = useRef<number | null>(null)
+
   const [form, setForm] = useState({
     title: event?.title || '',
     description: event?.description || '',
@@ -34,6 +44,7 @@ export default function EventModal({ event, participants, groups, onClose, onSav
     end_time: event?.end_time?.slice(0, 16) || '',
     location: event?.location || '',
     type: event?.type || 'optional' as 'mandatory' | 'optional',
+    talking_points: event?.talking_points || '',
   })
 
   // Default to all participants selected for new events
@@ -68,6 +79,65 @@ export default function EventModal({ event, participants, groups, onClose, onSav
     setSelectedGroups([])
   }
 
+  // --- Meeting With helpers ---
+  function addContact() {
+    if (contacts.length >= 5) return
+    setContacts(prev => [...prev, { name: '', title: '', photo_url: null, sort_order: prev.length }])
+  }
+
+  function updateContact(index: number, field: keyof MeetingContact, value: string) {
+    setContacts(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c))
+  }
+
+  function removeContact(index: number) {
+    setContacts(prev => prev.filter((_, i) => i !== index).map((c, i) => ({ ...c, sort_order: i })))
+  }
+
+  async function uploadContactPhoto(index: number, file: File) {
+    setUploadingIndex(index)
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const res = await apiFetch('/api/events/admin/upload/meeting-photo', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setContacts(prev => prev.map((c, i) => i === index ? { ...c, photo_url: data.url } : c))
+      } else {
+        alert(data.error || 'Upload failed')
+      }
+    } catch {
+      alert('Upload failed')
+    }
+    setUploadingIndex(null)
+  }
+
+  // Drag-and-drop reorder
+  function handleDragStart(index: number) {
+    dragItem.current = index
+  }
+
+  function handleDragEnter(index: number) {
+    dragOverItem.current = index
+  }
+
+  function handleDragEnd() {
+    if (dragItem.current === null || dragOverItem.current === null) return
+    const from = dragItem.current
+    const to = dragOverItem.current
+    if (from === to) { dragItem.current = null; dragOverItem.current = null; return }
+    setContacts(prev => {
+      const updated = [...prev]
+      const [moved] = updated.splice(from, 1)
+      updated.splice(to, 0, moved)
+      return updated.map((c, i) => ({ ...c, sort_order: i }))
+    })
+    dragItem.current = null
+    dragOverItem.current = null
+  }
+
   async function handleSave() {
     if (!form.title.trim()) return alert('Title is required')
     if (!form.start_time) return alert('Start time is required')
@@ -76,9 +146,17 @@ export default function EventModal({ event, participants, groups, onClose, onSav
 
     const isNew = !event?.id || event.id === ''
 
-    const payload: any = { ...form }
+    // Filter out empty contacts (no name)
+    const validContacts = contacts
+      .filter(c => c.name.trim())
+      .map((c, i) => ({ ...c, sort_order: i }))
+
+    const payload: any = {
+      ...form,
+      meeting_with: validContacts.length > 0 ? validContacts : null,
+      talking_points: form.talking_points.trim() || null,
+    }
     // Only include participant/group assignments for new events
-    // (editing doesn't show the assignment UI, so these would be empty and wipe all assignments)
     if (isNew) {
       payload.participant_ids = selectedParticipants
       payload.group_ids = selectedGroups
@@ -139,6 +217,94 @@ export default function EventModal({ event, participants, groups, onClose, onSav
             {input('title', 'Opening Reception')}
           </div>
 
+          {/* Meeting With */}
+          <div>
+            {label('Meeting With')}
+            <div className="space-y-2">
+              {contacts.map((contact, index) => (
+                <div
+                  key={index}
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
+                  onDragEnter={() => handleDragEnter(index)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={e => e.preventDefault()}
+                  className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg p-2 group"
+                >
+                  {/* Drag handle */}
+                  <div className="cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-400 shrink-0">
+                    <GripVertical className="w-4 h-4" />
+                  </div>
+
+                  {/* Photo */}
+                  <label className="shrink-0 cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0]
+                        if (file) uploadContactPhoto(index, file)
+                      }}
+                    />
+                    {contact.photo_url ? (
+                      <img
+                        src={contact.photo_url}
+                        alt={contact.name}
+                        className="w-10 h-10 rounded-full object-cover border border-slate-600"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-400 hover:text-slate-300 hover:border-slate-500 transition-colors">
+                        {uploadingIndex === index ? (
+                          <span className="text-xs">...</span>
+                        ) : (
+                          <Upload className="w-4 h-4" />
+                        )}
+                      </div>
+                    )}
+                  </label>
+
+                  {/* Name + Title inputs */}
+                  <div className="flex-1 flex gap-2 min-w-0">
+                    <input
+                      type="text"
+                      placeholder="Name"
+                      value={contact.name}
+                      onChange={e => updateContact(index, 'name', e.target.value)}
+                      className="flex-1 min-w-0 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Title / Role"
+                      value={contact.title}
+                      onChange={e => updateContact(index, 'title', e.target.value)}
+                      className="flex-1 min-w-0 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Delete */}
+                  <button
+                    onClick={() => removeContact(index)}
+                    className="shrink-0 text-slate-600 hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+
+              {/* Add button */}
+              {contacts.length < 5 && (
+                <button
+                  onClick={addContact}
+                  className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-400 transition-colors py-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add person{contacts.length > 0 && ` (${contacts.length}/5)`}
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Type */}
           <div>
             {label('Event Type')}
@@ -182,6 +348,18 @@ export default function EventModal({ event, participants, groups, onClose, onSav
           <div>
             {label('Location')}
             {input('location', 'Grand Ballroom, Floor 3')}
+          </div>
+
+          {/* Talking Points */}
+          <div>
+            {label('Talking Points')}
+            <textarea
+              placeholder="Key discussion topics..."
+              value={form.talking_points}
+              onChange={e => set('talking_points', e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+            />
           </div>
 
           {/* Description */}

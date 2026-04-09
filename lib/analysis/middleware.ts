@@ -1,7 +1,9 @@
 import { createSupabaseServerClient } from '@/lib/supabase';
 import { getOrgBySlug, getUserOrgMembership } from '@/lib/intel/supabase-queries';
+import { getWorkspaceBySlug } from '@/lib/analysis/workspace-queries';
 import type { IntelOrg, IntelOrgMember } from '@/lib/intel/types';
 import type { User } from '@supabase/supabase-js';
+import type { Workspace } from '@/lib/analysis/types';
 
 export async function verifyAnalysisAccess(orgSlug: string): Promise<{
   org: IntelOrg;
@@ -35,4 +37,19 @@ export function hasAnalysisPermission(
   };
 
   return rolePerms[role]?.includes(permission) ?? false;
+}
+
+export async function verifyWorkspaceAccess(orgSlug: string, workspaceSlug: string): Promise<{
+  org: IntelOrg;
+  member: IntelOrgMember;
+  user: User;
+  workspace: Workspace;
+} | null> {
+  const access = await verifyAnalysisAccess(orgSlug);
+  if (!access) return null;
+
+  const workspace = await getWorkspaceBySlug(access.org.id, workspaceSlug);
+  if (!workspace) return null;
+
+  return { ...access, workspace };
 }
