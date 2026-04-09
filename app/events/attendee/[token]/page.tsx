@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Participant, Group, Event, Trip } from '@/lib/events/types'
 import AttendeeCalendar from '@/components/events/AttendeeCalendar'
+import AttendeeEditModal from '@/components/events/AttendeeEditModal'
 import JournalSection from '@/components/events/JournalSection'
 import MapModal from '@/components/events/MapModal'
 import BroadcastFeed from '@/components/events/BroadcastFeed'
@@ -25,6 +26,7 @@ import {
   ExternalLink,
   Zap,
   Users,
+  Pencil,
 } from 'lucide-react'
 
 interface FactSheet {
@@ -96,6 +98,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   const [loadingFactSheet, setLoadingFactSheet] = useState(false)
 
   const [showAttendees, setShowAttendees] = useState(false)
+  const [showEditProfile, setShowEditProfile] = useState(false)
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
@@ -434,7 +437,15 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
 
         {/* Hero Card */}
-        <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--theme-surface)', borderColor: 'var(--theme-border)' }}>
+        <div className="rounded-2xl p-6 border relative" style={{ backgroundColor: 'var(--theme-surface)', borderColor: 'var(--theme-border)' }}>
+          <button
+            onClick={() => setShowEditProfile(true)}
+            className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+            style={{ backgroundColor: 'var(--theme-secondary)', color: 'var(--theme-text-secondary)' }}
+            title="Edit your profile"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
           <div className="flex items-center gap-5">
             <div className="relative flex-shrink-0">
               <div className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden" style={{ backgroundColor: 'var(--theme-primary)' }}>
@@ -752,6 +763,17 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
       )}
       {showAttendees && token && (
         <AttendeesModal token={token} onClose={() => setShowAttendees(false)} />
+      )}
+      {showEditProfile && token && (
+        <AttendeeEditModal
+          participant={p}
+          token={token}
+          onClose={() => setShowEditProfile(false)}
+          onSaved={(updated) => {
+            setData(prev => prev ? { ...prev, participant: { ...updated, group: prev.participant.group } } : prev)
+            setShowEditProfile(false)
+          }}
+        />
       )}
     </div>
   )
