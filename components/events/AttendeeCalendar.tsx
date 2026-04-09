@@ -55,9 +55,11 @@ export default function AttendeeCalendar({ events, timezone, alertColor = '#D977
   }, [])
 
   const calendarEvents = events.map(e => {
-    // Show orange if event was ever modified after creation (2s threshold for trigger timing)
+    // Show orange if event was updated within the last 3 hours
+    const threeHoursMs = 3 * 60 * 60 * 1000
     const recentlyUpdated = e.updated_at && e.created_at &&
-      new Date(e.updated_at).getTime() - new Date(e.created_at).getTime() > 2000
+      new Date(e.updated_at).getTime() - new Date(e.created_at).getTime() > 2000 &&
+      Date.now() - new Date(e.updated_at).getTime() < threeHoursMs
     return {
       id: e.id,
       title: recentlyUpdated ? `⚡ ${e.title}` : e.title,
@@ -204,7 +206,10 @@ export default function AttendeeCalendar({ events, timezone, alertColor = '#D977
             )}
 
             {selectedEvent.description && (
-              <p className="text-slate-400 text-sm mt-3">{selectedEvent.description}</p>
+              <div className="mt-3">
+                <p className="text-xs font-medium text-slate-500 mb-1">Description</p>
+                <p className="text-slate-400 text-sm">{selectedEvent.description}</p>
+              </div>
             )}
 
             {/* Make a note about this event */}

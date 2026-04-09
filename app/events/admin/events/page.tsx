@@ -128,8 +128,10 @@ export default function EventsPage() {
     const cleanStart = e.start_time?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
     const cleanEnd = (e.end_time || e.start_time)?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
 
+    const threeHoursMs = 3 * 60 * 60 * 1000
     const wasUpdated = e.updated_at && e.created_at &&
-      new Date(e.updated_at).getTime() - new Date(e.created_at).getTime() > 2000
+      new Date(e.updated_at).getTime() - new Date(e.created_at).getTime() > 2000 &&
+      Date.now() - new Date(e.updated_at).getTime() < threeHoursMs
 
     return {
       id: e.id,

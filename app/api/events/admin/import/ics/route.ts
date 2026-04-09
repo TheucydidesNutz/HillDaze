@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData()
   const file = formData.get('file') as File
   const groupId = formData.get('group_id') as string
-  const eventType = (formData.get('event_type') as string) || 'optional'
+  const eventType = (formData.get('event_type') as string) || 'mandatory'
   const preview = formData.get('preview') === 'true'
 
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })

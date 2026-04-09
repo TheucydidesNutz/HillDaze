@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       location: rest.location || null,
       start_time: rest.start_time,
       end_time: rest.end_time || null,
-      type: rest.type || 'optional',
+      type: rest.type || 'mandatory',
       talking_points: rest.talking_points || null,
       meeting_with: rest.meeting_with || null,
       trip_id: access.tripId,

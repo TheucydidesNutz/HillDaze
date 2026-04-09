@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'File too large. Max 5MB.' }, { status: 400 })
   }
 
-  const buffer = await file.arrayBuffer()
+  const buffer = Buffer.from(await file.arrayBuffer())
   const fileExt = file.type.split('/')[1]
   const id = crypto.randomUUID()
   const filePath = `meeting-contacts/${access.tripId}/${id}.${fileExt}`

@@ -43,7 +43,7 @@ export default function EventModal({ event, participants, groups, onClose, onSav
     start_time: event?.start_time?.slice(0, 16) || '',
     end_time: event?.end_time?.slice(0, 16) || '',
     location: event?.location || '',
-    type: event?.type || 'optional' as 'mandatory' | 'optional',
+    type: event?.type || 'mandatory' as 'mandatory' | 'optional',
     talking_points: event?.talking_points || '',
   })
 
@@ -116,8 +116,8 @@ export default function EventModal({ event, participants, groups, onClose, onSav
       } else {
         alert(data.error || 'Upload failed')
       }
-    } catch {
-      alert('Upload failed')
+    } catch (err: any) {
+      alert('Upload failed: ' + (err?.message || 'Network error'))
     }
     setUploadingIndex(null)
   }
