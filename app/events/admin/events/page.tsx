@@ -100,24 +100,26 @@ export default function EventsPage() {
     setModalOpen(true)
   }
 
-  // Timestamps in the DB are naive local times (trip timezone) stored with +00 offset.
-  // To make FullCalendar timezone switching work, we need to convert them to true UTC
-  // by telling JS they are in the trip timezone, then getting the real UTC value.
-  function toTrueUTC(naiveDateStr: string, tz: string): string {
-    // Strip any offset — treat as naive
+  // DB stores naive local times (trip timezone) with fake +00 offset.
+  // FullCalendar's timeZone prop handles display conversion, but it needs
+  // timestamps tagged with the trip timezone offset so it knows what they represent.
+  function tagWithTripOffset(naiveDateStr: string, tz: string): string {
     const naive = naiveDateStr?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
-    // Parse as if in the trip timezone: find what UTC instant corresponds to this local time
-    const fakeUtc = new Date(naive + 'Z') // treat naive as UTC temporarily
-    const utcDate = new Date(fakeUtc.toLocaleString('en-US', { timeZone: 'UTC' }))
-    const tzDate = new Date(fakeUtc.toLocaleString('en-US', { timeZone: tz }))
-    const offsetMs = utcDate.getTime() - tzDate.getTime()
-    const trueUtc = new Date(fakeUtc.getTime() + offsetMs)
-    return trueUtc.toISOString()
+    // Find the offset for this timezone at this date
+    const date = new Date(naive + 'Z')
+    const utcStr = date.toLocaleString('en-US', { timeZone: 'UTC' })
+    const tzStr = date.toLocaleString('en-US', { timeZone: tz })
+    const offsetMinutes = (new Date(tzStr).getTime() - new Date(utcStr).getTime()) / 60000
+    const sign = offsetMinutes >= 0 ? '+' : '-'
+    const abs = Math.abs(offsetMinutes)
+    const h = String(Math.floor(abs / 60)).padStart(2, '0')
+    const m = String(abs % 60).padStart(2, '0')
+    return `${naive}${sign}${h}:${m}`
   }
 
   const calendarEvents = events.map(e => {
-    const start = toTrueUTC(e.start_time, tripTimezone)
-    const end = toTrueUTC(e.end_time || e.start_time, tripTimezone)
+    const start = tagWithTripOffset(e.start_time, tripTimezone)
+    const end = tagWithTripOffset(e.end_time || e.start_time, tripTimezone)
 
     const threeHoursMs = 3 * 60 * 60 * 1000
     const wasUpdated = e.updated_at && e.created_at &&

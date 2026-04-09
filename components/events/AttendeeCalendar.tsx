@@ -55,22 +55,25 @@ export default function AttendeeCalendar({ events, timezone, tripTimezone, alert
     setViewRange({ start: dateInfo.start, end: dateInfo.end })
   }, [])
 
-  // Timestamps in the DB are naive local times (trip timezone) stored with +00 offset.
-  // Convert to true UTC so FullCalendar can properly convert between timezones.
-  function toTrueUTC(naiveDateStr: string, tz: string): string {
+  // DB stores naive local times (trip timezone) with fake +00 offset.
+  // Tag with the real trip timezone offset so FullCalendar can convert properly.
+  function tagWithTripOffset(naiveDateStr: string, tz: string): string {
     const naive = naiveDateStr?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
-    const fakeUtc = new Date(naive + 'Z')
-    const utcDate = new Date(fakeUtc.toLocaleString('en-US', { timeZone: 'UTC' }))
-    const tzDate = new Date(fakeUtc.toLocaleString('en-US', { timeZone: tz }))
-    const offsetMs = utcDate.getTime() - tzDate.getTime()
-    const trueUtc = new Date(fakeUtc.getTime() + offsetMs)
-    return trueUtc.toISOString()
+    const date = new Date(naive + 'Z')
+    const utcStr = date.toLocaleString('en-US', { timeZone: 'UTC' })
+    const tzStr = date.toLocaleString('en-US', { timeZone: tz })
+    const offsetMinutes = (new Date(tzStr).getTime() - new Date(utcStr).getTime()) / 60000
+    const sign = offsetMinutes >= 0 ? '+' : '-'
+    const abs = Math.abs(offsetMinutes)
+    const h = String(Math.floor(abs / 60)).padStart(2, '0')
+    const m = String(abs % 60).padStart(2, '0')
+    return `${naive}${sign}${h}:${m}`
   }
 
   const calendarEvents = events.map(e => {
     const eventTz = tripTimezone || timezone
-    const start = eventTz ? toTrueUTC(e.start_time, eventTz) : e.start_time
-    const end = eventTz ? toTrueUTC(e.end_time, eventTz) : e.end_time
+    const start = eventTz ? tagWithTripOffset(e.start_time, eventTz) : e.start_time
+    const end = eventTz ? tagWithTripOffset(e.end_time, eventTz) : e.end_time
 
     // Show orange if event was updated within the last 3 hours
     const threeHoursMs = 3 * 60 * 60 * 1000
