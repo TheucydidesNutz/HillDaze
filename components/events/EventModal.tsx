@@ -101,11 +101,34 @@ export default function EventModal({ event, participants, groups, onClose, onSav
     setContacts(prev => prev.filter((_, i) => i !== index).map((c, i) => ({ ...c, sort_order: i })))
   }
 
+  async function resizeImage(file: File, maxSize = 800): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let { width, height } = img
+        if (width > maxSize || height > maxSize) {
+          if (width > height) { height = (height / width) * maxSize; width = maxSize }
+          else { width = (width / height) * maxSize; height = maxSize }
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Compression failed')), 'image/jpeg', 0.85)
+      }
+      img.onerror = () => reject(new Error('Failed to load image'))
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
   async function uploadContactPhoto(index: number, file: File) {
     setUploadingIndex(index)
-    const formData = new FormData()
-    formData.append('file', file)
     try {
+      const resized = await resizeImage(file)
+      const resizedFile = new File([resized], 'photo.jpg', { type: 'image/jpeg' })
+      const formData = new FormData()
+      formData.append('file', resizedFile)
       const res = await apiFetch('/api/events/admin/upload/meeting-photo', {
         method: 'POST',
         body: formData,
@@ -114,7 +137,7 @@ export default function EventModal({ event, participants, groups, onClose, onSav
       if (res.ok) {
         setContacts(prev => prev.map((c, i) => i === index ? { ...c, photo_url: data.url } : c))
       } else {
-        alert(data.error || 'Upload failed')
+        alert('Upload error: ' + (data.error || `Server returned ${res.status}`))
       }
     } catch (err: any) {
       alert('Upload failed: ' + (err?.message || 'Network error'))
