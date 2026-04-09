@@ -171,7 +171,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     if (!data?.factSheet) return
     const newTab = window.open('about:blank', '_blank')
     setLoadingFactSheet(true)
-    const res = await fetch(`/api/events/admin/upload/pdf/signed-url?path=${encodeURIComponent(data.factSheet.file_url)}`)
+    const res = await fetch(`/api/events/admin/upload/pdf/signed-url?path=${encodeURIComponent(data.factSheet.file_url)}&token=${encodeURIComponent(token)}`)
     const { url } = await res.json()
     setLoadingFactSheet(false)
     if (newTab) newTab.location.href = url
@@ -179,14 +179,14 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
 
   async function handleDocOpen(doc: Document) {
     const newTab = window.open('about:blank', '_blank')
-    const res = await fetch(`/api/events/admin/upload/pdf/signed-url?path=${encodeURIComponent(doc.file_url)}`)
+    const res = await fetch(`/api/events/admin/upload/pdf/signed-url?path=${encodeURIComponent(doc.file_url)}&token=${encodeURIComponent(token)}`)
     const { url } = await res.json()
     if (newTab) newTab.location.href = url
   }
 
   async function handleMapOpen() {
     if (!map) return
-    const res = await fetch(`/api/events/admin/upload/pdf/signed-url?path=${encodeURIComponent(map.file_url)}`)
+    const res = await fetch(`/api/events/admin/upload/pdf/signed-url?path=${encodeURIComponent(map.file_url)}&token=${encodeURIComponent(token)}`)
     const { url } = await res.json()
     setMapUrl(url)
     setShowMap(true)
