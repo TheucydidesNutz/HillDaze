@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Group, Trip } from '@/lib/events/types'
+import { Group, Trip, Participant } from '@/lib/events/types'
 import GroupModal from '@/components/events/GroupModal'
 import TripHeader from '@/components/TripHeader'
 import { apiFetch } from '@/lib/apiFetch'
@@ -12,6 +12,7 @@ export default function GroupsPage() {
   const router = useRouter()
   const [trip, setTrip] = useState<Trip | null>(null)
   const [groups, setGroups] = useState<Group[]>([])
+  const [participants, setParticipants] = useState<Participant[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingGroup, setEditingGroup] = useState<Group | null>(null)
@@ -24,9 +25,13 @@ export default function GroupsPage() {
   }, [])
 
   async function fetchGroups() {
-    const res = await apiFetch('/api/events/admin/groups')
-    const data = await res.json()
-    setGroups(Array.isArray(data) ? data : [])
+    const [gRes, pRes] = await Promise.all([
+      apiFetch('/api/events/admin/groups'),
+      apiFetch('/api/events/admin/participants'),
+    ])
+    const [gData, pData] = await Promise.all([gRes.json(), pRes.json()])
+    setGroups(Array.isArray(gData) ? gData : [])
+    setParticipants(Array.isArray(pData) ? pData : [])
     setLoading(false)
   }
 
@@ -147,6 +152,7 @@ export default function GroupsPage() {
       {modalOpen && (
         <GroupModal
           group={editingGroup}
+          participants={participants}
           onClose={() => setModalOpen(false)}
           onSaved={handleSaved}
         />

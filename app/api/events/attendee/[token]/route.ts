@@ -28,7 +28,23 @@ async function getParticipantData(participantId: string) {
     .select('event:events(*)')
     .eq('participant_id', participant.id)
 
-  const events = eventJoins?.map((j: any) => j.event) || []
+  const rawEvents = eventJoins?.map((j: any) => j.event) || []
+
+  const leadIds = [...new Set(rawEvents.filter((e: any) => e.meeting_lead_id).map((e: any) => e.meeting_lead_id))]
+  let leadMap: Record<string, any> = {}
+  if (leadIds.length > 0) {
+    const { data: leads } = await supabaseAdmin
+      .from('participants')
+      .select('id, name, title, photo_url')
+      .in('id', leadIds)
+    if (leads) {
+      leadMap = Object.fromEntries(leads.map((l: any) => [l.id, { name: l.name, title: l.title, photo_url: l.photo_url }]))
+    }
+  }
+  const events = rawEvents.map((e: any) => ({
+    ...e,
+    meeting_lead: e.meeting_lead_id ? leadMap[e.meeting_lead_id] || null : null,
+  }))
 
   const { data: factSheet } = await supabaseAdmin
     .from('fact_sheets')
@@ -77,7 +93,24 @@ export async function GET(
     .select('event:events(*)')
     .eq('participant_id', participant.id)
 
-  const events = eventJoins?.map((j: any) => j.event) || []
+  const rawEvents = eventJoins?.map((j: any) => j.event) || []
+
+  // Resolve meeting leads for events that have one
+  const leadIds = [...new Set(rawEvents.filter((e: any) => e.meeting_lead_id).map((e: any) => e.meeting_lead_id))]
+  let leadMap: Record<string, any> = {}
+  if (leadIds.length > 0) {
+    const { data: leads } = await supabaseAdmin
+      .from('participants')
+      .select('id, name, title, photo_url')
+      .in('id', leadIds)
+    if (leads) {
+      leadMap = Object.fromEntries(leads.map((l: any) => [l.id, { name: l.name, title: l.title, photo_url: l.photo_url }]))
+    }
+  }
+  const events = rawEvents.map((e: any) => ({
+    ...e,
+    meeting_lead: e.meeting_lead_id ? leadMap[e.meeting_lead_id] || null : null,
+  }))
 
   const { data: factSheet } = await supabaseAdmin
     .from('fact_sheets')

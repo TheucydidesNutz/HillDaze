@@ -62,6 +62,7 @@ export async function PATCH(
       type: rest.type,
       talking_points: rest.talking_points,
       meeting_with: rest.meeting_with,
+      meeting_lead_id: rest.meeting_lead_id !== undefined ? (rest.meeting_lead_id || null) : undefined,
     })
     .eq('id', id)
     .eq('trip_id', access.tripId)

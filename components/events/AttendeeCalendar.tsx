@@ -189,6 +189,30 @@ export default function AttendeeCalendar({ events, timezone, tripTimezone, alert
               </p>
             )}
 
+            {/* Our Team Meeting Lead */}
+            {selectedEvent.meeting_lead && (
+              <div className="mt-3 flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-lg">
+                {selectedEvent.meeting_lead.photo_url ? (
+                  <img
+                    src={selectedEvent.meeting_lead.photo_url}
+                    alt={selectedEvent.meeting_lead.name}
+                    className="w-9 h-9 rounded-full object-cover border border-slate-600 shrink-0"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-400 text-xs font-medium shrink-0">
+                    {selectedEvent.meeting_lead.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">Your Team Lead</p>
+                  <p className="text-white text-sm font-medium truncate">{selectedEvent.meeting_lead.name}</p>
+                  {selectedEvent.meeting_lead.title && (
+                    <p className="text-slate-400 text-xs truncate">{selectedEvent.meeting_lead.title}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Meeting With — clickable dropdown */}
             {meetingContacts.length > 0 && (
               <div className="mt-3">

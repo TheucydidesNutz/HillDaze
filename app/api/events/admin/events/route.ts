@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
       type: rest.type || 'mandatory',
       talking_points: rest.talking_points || null,
       meeting_with: rest.meeting_with || null,
+      meeting_lead_id: rest.meeting_lead_id || null,
       trip_id: access.tripId,
     }])
     .select()

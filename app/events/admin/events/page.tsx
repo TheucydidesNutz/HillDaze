@@ -23,6 +23,7 @@ interface CalendarEvent {
   type: 'mandatory' | 'optional'
   talking_points: string | null
   meeting_with: { name: string; title: string; photo_url: string | null; sort_order: number }[] | null
+  meeting_lead_id: string | null
   created_at: string
   updated_at: string
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Participant, Group, MeetingContact } from '@/lib/events/types'
 import { apiFetch } from '@/lib/apiFetch'
+import ParticipantSearchDropdown from '@/components/events/ParticipantSearchDropdown'
 import { Plus, GripVertical, Trash2, Upload } from 'lucide-react'
 
 interface Event {
@@ -15,6 +16,7 @@ interface Event {
   type: 'mandatory' | 'optional'
   talking_points: string | null
   meeting_with: MeetingContact[] | null
+  meeting_lead_id: string | null
 }
 
 interface Props {
@@ -33,6 +35,7 @@ export default function EventModal({ event, participants, groups, onClose, onSav
   const [contacts, setContacts] = useState<MeetingContact[]>(
     event?.meeting_with?.length ? [...event.meeting_with].sort((a, b) => a.sort_order - b.sort_order) : []
   )
+  const [meetingLeadId, setMeetingLeadId] = useState<string | null>(event?.meeting_lead_id || null)
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null)
   const dragItem = useRef<number | null>(null)
   const dragOverItem = useRef<number | null>(null)
@@ -185,6 +188,7 @@ export default function EventModal({ event, participants, groups, onClose, onSav
     const payload: any = {
       ...form,
       meeting_with: validContacts.length > 0 ? validContacts : null,
+      meeting_lead_id: meetingLeadId,
       talking_points: form.talking_points.trim() || null,
     }
     // Always include participant/group assignments
@@ -245,6 +249,16 @@ export default function EventModal({ event, participants, groups, onClose, onSav
             {label('Event Title *')}
             {input('title', 'Opening Reception')}
           </div>
+
+          {/* Our Team Meeting Lead */}
+          <ParticipantSearchDropdown
+            participants={participants}
+            selectedId={meetingLeadId}
+            onSelect={p => setMeetingLeadId(p.id)}
+            onClear={() => setMeetingLeadId(null)}
+            label="Our Team Meeting Lead"
+            placeholder="Search participant by name..."
+          />
 
           {/* Meeting With */}
           <div>

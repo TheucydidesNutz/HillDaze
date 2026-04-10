@@ -1,19 +1,22 @@
 'use client'
 
 import { useState } from 'react'
-import { Group } from '@/lib/events/types'
+import { Group, Participant } from '@/lib/events/types'
 import { apiFetch } from '@/lib/apiFetch'
+import ParticipantSearchDropdown from '@/components/events/ParticipantSearchDropdown'
 
 interface Props {
   group: Group | null
+  participants: Participant[]
   onClose: () => void
   onSaved: (g: Group) => void
 }
 
-export default function GroupModal({ group, onClose, onSaved }: Props) {
+export default function GroupModal({ group, participants, onClose, onSaved }: Props) {
   const [saving, setSaving] = useState(false)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [importedParticipantId, setImportedParticipantId] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: group?.name || '',
     lead_name: group?.lead_name || '',
@@ -23,6 +26,24 @@ export default function GroupModal({ group, onClose, onSaved }: Props) {
 
   function set(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  function handleImportParticipant(p: Participant) {
+    setImportedParticipantId(p.id)
+    setForm(prev => ({
+      ...prev,
+      lead_name: p.name || prev.lead_name,
+      lead_phone: p.phone || prev.lead_phone,
+      lead_email: p.email || prev.lead_email,
+    }))
+    // Use participant photo if no custom photo selected
+    if (!photoFile && p.photo_url) {
+      setPhotoPreview(p.photo_url)
+    }
+  }
+
+  function handleClearImport() {
+    setImportedParticipantId(null)
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -36,13 +57,19 @@ export default function GroupModal({ group, onClose, onSaved }: Props) {
     if (!form.name.trim()) return alert('Group name is required')
     setSaving(true)
 
+    // If we imported a participant's photo URL (no file upload), include it
+    const payload: any = { ...form }
+    if (!photoFile && photoPreview && !group?.lead_photo_url) {
+      payload.lead_photo_url = photoPreview
+    }
+
     const url = group ? `/api/events/admin/groups/${group.id}` : '/api/events/admin/groups'
     const method = group ? 'PATCH' : 'POST'
 
     const res = await apiFetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     })
 
     const data = await res.json()
@@ -53,7 +80,7 @@ export default function GroupModal({ group, onClose, onSaved }: Props) {
       return
     }
 
-    // Upload lead photo if selected
+    // Upload lead photo if a file was selected
     if (photoFile && data.id) {
       const photoFormData = new FormData()
       photoFormData.append('file', photoFile)
@@ -90,7 +117,7 @@ export default function GroupModal({ group, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md flex flex-col">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
           <h2 className="text-white font-semibold text-lg">
@@ -100,12 +127,22 @@ export default function GroupModal({ group, onClose, onSaved }: Props) {
         </div>
 
         {/* Content */}
-        <div className="px-6 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {/* Group Name */}
           <div>
             {label('Group Name *')}
             {input('name', 'Group A')}
           </div>
+
+          {/* Import from Participant */}
+          <ParticipantSearchDropdown
+            participants={participants}
+            selectedId={importedParticipantId}
+            onSelect={handleImportParticipant}
+            onClear={handleClearImport}
+            label="Import Lead from Participant"
+            placeholder="Search participant by name..."
+          />
 
           {/* Lead Photo */}
           <div className="flex items-center gap-4">

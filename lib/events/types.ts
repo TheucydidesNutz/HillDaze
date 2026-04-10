@@ -56,6 +56,8 @@ export interface Event {
   type: 'mandatory' | 'optional'
   talking_points: string | null
   meeting_with: MeetingContact[] | null
+  meeting_lead_id: string | null
+  meeting_lead?: { name: string; title: string | null; photo_url: string | null } | null
   trip_id: string
   created_at: string
   updated_at: string
