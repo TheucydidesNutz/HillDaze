@@ -66,20 +66,20 @@ export default function EventModal({ event, participants, groups, onClose, onSav
   }, [participants, event?.id])
 
   function set(field: string, value: string) {
+    setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  function handleStartTimeBlur() {
     setForm(prev => {
-      const updated = { ...prev, [field]: value }
-      // Auto-fill end time to 30 min after start if end is empty
-      if (field === 'start_time' && value && !prev.end_time) {
-        const start = new Date(value)
-        start.setMinutes(start.getMinutes() + 30)
-        const y = start.getFullYear()
-        const mo = String(start.getMonth() + 1).padStart(2, '0')
-        const d = String(start.getDate()).padStart(2, '0')
-        const h = String(start.getHours()).padStart(2, '0')
-        const mi = String(start.getMinutes()).padStart(2, '0')
-        updated.end_time = `${y}-${mo}-${d}T${h}:${mi}`
-      }
-      return updated
+      if (!prev.start_time || prev.end_time) return prev
+      const start = new Date(prev.start_time)
+      start.setMinutes(start.getMinutes() + 30)
+      const y = start.getFullYear()
+      const mo = String(start.getMonth() + 1).padStart(2, '0')
+      const d = String(start.getDate()).padStart(2, '0')
+      const h = String(start.getHours()).padStart(2, '0')
+      const mi = String(start.getMinutes()).padStart(2, '0')
+      return { ...prev, end_time: `${y}-${mo}-${d}T${h}:${mi}` }
     })
   }
 
@@ -393,7 +393,13 @@ export default function EventModal({ event, participants, groups, onClose, onSav
           <div className="grid grid-cols-2 gap-4">
             <div>
               {label('Start Time *')}
-              {input('start_time', '', 'datetime-local')}
+              <input
+                type="datetime-local"
+                value={form.start_time}
+                onChange={e => set('start_time', e.target.value)}
+                onBlur={handleStartTimeBlur}
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
             </div>
             <div>
               {label('End Time *')}
