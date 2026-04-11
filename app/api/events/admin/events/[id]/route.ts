@@ -57,13 +57,21 @@ export async function PATCH(
     .eq('id', id)
     .single()
 
-  // Check if any significant fields changed (time, location, title, meeting_with)
+  // Normalize for comparison — strip offset from DB times, treat empty as null
+  function norm(v: any) { return v || null }
+  function normTime(v: string | null) {
+    if (!v) return null
+    return v.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '').replace(/:\d{2}$/, '') // strip seconds + offset
+  }
+  function normJson(v: any) { return JSON.stringify(v || null) }
+
+  // Check if any significant fields changed (title, time, location, meeting_with)
   const significantChange = oldEvent && (
-    rest.title !== oldEvent.title ||
-    rest.start_time !== oldEvent.start_time ||
-    rest.end_time !== oldEvent.end_time ||
-    rest.location !== oldEvent.location ||
-    JSON.stringify(rest.meeting_with) !== JSON.stringify(oldEvent.meeting_with)
+    norm(rest.title) !== norm(oldEvent.title) ||
+    normTime(rest.start_time) !== normTime(oldEvent.start_time) ||
+    normTime(rest.end_time) !== normTime(oldEvent.end_time) ||
+    norm(rest.location) !== norm(oldEvent.location) ||
+    normJson(rest.meeting_with) !== normJson(oldEvent.meeting_with)
   )
 
   const updatePayload: any = {
