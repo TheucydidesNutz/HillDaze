@@ -41,9 +41,26 @@ async function getParticipantData(participantId: string) {
       leadMap = Object.fromEntries(leads.map((l: any) => [l.id, { name: l.name, title: l.title, photo_url: l.photo_url }]))
     }
   }
+  // Resolve team attendees for each event
+  const eventIds = rawEvents.map((e: any) => e.id)
+  let attendeesMap: Record<string, any[]> = {}
+  if (eventIds.length > 0) {
+    const { data: allJoins } = await supabaseAdmin
+      .from('participant_events')
+      .select('event_id, participant:participants(id, name, title, photo_url)')
+      .in('event_id', eventIds)
+    if (allJoins) {
+      for (const j of allJoins as any[]) {
+        if (!attendeesMap[j.event_id]) attendeesMap[j.event_id] = []
+        if (j.participant) attendeesMap[j.event_id].push(j.participant)
+      }
+    }
+  }
+
   const events = rawEvents.map((e: any) => ({
     ...e,
     meeting_lead: e.meeting_lead_id ? leadMap[e.meeting_lead_id] || null : null,
+    team_attendees: attendeesMap[e.id] || [],
   }))
 
   const { data: factSheet } = await supabaseAdmin
@@ -107,9 +124,26 @@ export async function GET(
       leadMap = Object.fromEntries(leads.map((l: any) => [l.id, { name: l.name, title: l.title, photo_url: l.photo_url }]))
     }
   }
+  // Resolve team attendees for each event
+  const eventIds = rawEvents.map((e: any) => e.id)
+  let attendeesMap: Record<string, any[]> = {}
+  if (eventIds.length > 0) {
+    const { data: allJoins } = await supabaseAdmin
+      .from('participant_events')
+      .select('event_id, participant:participants(id, name, title, photo_url)')
+      .in('event_id', eventIds)
+    if (allJoins) {
+      for (const j of allJoins as any[]) {
+        if (!attendeesMap[j.event_id]) attendeesMap[j.event_id] = []
+        if (j.participant) attendeesMap[j.event_id].push(j.participant)
+      }
+    }
+  }
+
   const events = rawEvents.map((e: any) => ({
     ...e,
     meeting_lead: e.meeting_lead_id ? leadMap[e.meeting_lead_id] || null : null,
+    team_attendees: attendeesMap[e.id] || [],
   }))
 
   const { data: factSheet } = await supabaseAdmin

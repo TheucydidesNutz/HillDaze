@@ -28,6 +28,7 @@ export default function AttendeeCalendar({ events, alertColor = '#D97706', onNot
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [viewRange, setViewRange] = useState<{ start: Date; end: Date } | null>(null)
   const [meetingWithOpen, setMeetingWithOpen] = useState(false)
+  const [teamAttendeesOpen, setTeamAttendeesOpen] = useState(false)
 
   const timeBounds = useMemo(() => {
     if (!viewRange) return { slotMinTime: '08:00:00', slotMaxTime: '18:00:00' }
@@ -83,6 +84,7 @@ export default function AttendeeCalendar({ events, alertColor = '#D97706', onNot
     if (event) {
       setSelectedEvent(event)
       setMeetingWithOpen(false)
+      setTeamAttendeesOpen(false)
     }
   }
 
@@ -237,6 +239,47 @@ export default function AttendeeCalendar({ events, alertColor = '#D97706', onNot
               <div className="mt-3">
                 <p className="text-xs font-medium text-slate-500 mb-1">Description</p>
                 <p className="text-slate-400 text-sm">{selectedEvent.description}</p>
+              </div>
+            )}
+
+            {/* Team Attendees — clickable dropdown */}
+            {(selectedEvent as any).team_attendees?.length > 0 && (
+              <div className="mt-3">
+                <button
+                  onClick={() => setTeamAttendeesOpen(prev => !prev)}
+                  className="w-full flex items-center justify-between px-3 py-2 bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded-lg text-sm text-slate-300 hover:text-white transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-slate-500" />
+                    Team Attendees ({(selectedEvent as any).team_attendees.length})
+                  </span>
+                  {teamAttendeesOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {teamAttendeesOpen && (
+                  <div className="mt-2 space-y-2">
+                    {(selectedEvent as any).team_attendees.map((att: any) => (
+                      <div key={att.id} className="flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-lg">
+                        {att.photo_url ? (
+                          <img
+                            src={att.photo_url}
+                            alt={att.name}
+                            className="w-9 h-9 rounded-full object-cover border border-slate-600 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-400 text-xs font-medium shrink-0">
+                            {att.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-white text-sm font-medium truncate">{att.name}</p>
+                          {att.title && (
+                            <p className="text-slate-400 text-xs truncate">{att.title}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
