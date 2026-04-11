@@ -20,28 +20,14 @@ interface EventContext {
 
 interface Props {
   events: Event[]
-  timezone?: string
-  tripTimezone?: string
   alertColor?: string
   onNoteAboutEvent?: (eventContext: EventContext) => void
-  showMyTime?: boolean
 }
 
-export default function AttendeeCalendar({ events, timezone, tripTimezone, alertColor = '#D97706', onNoteAboutEvent, showMyTime = false }: Props) {
+export default function AttendeeCalendar({ events, alertColor = '#D97706', onNoteAboutEvent }: Props) {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [viewRange, setViewRange] = useState<{ start: Date; end: Date } | null>(null)
   const [meetingWithOpen, setMeetingWithOpen] = useState(false)
-
-  // Calculate the offset in ms between trip timezone and browser timezone.
-  // If "My Time" is active, we shift event times by this amount.
-  const offsetMs = useMemo(() => {
-    if (!showMyTime || !tripTimezone) return 0
-    const now = new Date()
-    const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone
-    const tripLocal = new Date(now.toLocaleString('en-US', { timeZone: tripTimezone }))
-    const browserLocal = new Date(now.toLocaleString('en-US', { timeZone: browserTz }))
-    return browserLocal.getTime() - tripLocal.getTime()
-  }, [showMyTime, tripTimezone])
 
   const timeBounds = useMemo(() => {
     if (!viewRange) return { slotMinTime: '08:00:00', slotMaxTime: '18:00:00' }
@@ -67,31 +53,20 @@ export default function AttendeeCalendar({ events, timezone, tripTimezone, alert
     setViewRange({ start: dateInfo.start, end: dateInfo.end })
   }, [])
 
-  // Strip the fake +00 offset from DB timestamps and treat as naive local time.
-  // If "My Time" is active, shift by the offset between trip and browser timezones.
-  function shiftTime(dateStr: string): string {
-    const naive = dateStr?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
-    if (offsetMs === 0) return naive
-    const shifted = new Date(new Date(naive).getTime() + offsetMs)
-    // Return as naive ISO string (no offset)
-    const y = shifted.getFullYear()
-    const mo = String(shifted.getMonth() + 1).padStart(2, '0')
-    const d = String(shifted.getDate()).padStart(2, '0')
-    const h = String(shifted.getHours()).padStart(2, '0')
-    const mi = String(shifted.getMinutes()).padStart(2, '0')
-    const s = String(shifted.getSeconds()).padStart(2, '0')
-    return `${y}-${mo}-${d}T${h}:${mi}:${s}`
+  // Strip fake +00 offset — times are stored as naive local (trip timezone)
+  function stripOffset(dateStr: string): string {
+    return dateStr?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
   }
 
   const calendarEvents = events.map(e => {
-    const start = shiftTime(e.start_time)
-    const end = shiftTime(e.end_time)
+    const start = stripOffset(e.start_time)
+    const end = stripOffset(e.end_time)
 
-    // Show orange if event was updated within the last 3 hours
+    // Only show "updated" for significant changes
     const threeHoursMs = 3 * 60 * 60 * 1000
-    const recentlyUpdated = e.updated_at && e.created_at &&
-      new Date(e.updated_at).getTime() - new Date(e.created_at).getTime() > 2000 &&
-      Date.now() - new Date(e.updated_at).getTime() < threeHoursMs
+    const sigUpdated = (e as any).significant_updated_at
+    const recentlyUpdated = sigUpdated &&
+      Date.now() - new Date(sigUpdated).getTime() < threeHoursMs
 
     return {
       id: e.id,
@@ -126,11 +101,10 @@ export default function AttendeeCalendar({ events, timezone, tripTimezone, alert
     onNoteAboutEvent(context)
   }
 
-  // Format time for popover display — always show in the currently active timezone
+  // Format time for popover display — show in event's native timezone
   function formatTime(dateStr: string, opts: Intl.DateTimeFormatOptions) {
     const naive = dateStr?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
-    const shifted = new Date(new Date(naive).getTime() + offsetMs)
-    return shifted.toLocaleString('en-US', opts)
+    return new Date(naive).toLocaleString('en-US', opts)
   }
 
   const meetingContacts: MeetingContact[] = selectedEvent?.meeting_with
@@ -179,9 +153,6 @@ export default function AttendeeCalendar({ events, timezone, tripTimezone, alert
               {' — '}
               {formatTime(selectedEvent.end_time, { hour: 'numeric', minute: '2-digit' })}
             </p>
-            {timezone && (
-              <p className="text-slate-600 text-xs mb-1 ml-5">{timezone}</p>
-            )}
             {selectedEvent.location && (
               <p className="text-slate-300 text-sm mb-1 flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-slate-500" />

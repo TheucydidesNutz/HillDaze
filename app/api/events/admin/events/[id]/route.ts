@@ -50,20 +50,41 @@ export async function PATCH(
   const body = await request.json()
   const { participant_ids, group_ids, ...rest } = body
 
-  // FIX: Explicitly pick allowed fields
+  // Fetch current event to detect significant changes
+  const { data: oldEvent } = await supabaseAdmin
+    .from('events')
+    .select('title, start_time, end_time, location, meeting_with')
+    .eq('id', id)
+    .single()
+
+  // Check if any significant fields changed (time, location, title, meeting_with)
+  const significantChange = oldEvent && (
+    rest.title !== oldEvent.title ||
+    rest.start_time !== oldEvent.start_time ||
+    rest.end_time !== oldEvent.end_time ||
+    rest.location !== oldEvent.location ||
+    JSON.stringify(rest.meeting_with) !== JSON.stringify(oldEvent.meeting_with)
+  )
+
+  const updatePayload: any = {
+    title: rest.title,
+    description: rest.description,
+    location: rest.location,
+    start_time: rest.start_time,
+    end_time: rest.end_time,
+    type: rest.type,
+    talking_points: rest.talking_points,
+    meeting_with: rest.meeting_with,
+    meeting_lead_id: rest.meeting_lead_id !== undefined ? (rest.meeting_lead_id || null) : undefined,
+  }
+
+  if (significantChange) {
+    updatePayload.significant_updated_at = new Date().toISOString()
+  }
+
   const { data: event, error } = await supabaseAdmin
     .from('events')
-    .update({
-      title: rest.title,
-      description: rest.description,
-      location: rest.location,
-      start_time: rest.start_time,
-      end_time: rest.end_time,
-      type: rest.type,
-      talking_points: rest.talking_points,
-      meeting_with: rest.meeting_with,
-      meeting_lead_id: rest.meeting_lead_id !== undefined ? (rest.meeting_lead_id || null) : undefined,
-    })
+    .update(updatePayload)
     .eq('id', id)
     .eq('trip_id', access.tripId)
     .select()

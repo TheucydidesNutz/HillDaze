@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -37,14 +37,11 @@ export default function EventsPage() {
   const [groups, setGroups] = useState<Group[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
-  const [useEventTimezone, setUseEventTimezone] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
 
-  const tripTimezone = (trip as any)?.timezone || 'America/New_York'
   const tripTheme = (trip as any)?.theme || null
   const primaryColor = tripTheme?.primary || '#3B82F6'
   const alertColor = tripTheme?.alert || '#D97706'
-  const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640)
@@ -101,38 +98,20 @@ export default function EventsPage() {
     setModalOpen(true)
   }
 
-  // Calculate offset between trip timezone and browser timezone
-  const showMyTime = !useEventTimezone
-  const tzOffsetMs = useMemo(() => {
-    if (!showMyTime) return 0
-    const now = new Date()
-    const tripLocal = new Date(now.toLocaleString('en-US', { timeZone: tripTimezone }))
-    const browserLocal = new Date(now.toLocaleString('en-US', { timeZone: browserTimezone }))
-    return browserLocal.getTime() - tripLocal.getTime()
-  }, [showMyTime, tripTimezone, browserTimezone])
-
-  // Strip fake +00 offset and optionally shift by timezone difference
-  function shiftTime(dateStr: string): string {
-    const naive = dateStr?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
-    if (tzOffsetMs === 0) return naive
-    const shifted = new Date(new Date(naive).getTime() + tzOffsetMs)
-    const y = shifted.getFullYear()
-    const mo = String(shifted.getMonth() + 1).padStart(2, '0')
-    const d = String(shifted.getDate()).padStart(2, '0')
-    const h = String(shifted.getHours()).padStart(2, '0')
-    const mi = String(shifted.getMinutes()).padStart(2, '0')
-    const s = String(shifted.getSeconds()).padStart(2, '0')
-    return `${y}-${mo}-${d}T${h}:${mi}:${s}`
+  // Strip fake +00 offset — times are stored as naive local (trip timezone)
+  function stripOffset(dateStr: string): string {
+    return dateStr?.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
   }
 
   const calendarEvents = events.map(e => {
-    const start = shiftTime(e.start_time)
-    const end = shiftTime(e.end_time || e.start_time)
+    const start = stripOffset(e.start_time)
+    const end = stripOffset(e.end_time || e.start_time)
 
+    // Only show "updated" for significant changes (uses significant_updated_at)
     const threeHoursMs = 3 * 60 * 60 * 1000
-    const wasUpdated = e.updated_at && e.created_at &&
-      new Date(e.updated_at).getTime() - new Date(e.created_at).getTime() > 2000 &&
-      Date.now() - new Date(e.updated_at).getTime() < threeHoursMs
+    const sigUpdated = (e as any).significant_updated_at
+    const wasUpdated = sigUpdated &&
+      Date.now() - new Date(sigUpdated).getTime() < threeHoursMs
 
     return {
       id: e.id,
@@ -144,8 +123,6 @@ export default function EventsPage() {
       extendedProps: { location: e.location, description: e.description, type: e.type }
     }
   })
-
-  const displayTimezone = useEventTimezone ? tripTimezone : browserTimezone
 
   return (
     <div className="p-4 md:p-8">
@@ -188,38 +165,6 @@ export default function EventsPage() {
             </button>
           </div>
 
-          {/* Row 2: Timezone toggle */}
-          {tripTimezone && (
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 text-xs">
-                <button
-                  onClick={() => setUseEventTimezone(false)}
-                  className={`px-3 py-1.5 rounded-md transition-colors ${
-                    !useEventTimezone ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  My Time
-                  <span className="ml-1 text-slate-500 hidden sm:inline">
-                    ({browserTimezone.split('/').pop()?.replace('_', ' ')})
-                  </span>
-                </button>
-                <button
-                  onClick={() => setUseEventTimezone(true)}
-                  className={`px-3 py-1.5 rounded-md transition-colors ${
-                    useEventTimezone ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Event Time
-                  <span className="ml-1 text-slate-500 hidden sm:inline">
-                    ({tripTimezone.split('/').pop()?.replace('_', ' ')})
-                  </span>
-                </button>
-              </div>
-              <p className="text-slate-600 text-xs">
-                {displayTimezone}
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Calendar */}
@@ -248,11 +193,6 @@ export default function EventsPage() {
           />
         </div>
 
-        {!tripTimezone && (
-          <p className="text-slate-600 text-xs mt-2 text-right">
-            Showing times in: {browserTimezone}
-          </p>
-        )}
 
         {/* FAB — mobile only */}
         <button

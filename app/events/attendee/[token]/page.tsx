@@ -80,7 +80,6 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
-  const [useEventTimezone, setUseEventTimezone] = useState(true)
 
   // Change 1: Event-linked notes state
   const [eventContext, setEventContext] = useState<EventContext | null>(null)
@@ -307,9 +306,6 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   const tripTitle = trip?.title || 'HillDayTracker'
   const tripLogo = trip?.logo_url
   const tripTimezone = (trip as any)?.timezone || null
-  const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
-  const activeTimezone = useEventTimezone ? tripTimezone : browserTimezone
-  const showMyTime = !useEventTimezone
 
   const tripTheme = (trip as any)?.theme || {}
   const themeVars = {
@@ -602,24 +598,6 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               <CalendarDays className="w-4 h-4 text-blue-400" />
               Your Schedule
             </h2>
-            {tripTimezone && (
-              <div className="flex items-center gap-1 rounded-lg p-1 text-xs" style={{ backgroundColor: 'var(--theme-secondary)' }}>
-                <button
-                  onClick={() => setUseEventTimezone(false)}
-                  className="px-2.5 py-1 rounded-md transition-colors font-medium"
-                  style={!useEventTimezone ? { backgroundColor: 'var(--theme-primary)', color: '#fff' } : { color: 'var(--theme-text-secondary)' }}
-                >
-                  My Time
-                </button>
-                <button
-                  onClick={() => setUseEventTimezone(true)}
-                  className="px-2.5 py-1 rounded-md transition-colors font-medium"
-                  style={useEventTimezone ? { backgroundColor: 'var(--theme-primary)', color: '#fff' } : { color: 'var(--theme-text-secondary)' }}
-                >
-                  Event Time
-                </button>
-              </div>
-            )}
           </div>
           <div className="flex flex-wrap gap-4 mb-4 text-sm">
             <span className="flex items-center gap-1.5">
@@ -637,17 +615,9 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
           </div>
           <AttendeeCalendar
             events={events}
-            timezone={activeTimezone}
-            tripTimezone={tripTimezone || undefined}
             alertColor={tripTheme.alert || '#D97706'}
             onNoteAboutEvent={handleNoteAboutEvent}
-            showMyTime={showMyTime}
           />
-          {tripTimezone && (
-            <p className="text-xs mt-2 text-right" style={{ color: "var(--theme-text-secondary)" }}>
-              {useEventTimezone ? tripTimezone : browserTimezone}
-            </p>
-          )}
 
           {/* Change 3: Download calendar button */}
           {events.length > 0 && (

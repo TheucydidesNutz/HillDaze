@@ -214,4 +214,10 @@ body {
   font-size: 0.75rem;
   padding: 1px 4px;
   cursor: pointer;
+  margin-bottom: 2px;
+}
+
+.fc .fc-timegrid-event {
+  margin-bottom: 0;
+  border-bottom: 2px solid var(--theme-bg, #0f172a) !important;
 }
