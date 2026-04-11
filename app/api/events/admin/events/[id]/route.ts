@@ -61,9 +61,14 @@ export async function PATCH(
   function norm(v: any) { return v || null }
   function normTime(v: string | null) {
     if (!v) return null
-    return v.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '').replace(/:\d{2}$/, '') // strip seconds + offset
+    // Strip offset, then normalize to YYYY-MM-DDTHH:MM (no seconds)
+    const clean = v.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
+    return clean.replace(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}).*$/, '$1')
   }
-  function normJson(v: any) { return JSON.stringify(v || null) }
+  function normJson(v: any) {
+    if (!v || (Array.isArray(v) && v.length === 0)) return 'null'
+    return JSON.stringify(v)
+  }
 
   // Check if any significant fields changed (title, time, location, meeting_with)
   const significantChange = oldEvent && (
