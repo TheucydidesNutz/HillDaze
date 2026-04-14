@@ -23,8 +23,8 @@ export default function TripHeader({ trip, pageTitle, pageSubtitle }: TripHeader
 
   return (
     <div className="mb-8">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-4 min-w-0">
           {trip.logo_url ? (
             <img src={trip.logo_url} alt={trip.title}
               className="w-14 h-14 rounded-xl object-contain p-1 flex-shrink-0"
@@ -35,14 +35,14 @@ export default function TripHeader({ trip, pageTitle, pageSubtitle }: TripHeader
               <span className="text-2xl font-bold" style={{ color: 'var(--theme-text)' }}>{trip.title.charAt(0)}</span>
             </div>
           )}
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--theme-text)' }}>{trip.title}</h1>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold truncate" style={{ color: 'var(--theme-text)' }}>{trip.title}</h1>
             {formatDateRange() && (
               <p className="text-sm" style={{ color: 'var(--theme-text-secondary)' }}>{formatDateRange()}</p>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-shrink-0">
           <button
             onClick={() => router.push('/home')}
             className="text-sm transition-colors"
