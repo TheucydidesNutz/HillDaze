@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hilldaytracker-v2'
+const CACHE_NAME = 'hilldaytracker-v3'
 const STATIC_ASSETS = []
 
 self.addEventListener('install', event => {
@@ -31,7 +31,22 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // Cache first for attendee static assets
+  // Network first for navigation requests (HTML pages) — avoids serving stale
+  // cached HTML that references outdated JS bundles after a deploy
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        if (response.status === 200) {
+          const clone = response.clone()
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone))
+        }
+        return response
+      }).catch(() => caches.match(event.request))
+    )
+    return
+  }
+
+  // Cache first for static assets (JS, CSS, images, fonts)
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached
