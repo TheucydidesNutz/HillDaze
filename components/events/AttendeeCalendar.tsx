@@ -238,7 +238,7 @@ export default function AttendeeCalendar({ events, alertColor = '#D97706', onNot
             {selectedEvent.description && (
               <div className="mt-3">
                 <p className="text-xs font-medium text-slate-500 mb-1">Description</p>
-                <p className="text-slate-400 text-sm">{selectedEvent.description}</p>
+                <p className="text-slate-400 text-sm whitespace-pre-wrap">{selectedEvent.description}</p>
               </div>
             )}
 
