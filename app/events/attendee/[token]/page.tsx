@@ -87,6 +87,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
 
   // Change 2: Trip photo album state
   const [uploadingAlbumPhoto, setUploadingAlbumPhoto] = useState(false)
+  const [albumPhotoProgress, setAlbumPhotoProgress] = useState('')
   const [albumPhotoSuccess, setAlbumPhotoSuccess] = useState(false)
   const albumPhotoInputRef = useRef<HTMLInputElement>(null)
 
@@ -226,29 +227,41 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     }, 100)
   }
 
-  // Change 2: Handle trip album photo upload
+  // Change 2: Handle trip album photo upload (supports multiple files)
   async function handleAlbumPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !token) return
+    const files = e.target.files
+    if (!files || files.length === 0 || !token) return
     setUploadingAlbumPhoto(true)
     setAlbumPhotoSuccess(false)
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('token', token)
-    try {
-      const res = await fetch('/api/events/attendee/upload-photo-album', { method: 'POST', body: formData })
-      if (res.ok) {
-        setAlbumPhotoSuccess(true)
-        setTimeout(() => setAlbumPhotoSuccess(false), 4000)
-      } else {
-        const result = await res.json()
-        alert(result.error || 'Photo upload failed')
+    const total = files.length
+    let uploaded = 0
+    let failed = 0
+    for (const file of Array.from(files)) {
+      setAlbumPhotoProgress(total > 1 ? `Uploading ${uploaded + 1} of ${total}...` : 'Uploading...')
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('token', token)
+      try {
+        const res = await fetch('/api/events/attendee/upload-photo-album', { method: 'POST', body: formData })
+        if (res.ok) {
+          uploaded++
+        } else {
+          failed++
+        }
+      } catch {
+        failed++
       }
-    } catch {
-      alert('Photo upload failed. Please try again.')
     }
     setUploadingAlbumPhoto(false)
-    // Reset file input so the same file can be re-selected
+    setAlbumPhotoProgress('')
+    if (uploaded > 0) {
+      setAlbumPhotoSuccess(true)
+      setTimeout(() => setAlbumPhotoSuccess(false), 4000)
+    }
+    if (failed > 0) {
+      alert(`${failed} of ${total} photo${total > 1 ? 's' : ''} failed to upload.`)
+    }
+    // Reset file input so the same files can be re-selected
     if (albumPhotoInputRef.current) albumPhotoInputRef.current.value = ''
   }
 
@@ -704,21 +717,22 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               <div className="flex-1">
                 <p className="text-sm font-medium" style={{ color: "var(--theme-text)" }}>
                   {uploadingAlbumPhoto
-                    ? 'Uploading...'
+                    ? albumPhotoProgress || 'Uploading...'
                     : albumPhotoSuccess
-                      ? 'Photo uploaded to trip album'
-                      : 'Add a photo to the trip album'
+                      ? 'Photos uploaded to trip album'
+                      : 'Add photos to the trip album'
                   }
                 </p>
                 {!uploadingAlbumPhoto && !albumPhotoSuccess && (
-                  <p className="text-xs mt-0.5" style={{ color: "var(--theme-text-secondary)" }}>Photos are shared with your group organizer</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--theme-text-secondary)" }}>Select multiple photos at once — shared with your group organizer</p>
                 )}
               </div>
             </button>
             <input
               ref={albumPhotoInputRef}
               type="file"
-              accept="image/png,image/svg+xml,image/jpeg,image/jpg"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
               onChange={handleAlbumPhotoUpload}
               className="hidden"
             />
