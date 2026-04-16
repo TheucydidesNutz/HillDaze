@@ -235,7 +235,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     setAlbumPhotoSuccess(false)
     const total = files.length
     let uploaded = 0
-    let failed = 0
+    const errors: string[] = []
     for (const file of Array.from(files)) {
       setAlbumPhotoProgress(total > 1 ? `Uploading ${uploaded + 1} of ${total}...` : 'Uploading...')
       const formData = new FormData()
@@ -246,10 +246,11 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         if (res.ok) {
           uploaded++
         } else {
-          failed++
+          const result = await res.json().catch(() => ({ error: 'Unknown error' }))
+          errors.push(`${file.name}: ${result.error}`)
         }
       } catch {
-        failed++
+        errors.push(`${file.name}: Network error`)
       }
     }
     setUploadingAlbumPhoto(false)
@@ -258,8 +259,8 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
       setAlbumPhotoSuccess(true)
       setTimeout(() => setAlbumPhotoSuccess(false), 4000)
     }
-    if (failed > 0) {
-      alert(`${failed} of ${total} photo${total > 1 ? 's' : ''} failed to upload.`)
+    if (errors.length > 0) {
+      alert(`${errors.length} of ${total} failed:\n${errors.join('\n')}`)
     }
     // Reset file input so the same files can be re-selected
     if (albumPhotoInputRef.current) albumPhotoInputRef.current.value = ''
