@@ -227,6 +227,44 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     }, 100)
   }
 
+  // Compress/convert any image (including HEIC) to JPEG under maxBytes
+  async function compressPhoto(file: File, maxBytes = 9 * 1024 * 1024): Promise<File> {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image()
+      img.onload = () => {
+        URL.revokeObjectURL(img.src)
+        const canvas = document.createElement('canvas')
+        // Cap at 4096px on longest side to keep file size reasonable
+        let { width, height } = img
+        const maxDim = 4096
+        if (width > maxDim || height > maxDim) {
+          if (width > height) { height = (height / width) * maxDim; width = maxDim }
+          else { width = (width / height) * maxDim; height = maxDim }
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, width, height)
+        // Try decreasing quality until under maxBytes
+        let quality = 0.85
+        const tryCompress = () => {
+          canvas.toBlob(blob => {
+            if (!blob) return reject(new Error('Compression failed'))
+            if (blob.size > maxBytes && quality > 0.3) {
+              quality -= 0.15
+              tryCompress()
+            } else {
+              resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }))
+            }
+          }, 'image/jpeg', quality)
+        }
+        tryCompress()
+      }
+      img.onerror = () => reject(new Error('Failed to load image'))
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
   // Change 2: Handle trip album photo upload (supports multiple files)
   async function handleAlbumPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
@@ -238,10 +276,11 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     const errors: string[] = []
     for (const file of Array.from(files)) {
       setAlbumPhotoProgress(total > 1 ? `Uploading ${uploaded + 1} of ${total}...` : 'Uploading...')
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('token', token)
       try {
+        const compressed = await compressPhoto(file)
+        const formData = new FormData()
+        formData.append('file', compressed)
+        formData.append('token', token)
         const res = await fetch('/api/events/attendee/upload-photo-album', { method: 'POST', body: formData })
         if (res.ok) {
           uploaded++
@@ -249,8 +288,8 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
           const result = await res.json().catch(() => ({ error: 'Unknown error' }))
           errors.push(`${file.name}: ${result.error}`)
         }
-      } catch {
-        errors.push(`${file.name}: Network error`)
+      } catch (err) {
+        errors.push(`${file.name}: ${err instanceof Error ? err.message : 'Failed'}`)
       }
     }
     setUploadingAlbumPhoto(false)
@@ -732,7 +771,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             <input
               ref={albumPhotoInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*"
               multiple
               onChange={handleAlbumPhotoUpload}
               className="hidden"
