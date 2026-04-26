@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient, supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
-import { CalendarDays, Radar, ScanSearch } from 'lucide-react'
+import { CalendarDays, ScanSearch } from 'lucide-react'
 
 interface ProductAccess {
   hasAccess: boolean
@@ -9,19 +9,14 @@ interface ProductAccess {
 }
 
 async function getAccessInfo(userId: string) {
-  const [tripAdminResult, intelMemberResult, analysisMemberResult, settingsResult] = await Promise.all([
+  const [tripAdminResult, analysisMemberResult, settingsResult] = await Promise.all([
     // Events: check trip_admins
     supabaseAdmin
       .from('trip_admins')
       .select('id')
       .eq('user_id', userId)
       .limit(1),
-    // Intel: check intel_org_members + get org slugs
-    supabaseAdmin
-      .from('intel_org_members')
-      .select('org:intel_organizations(slug)')
-      .eq('user_id', userId),
-    // Analysis: uses same intel_org_members table
+    // Analysis: check intel_org_members + get org slugs
     supabaseAdmin
       .from('intel_org_members')
       .select('org:intel_organizations(slug)')
@@ -35,19 +30,9 @@ async function getAccessInfo(userId: string) {
   ])
 
   const tripAdmins = tripAdminResult.data || []
-  const intelMembers = intelMemberResult.data || []
   const analysisMembers = analysisMemberResult.data || []
 
-  // Intel link: single org → direct, multiple → selector
-  let intelHref = '/intel/login'
-  if (intelMembers.length === 1) {
-    const slug = (intelMembers[0] as any)?.org?.slug
-    if (slug) intelHref = `/intel/${slug}`
-  } else if (intelMembers.length > 1) {
-    intelHref = '/intel/login'
-  }
-
-  // Analysis link: same pattern
+  // Analysis link: single org → direct, multiple → selector
   let analysisHref = '/analysis/login'
   if (analysisMembers.length === 1) {
     const slug = (analysisMembers[0] as any)?.org?.slug
@@ -59,7 +44,6 @@ async function getAccessInfo(userId: string) {
   return {
     displayName: settingsResult.data?.display_name || null,
     events: { hasAccess: tripAdmins.length > 0, href: '/events/admin/trips' } as ProductAccess,
-    intel: { hasAccess: intelMembers.length > 0, href: intelHref } as ProductAccess,
     analysis: { hasAccess: analysisMembers.length > 0, href: analysisHref } as ProductAccess,
   }
 }
@@ -69,7 +53,7 @@ export default async function HomePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/events/admin/login')
 
-  const { displayName, events, intel, analysis } = await getAccessInfo(user.id)
+  const { displayName, events, analysis } = await getAccessInfo(user.id)
   const greeting = displayName || user.email?.split('@')[0] || 'there'
 
   const products = [
@@ -79,13 +63,6 @@ export default async function HomePage() {
       icon: CalendarDays,
       color: 'blue',
       access: events,
-    },
-    {
-      name: 'Intel',
-      description: 'Trade group intelligence and policy monitoring',
-      icon: Radar,
-      color: 'emerald',
-      access: intel,
     },
     {
       name: 'Analysis',
@@ -98,7 +75,6 @@ export default async function HomePage() {
 
   const colorMap: Record<string, { bg: string; border: string; icon: string; hoverBorder: string }> = {
     blue: { bg: 'bg-blue-500/10', border: 'border-blue-500/20', icon: 'text-blue-400', hoverBorder: 'hover:border-blue-500/50' },
-    emerald: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', icon: 'text-emerald-400', hoverBorder: 'hover:border-emerald-500/50' },
     purple: { bg: 'bg-purple-500/10', border: 'border-purple-500/20', icon: 'text-purple-400', hoverBorder: 'hover:border-purple-500/50' },
   }
 
@@ -112,7 +88,7 @@ export default async function HomePage() {
         </div>
 
         {/* Product Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
           {products.map(product => {
             const c = colorMap[product.color]
             const Icon = product.icon
