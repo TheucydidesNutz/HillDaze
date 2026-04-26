@@ -6,6 +6,7 @@ import { Trip } from '@/lib/events/types'
 import { getCurrentTrip } from '@/lib/events/tripContext'
 import LogoutButton from '@/components/LogoutButton'
 import BroadcastComposer from '@/components/events/BroadcastComposer'
+import GuidedTour from '@/components/events/GuidedTour'
 import {
   Users,
   Tag,
@@ -13,6 +14,7 @@ import {
   NotebookPen,
   Download,
   FolderOpen,
+  BookOpen,
 } from 'lucide-react'
 
 const navItems = [
@@ -23,6 +25,7 @@ const navItems = [
     description: 'Manage your attendees',
     color: 'text-blue-400',
     bg: 'bg-blue-500/10',
+    tourId: 'tile-participants',
   },
   {
     href: '/events/admin/groups',
@@ -31,6 +34,7 @@ const navItems = [
     description: 'Manage group assignments',
     color: 'text-purple-400',
     bg: 'bg-purple-500/10',
+    tourId: 'tile-groups',
   },
   {
     href: '/events/admin/events',
@@ -39,6 +43,7 @@ const navItems = [
     description: 'Calendar & activities',
     color: 'text-green-400',
     bg: 'bg-green-500/10',
+    tourId: 'tile-schedule',
   },
   {
     href: '/events/admin/notes',
@@ -47,6 +52,7 @@ const navItems = [
     description: 'Participant submissions',
     color: 'text-yellow-400',
     bg: 'bg-yellow-500/10',
+    tourId: 'tile-notes',
   },
   {
     href: '/events/admin/import',
@@ -55,6 +61,7 @@ const navItems = [
     description: 'CSV participants & ICS calendar',
     color: 'text-cyan-400',
     bg: 'bg-cyan-500/10',
+    tourId: 'tile-import',
   },
   {
     href: '/events/admin/file_management',
@@ -63,6 +70,16 @@ const navItems = [
     description: 'Fact sheets & configuration',
     color: 'text-orange-400',
     bg: 'bg-orange-500/10',
+    tourId: 'tile-files',
+  },
+  {
+    href: '/events/admin/guide',
+    icon: BookOpen,
+    title: 'Guide',
+    description: 'How to use this app',
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/10',
+    tourId: 'tile-guide',
   },
 ]
 
@@ -132,11 +149,12 @@ export default function AdminDashboard() {
         </div>
 
         {/* Nav Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {navItems.map(({ href, icon: Icon, title, description, color, bg }) => (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" data-tour="nav-grid">
+          {navItems.map(({ href, icon: Icon, title, description, color, bg, tourId }) => (
             <a
               key={href}
               href={href}
+              data-tour={tourId}
               className="rounded-xl p-6 transition-all group border"
               style={{ backgroundColor: 'var(--theme-surface)', borderColor: 'var(--theme-border)' }}
             >
@@ -150,7 +168,11 @@ export default function AdminDashboard() {
         </div>
 
         {/* Broadcast composer */}
-        <BroadcastComposer />
+        <div data-tour="broadcast">
+          <BroadcastComposer />
+        </div>
+
+        <GuidedTour />
 
       </div>
     </div>
