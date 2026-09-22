@@ -242,6 +242,22 @@ export default function ParticipantsPage() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
+  // Toggle whether this participant may reveal teammate contacts in their
+  // event card. Optimistic; reverts if the PATCH fails. Off by default.
+  async function toggleViewContacts(p: Participant) {
+    const next = !p.view_contacts
+    setParticipants(prev => prev.map(x => x.id === p.id ? { ...x, view_contacts: next } : x))
+    const res = await apiFetch(`/api/events/admin/participants/${p.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ view_contacts: next }),
+    })
+    if (!res.ok) {
+      setParticipants(prev => prev.map(x => x.id === p.id ? { ...x, view_contacts: !next } : x))
+      alert('Could not update the contact-visibility setting. Please try again.')
+    }
+  }
+
   function handleSort(field: string) {
     if (sortField === field) {
       setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
@@ -281,6 +297,7 @@ export default function ParticipantsPage() {
 
   const columns = [
     { label: 'Name', field: 'name' },
+    { label: 'Contacts', field: null },
     { label: 'Actions', field: null },
     { label: 'Company', field: 'company' },
     { label: 'Email', field: 'email' },
@@ -430,6 +447,29 @@ export default function ParticipantsPage() {
                             <p className="text-white font-medium group-hover:text-blue-400 transition-colors">{p.name}</p>
                             <p className="text-slate-400 text-sm">{p.title || '—'}</p>
                           </div>
+                        </div>
+                      </td>
+
+                      {/* View-contacts flag — only editable here; off by default */}
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => toggleViewContacts(p)}
+                            title={p.view_contacts
+                              ? 'Can view teammate contacts — tap to turn off'
+                              : 'Cannot view teammate contacts — tap to turn on'}
+                            aria-pressed={p.view_contacts}
+                            className="relative w-9 h-5 rounded-full transition-colors shrink-0"
+                            style={{ backgroundColor: p.view_contacts ? '#2563eb' : '#475569' }}
+                          >
+                            <span
+                              className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
+                              style={{ left: p.view_contacts ? '18px' : '2px' }}
+                            />
+                          </button>
+                          <span className={`text-xs ${p.view_contacts ? 'text-blue-400' : 'text-slate-500'}`}>
+                            {p.view_contacts ? 'On' : 'Off'}
+                          </span>
                         </div>
                       </td>
 

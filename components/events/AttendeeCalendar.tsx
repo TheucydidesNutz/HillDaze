@@ -6,7 +6,7 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import listPlugin from '@fullcalendar/list'
 import { Event, MeetingContact } from '@/lib/events/types'
 import { useState, useMemo, useCallback, useRef } from 'react'
-import { Clock, MapPin, X, NotebookPen, Users, ChevronDown, ChevronUp } from 'lucide-react'
+import { Clock, MapPin, X, NotebookPen, Users, ChevronDown, ChevronUp, Phone, Mail } from 'lucide-react'
 
 interface EventContext {
   id: string
@@ -29,6 +29,11 @@ export default function AttendeeCalendar({ events, alertColor = '#D97706', onNot
   const [viewRange, setViewRange] = useState<{ start: Date; end: Date } | null>(null)
   const [meetingWithOpen, setMeetingWithOpen] = useState(false)
   const [teamAttendeesOpen, setTeamAttendeesOpen] = useState(false)
+  // The teammate whose contact card is open, if any. Only populated when the
+  // viewer is permitted (the server only sends email/phone in that case).
+  const [contactPerson, setContactPerson] = useState<{
+    name: string; title?: string | null; photo_url?: string | null; email?: string | null; phone?: string | null
+  } | null>(null)
   const calendarRef = useRef<FullCalendar>(null)
   const [currentView, setCurrentView] = useState('timeGridDay')
 
@@ -122,6 +127,12 @@ export default function AttendeeCalendar({ events, alertColor = '#D97706', onNot
     ? [...selectedEvent.meeting_with].sort((a, b) => a.sort_order - b.sort_order)
     : []
 
+  // A teammate is tappable only if the server included contact details for
+  // them, which only happens when the viewer is permitted to see contacts.
+  function hasContact(p: { email?: string | null; phone?: string | null } | null | undefined) {
+    return !!(p && (p.email || p.phone))
+  }
+
   return (
     <>
       {/* View selector — a native dropdown fits narrow phones better than the
@@ -195,7 +206,11 @@ export default function AttendeeCalendar({ events, alertColor = '#D97706', onNot
 
             {/* Our Team Meeting Lead */}
             {selectedEvent.meeting_lead && (
-              <div className="mt-3 flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-lg">
+              <div
+                className={`mt-3 flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-lg ${hasContact(selectedEvent.meeting_lead) ? 'cursor-pointer hover:bg-slate-800 transition-colors' : ''}`}
+                onClick={hasContact(selectedEvent.meeting_lead) ? () => setContactPerson(selectedEvent.meeting_lead!) : undefined}
+                role={hasContact(selectedEvent.meeting_lead) ? 'button' : undefined}
+              >
                 {selectedEvent.meeting_lead.photo_url ? (
                   <img
                     src={selectedEvent.meeting_lead.photo_url}
@@ -214,6 +229,9 @@ export default function AttendeeCalendar({ events, alertColor = '#D97706', onNot
                     <p className="text-slate-400 text-xs truncate">{selectedEvent.meeting_lead.title}</p>
                   )}
                 </div>
+                {hasContact(selectedEvent.meeting_lead) && (
+                  <Phone className="w-3.5 h-3.5 text-blue-400 shrink-0 ml-auto" />
+                )}
               </div>
             )}
 
@@ -289,7 +307,12 @@ export default function AttendeeCalendar({ events, alertColor = '#D97706', onNot
                 {teamAttendeesOpen && (
                   <div className="mt-2 space-y-2">
                     {(selectedEvent as any).team_attendees.map((att: any) => (
-                      <div key={att.id} className="flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-lg">
+                      <div
+                        key={att.id}
+                        className={`flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-lg ${hasContact(att) ? 'cursor-pointer hover:bg-slate-800 transition-colors' : ''}`}
+                        onClick={hasContact(att) ? () => setContactPerson(att) : undefined}
+                        role={hasContact(att) ? 'button' : undefined}
+                      >
                         {att.photo_url ? (
                           <img
                             src={att.photo_url}
@@ -307,6 +330,9 @@ export default function AttendeeCalendar({ events, alertColor = '#D97706', onNot
                             <p className="text-slate-400 text-xs truncate">{att.title}</p>
                           )}
                         </div>
+                        {hasContact(att) && (
+                          <Phone className="w-3.5 h-3.5 text-blue-400 shrink-0 ml-auto" />
+                        )}
                       </div>
                     ))}
                   </div>
@@ -324,6 +350,70 @@ export default function AttendeeCalendar({ events, alertColor = '#D97706', onNot
                 Make a note about this event
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Contact window — opened by tapping a teammate's name (permitted viewers only) */}
+      {contactPerson && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4"
+          onClick={() => setContactPerson(null)}
+        >
+          <div
+            className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-xs w-full relative"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close — top left, per spec */}
+            <button
+              onClick={() => setContactPerson(null)}
+              aria-label="Close"
+              className="absolute top-3 left-3 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex flex-col items-center text-center pt-4">
+              {contactPerson.photo_url ? (
+                <img
+                  src={contactPerson.photo_url}
+                  alt={contactPerson.name}
+                  className="w-16 h-16 rounded-full object-cover border border-slate-600 mb-3"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-300 text-lg font-medium mb-3">
+                  {contactPerson.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              <p className="text-white font-semibold text-lg">{contactPerson.name}</p>
+              {contactPerson.title && (
+                <p className="text-slate-400 text-sm">{contactPerson.title}</p>
+              )}
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {contactPerson.phone && (
+                <a
+                  href={`tel:${contactPerson.phone.replace(/[^\d+]/g, '')}`}
+                  className="flex items-center gap-3 px-4 py-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-200 transition-colors"
+                >
+                  <Phone className="w-4 h-4 text-blue-400 shrink-0" />
+                  <span className="text-sm">{contactPerson.phone}</span>
+                </a>
+              )}
+              {contactPerson.email && (
+                <a
+                  href={`mailto:${contactPerson.email}`}
+                  className="flex items-center gap-3 px-4 py-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-200 transition-colors"
+                >
+                  <Mail className="w-4 h-4 text-blue-400 shrink-0" />
+                  <span className="text-sm break-all">{contactPerson.email}</span>
+                </a>
+              )}
+              {!contactPerson.phone && !contactPerson.email && (
+                <p className="text-slate-500 text-sm text-center">No contact info on file.</p>
+              )}
+            </div>
           </div>
         </div>
       )}

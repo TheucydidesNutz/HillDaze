@@ -32,6 +32,10 @@ export interface Participant {
   hotel_name: string | null
   hotel_room: string | null
   fun_diversions: string | null
+  // When true, this participant is allowed to tap teammate names in their
+  // event card to reveal contact details. Off by default; only editable
+  // on the admin Participants page.
+  view_contacts: boolean
   group_id: string | null
   trip_id: string
   created_at: string
@@ -57,7 +61,7 @@ export interface Event {
   talking_points: string | null
   meeting_with: MeetingContact[] | null
   meeting_lead_id: string | null
-  meeting_lead?: { name: string; title: string | null; photo_url: string | null } | null
+  meeting_lead?: { name: string; title: string | null; photo_url: string | null; email?: string | null; phone?: string | null } | null
   trip_id: string
   created_at: string
   updated_at: string

@@ -50,33 +50,41 @@ export async function PATCH(
 
   const body = await request.json()
 
-  // FIX: Explicitly pick allowed fields
+  // FIX: Explicitly pick allowed fields, and only update fields actually
+  // present in the request. A partial PATCH (e.g. bulk group-assign or the
+  // view_contacts toggle) must NOT blank out unrelated columns — previously
+  // an absent `phone` was written as null by formatPhone(undefined).
+  const updates: Record<string, any> = {}
+  const setIf = (key: string, value: any) => {
+    if (key in body) updates[key] = value
+  }
+  setIf('name', body.name)
+  setIf('company', body.company)
+  setIf('title', body.title)
+  setIf('phone', formatPhone(body.phone))
+  setIf('email', body.email)
+  setIf('emergency_name', body.emergency_name)
+  setIf('emergency_phone', formatPhone(body.emergency_phone))
+  setIf('emergency_email', body.emergency_email)
+  setIf('arrival_airline', body.arrival_airline)
+  setIf('arrival_flight_no', body.arrival_flight_no)
+  setIf('arrival_datetime', body.arrival_datetime)
+  setIf('arrival_airport', body.arrival_airport)
+  setIf('departure_airline', body.departure_airline)
+  setIf('departure_flight_no', body.departure_flight_no)
+  setIf('departure_datetime', body.departure_datetime)
+  setIf('departure_airport', body.departure_airport)
+  setIf('hotel_name', body.hotel_name)
+  setIf('hotel_room', body.hotel_room)
+  setIf('fun_diversions', body.fun_diversions)
+  setIf('group_id', body.group_id)
+  setIf('photo_url', body.photo_url)
+  setIf('view_contacts', body.view_contacts)
+  updates.updated_at = new Date().toISOString()
+
   const { data, error } = await supabaseAdmin
     .from('participants')
-    .update({
-      name: body.name,
-      company: body.company,
-      title: body.title,
-      phone: formatPhone(body.phone),
-      email: body.email,
-      emergency_name: body.emergency_name,
-      emergency_phone: formatPhone(body.emergency_phone),
-      emergency_email: body.emergency_email,
-      arrival_airline: body.arrival_airline,
-      arrival_flight_no: body.arrival_flight_no,
-      arrival_datetime: body.arrival_datetime,
-      arrival_airport: body.arrival_airport,
-      departure_airline: body.departure_airline,
-      departure_flight_no: body.departure_flight_no,
-      departure_datetime: body.departure_datetime,
-      departure_airport: body.departure_airport,
-      hotel_name: body.hotel_name,
-      hotel_room: body.hotel_room,
-      fun_diversions: body.fun_diversions,
-      group_id: body.group_id,
-      photo_url: body.photo_url,
-      updated_at: new Date().toISOString()
-    })
+    .update(updates)
     .eq('id', id)
     .eq('trip_id', access.tripId)
     .select('*, group:groups(*)')
