@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
       fun_diversions: body.fun_diversions || null,
       group_id: body.group_id || null,
       photo_url: body.photo_url || null,
+      view_contacts: body.view_contacts ?? false,
       trip_id: access.tripId,
     }])
     .select('*, group:groups(*)')
