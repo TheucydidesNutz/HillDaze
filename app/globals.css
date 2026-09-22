@@ -192,6 +192,22 @@ body {
   font-weight: 600;
 }
 
+/* Let the nav row (prev/next/today + title) wrap instead of sliding off narrow phones */
+.fc .fc-toolbar.fc-header-toolbar {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 480px) {
+  .fc .fc-toolbar.fc-header-toolbar {
+    justify-content: center;
+  }
+  .fc .fc-toolbar-title {
+    font-size: 1.05rem;
+  }
+}
+
 .fc .fc-col-header-cell-cushion,
 .fc .fc-daygrid-day-number {
   color: var(--theme-text-secondary, #94a3b8);
