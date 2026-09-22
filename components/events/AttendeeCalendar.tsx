@@ -5,7 +5,7 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import listPlugin from '@fullcalendar/list'
 import { Event, MeetingContact } from '@/lib/events/types'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { Clock, MapPin, X, NotebookPen, Users, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface EventContext {
@@ -29,19 +29,28 @@ export default function AttendeeCalendar({ events, alertColor = '#D97706', onNot
   const [viewRange, setViewRange] = useState<{ start: Date; end: Date } | null>(null)
   const [meetingWithOpen, setMeetingWithOpen] = useState(false)
   const [teamAttendeesOpen, setTeamAttendeesOpen] = useState(false)
+  const calendarRef = useRef<FullCalendar>(null)
+  const [currentView, setCurrentView] = useState('timeGridDay')
+
+  const handleViewChange = useCallback((view: string) => {
+    setCurrentView(view)
+    calendarRef.current?.getApi().changeView(view)
+  }, [])
 
   const timeBounds = useMemo(() => {
     if (!viewRange) return { slotMinTime: '08:00:00', slotMaxTime: '18:00:00' }
+    // Use the same offset-stripped naive-local times the calendar renders with,
+    // otherwise the grid gets sized to UTC-shifted hours and clips afternoon events.
     const visibleEvents = events.filter(e => {
-      const start = new Date(e.start_time)
+      const start = new Date(stripOffset(e.start_time))
       return start >= viewRange.start && start < viewRange.end
     })
     if (visibleEvents.length === 0) {
       return { slotMinTime: '08:00:00', slotMaxTime: '18:00:00' }
     }
-    const earliestHour = Math.min(...visibleEvents.map(e => new Date(e.start_time).getHours()))
+    const earliestHour = Math.min(...visibleEvents.map(e => new Date(stripOffset(e.start_time)).getHours()))
     const latestHour = Math.max(...visibleEvents.map(e => {
-      const end = new Date(e.end_time)
+      const end = new Date(stripOffset(e.end_time))
       return end.getMinutes() > 0 ? end.getHours() + 1 : end.getHours()
     }))
     return {
@@ -115,13 +124,35 @@ export default function AttendeeCalendar({ events, alertColor = '#D97706', onNot
 
   return (
     <>
+      {/* View selector — a native dropdown fits narrow phones better than the
+          three-button group, which used to overflow the calendar header. */}
+      <div className="flex justify-end mb-3">
+        <label className="sr-only" htmlFor="calendar-view">Calendar view</label>
+        <select
+          id="calendar-view"
+          value={currentView}
+          onChange={e => handleViewChange(e.target.value)}
+          className="px-3 py-2 rounded-lg border text-sm font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          style={{
+            backgroundColor: 'var(--theme-secondary, #1e293b)',
+            borderColor: 'var(--theme-border, #334155)',
+            color: 'var(--theme-text, #e2e8f0)',
+          }}
+        >
+          <option value="dayGridMonth">Month</option>
+          <option value="timeGridWeek">Week</option>
+          <option value="timeGridDay">Day</option>
+        </select>
+      </div>
+
       <FullCalendar
+        ref={calendarRef}
         plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
-        initialView="dayGridDay"
+        initialView="timeGridDay"
         headerToolbar={{
           left: 'prev,next today',
           center: 'title',
-          right: 'dayGridMonth,timeGridWeek,timeGridDay'
+          right: ''
         }}
         events={calendarEvents}
         eventClick={handleEventClick}
