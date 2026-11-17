@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hilldaytracker-v3'
+const CACHE_NAME = 'hilldaytracker-v4'
 const STATIC_ASSETS = []
 
 self.addEventListener('install', event => {
@@ -19,6 +19,23 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url)
+
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin) return
+
+  // Next.js build assets are content-hashed and never change — cache first so the
+  // attendee page's JS/CSS is available when the home-screen app opens offline
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(
+      caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
+        if (response.status === 200) {
+          const clone = response.clone()
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone))
+        }
+        return response
+      }))
+    )
+    return
+  }
 
   // Only cache requests under /events/attendee/ paths — leave the rest untouched
   if (!url.pathname.startsWith('/events/attendee/')) return

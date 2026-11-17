@@ -58,6 +58,33 @@ interface PageData {
   trip: Trip | null
 }
 
+// Last successful load, kept on the device so the home-screen app still opens
+// when there's no signal.
+interface CachedAttendeeData {
+  data: PageData
+  map: MapDoc | null
+  documents: Document[]
+  savedAt: string
+}
+
+const cacheKey = (token: string) => `attendee-cache:${token}`
+
+function readCache(token: string): CachedAttendeeData | null {
+  try {
+    const raw = localStorage.getItem(cacheKey(token))
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function writeCache(token: string, value: CachedAttendeeData | null) {
+  try {
+    if (value) localStorage.setItem(cacheKey(token), JSON.stringify(value))
+    else localStorage.removeItem(cacheKey(token))
+  } catch {}
+}
+
 interface EventContext {
   id: string
   title: string
@@ -76,7 +103,9 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   const [mapUrl, setMapUrl] = useState<string | null>(null)
   const [showMap, setShowMap] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<'invalid' | 'network' | null>(null)
+  const [offlineSince, setOfflineSince] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
@@ -107,41 +136,89 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
   useEffect(() => {
     params.then(async ({ token: t }) => {
       setToken(t)
+      setLoading(true)
+      setError(null)
+
+      let attendeeRes: Response
       try {
-        const [attendeeRes, mapRes] = await Promise.all([
-          fetch(`/api/events/attendee/${t}`),
-          fetch(`/api/events/attendee/map?token=${t}`),
-        ])
-        const [attendeeData, mapData] = await Promise.all([
-          attendeeRes.json(),
-          mapRes.json(),
-        ])
-        if (attendeeData.error) setError(attendeeData.error)
-        else setData(attendeeData)
-        if (mapData.map) setMap(mapData.map)
-        const docsRes = await fetch(`/api/events/attendee/documents?token=${t}`)
-        const docsData = await docsRes.json()
-        if (Array.isArray(docsData)) setDocuments(docsData)
+        attendeeRes = await fetch(`/api/events/attendee/${t}`)
       } catch (err) {
+        // Network failure (offline, weak signal) — fall back to the last saved copy
         console.error('Failed to load attendee data:', err)
-        setError('Failed to load your information. Please try refreshing the page.')
+        const cached = readCache(t)
+        if (cached) {
+          setData(cached.data)
+          setMap(cached.map)
+          setDocuments(cached.documents)
+          setOfflineSince(cached.savedAt)
+        } else {
+          setError('network')
+        }
+        setLoading(false)
+        return
+      }
+
+      if (attendeeRes.status === 401 || attendeeRes.status === 404) {
+        // The server rejected the token — the link really is no longer valid
+        writeCache(t, null)
+        setError('invalid')
+        setLoading(false)
+        return
+      }
+
+      try {
+        if (!attendeeRes.ok) throw new Error(`HTTP ${attendeeRes.status}`)
+        const attendeeData: PageData = await attendeeRes.json()
+        setData(attendeeData)
+        setOfflineSince(null)
+
+        let mapDoc: MapDoc | null = null
+        let docs: Document[] = []
+        try {
+          const [mapRes, docsRes] = await Promise.all([
+            fetch(`/api/events/attendee/map?token=${t}`),
+            fetch(`/api/events/attendee/documents?token=${t}`),
+          ])
+          const [mapData, docsData] = await Promise.all([mapRes.json(), docsRes.json()])
+          if (mapData.map) mapDoc = mapData.map
+          if (Array.isArray(docsData)) docs = docsData
+        } catch (err) {
+          console.error('Failed to load map/documents:', err)
+        }
+        setMap(mapDoc)
+        setDocuments(docs)
+        writeCache(t, { data: attendeeData, map: mapDoc, documents: docs, savedAt: new Date().toISOString() })
+      } catch (err) {
+        // Server error — treat like a connection problem rather than a dead link
+        console.error('Failed to load attendee data:', err)
+        const cached = readCache(t)
+        if (cached) {
+          setData(cached.data)
+          setMap(cached.map)
+          setDocuments(cached.documents)
+          setOfflineSince(cached.savedAt)
+        } else {
+          setError('network')
+        }
       } finally {
         setLoading(false)
       }
     })
-  }, [params])
+  }, [params, reloadKey])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    // Register in the installed app too — on iOS a home-screen app has its own
+    // storage, separate from Safari, so it needs its own service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(console.error)
+    }
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true)
       return
     }
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent)
     setIsIOS(ios)
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(console.error)
-    }
     const handler = (e: any) => {
       e.preventDefault()
       setInstallPrompt(e)
@@ -344,8 +421,24 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
     </div>
   )
 
+  if (error === 'network') return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-6">
+      <div className="text-center">
+        <p className="text-amber-400 text-lg mb-2">Couldn&apos;t connect</p>
+        <p className="text-slate-500 text-sm mb-2">Check your internet connection and try again.</p>
+        <p className="text-slate-600 text-xs mb-5 max-w-xs mx-auto">
+          Just added this to your home screen? It needs to open once with a connection before it can work offline.
+        </p>
+        <button onClick={() => setReloadKey(k => k + 1)}
+          className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
+          Try again
+        </button>
+      </div>
+    </div>
+  )
+
   if (error || !data) return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-6">
       <div className="text-center">
         <p className="text-red-400 text-lg mb-2">Invalid or expired link</p>
         <p className="text-slate-500 text-sm">Please contact your event coordinator for a new link.</p>
@@ -386,6 +479,13 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
         </>
       )}
 
+      {offlineSince && (
+        <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 text-center text-xs text-amber-300">
+          You&apos;re offline — showing info saved {new Date(offlineSince).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.{' '}
+          <button onClick={() => setReloadKey(k => k + 1)} className="underline">Retry</button>
+        </div>
+      )}
+
       {/* iOS install banner */}
       {showInstallBanner && isIOS && !isInstalled && (
         <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-slate-900 border-t border-slate-700">
@@ -401,7 +501,8 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
               <p className="text-sm font-medium" style={{ color: "var(--theme-text)" }}>Add to Home Screen</p>
               <p className="text-slate-400 text-xs mt-0.5">
                 Tap <span className="text-blue-400">Share</span> then{' '}
-                <span className="text-blue-400">Add to Home Screen</span> to install {tripTitle}
+                <span className="text-blue-400">Add to Home Screen</span> to install {tripTitle}.
+                Then open it once with a connection — after that it works offline.
               </p>
             </div>
             <button onClick={() => setShowInstallBanner(false)} className="text-slate-500 hover:text-white flex-shrink-0">
@@ -424,7 +525,7 @@ export default function AttendeePage({ params }: { params: Promise<{ token: stri
             )}
             <div className="flex-1">
               <p className="text-sm font-medium" style={{ color: "var(--theme-text)" }}>Add to Home Screen</p>
-              <p className="text-slate-400 text-xs mt-0.5">Install {tripTitle} for quick access</p>
+              <p className="text-slate-400 text-xs mt-0.5">Install {tripTitle} for quick access. Open it once with a connection — after that it works offline.</p>
             </div>
             <button onClick={() => setShowInstallBanner(false)} className="text-slate-500 hover:text-white mr-2 flex-shrink-0">
               <X className="w-5 h-5" />
