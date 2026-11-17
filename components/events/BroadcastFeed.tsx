@@ -32,6 +32,7 @@ export default function BroadcastFeed({ token }: Props) {
       .then(data => {
         if (Array.isArray(data)) setBroadcasts(data)
       })
+      .catch(() => {}) // offline — just show no announcements
   }, [token])
 
   function handleDismiss(id: string) {
